@@ -1,0 +1,8 @@
+crop: "coffee"
+num_classes: 3
+class_names:
+  - "Leaf Rust"
+  - "Berry Disease"
+  - "Healthy"
+dataset:
+  source: "plantvillage/coffee"

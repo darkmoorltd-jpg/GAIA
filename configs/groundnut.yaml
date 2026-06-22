@@ -1,0 +1,6 @@
+crop: "groundnut"
+num_classes: 3
+class_names:
+  - "Early Leaf Spot"
+  - "Late Leaf Spot"
+  - "Healthy"

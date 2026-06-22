@@ -1,0 +1,6 @@
+crop: "beans"
+num_classes: 3
+class_names:
+  - "Angular Leaf Spot"
+  - "Bean Rust"
+  - "Healthy"

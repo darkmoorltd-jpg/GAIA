@@ -1,0 +1,15 @@
+crop: "tomato"
+num_classes: 10
+class_names:
+  - "Bacterial spot"
+  - "Early blight"
+  - "Late blight"
+  - "Leaf Mold"
+  - "Septoria leaf spot"
+  - "Spider mites"
+  - "Target Spot"
+  - "Yellow Leaf Curl Virus"
+  - "Mosaic virus"
+  - "Healthy"
+dataset:
+  source: "plantvillage/tomato"

@@ -1,0 +1,12 @@
+# Soil nutrient regression (tabular)
+crop: "soil_regression"
+task: "tabular_regression"
+input_features: 5           # example: N, P, K, pH, organic_carbon
+target_columns:
+  - "nitrogen"
+  - "phosphorus"
+  - "potassium"
+  - "pH"
+  - "organic_carbon"
+hidden_dims: [64, 32]
+dropout: 0.2

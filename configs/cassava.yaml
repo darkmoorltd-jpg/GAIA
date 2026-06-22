@@ -1,0 +1,11 @@
+# Cassava specific config
+crop: "cassava"
+num_classes: 5
+class_names: 
+  - "Cassava Mosaic Disease"
+  - "Cassava Brown Streak Disease"
+  - "Cassava Green Mottle"
+  - "Cassava Bacterial Blight"
+  - "Healthy"
+dataset:
+  source: "kaggle:mexwell/cassava-leaf-disease-classification"

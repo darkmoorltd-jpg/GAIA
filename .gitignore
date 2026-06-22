@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+.env
+*.egg-info/
+
+# Models & Data
+*.pt
+*.pth
+*.ckpt
+*.onnx
+data/raw/*
+data/processed/*
+data/aug_images/*
+checkpoints/
+
+# Streamlit
+.streamlit/
+
+# IDE
+.vscode/
+.idea/

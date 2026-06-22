@@ -1,0 +1,12 @@
+# Soil type classification (image)
+crop: "soil"
+task: "image_classification"
+num_classes: 3
+class_names:
+  - "Clay"
+  - "Sand"
+  - "Loam"
+dataset:
+  image_size: 224
+  grayscale: false          # soil colour matters – use RGB
+  in_channels: 3

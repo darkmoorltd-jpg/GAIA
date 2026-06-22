@@ -1,0 +1,6 @@
+crop: "potato"
+num_classes: 3
+class_names:
+  - "Early Blight"
+  - "Late Blight"
+  - "Healthy"

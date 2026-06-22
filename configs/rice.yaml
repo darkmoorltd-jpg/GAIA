@@ -1,0 +1,6 @@
+crop: "rice"
+num_classes: 3
+class_names:
+  - "Bacterial Blight"
+  - "Brown Spot"
+  - "Leaf Smut"

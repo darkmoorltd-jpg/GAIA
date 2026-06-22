@@ -1,0 +1,7 @@
+crop: "banana"
+num_classes: 4
+class_names:
+  - "Black Sigatoka"
+  - "Panama Disease"
+  - "Bunchy Top"
+  - "Healthy"

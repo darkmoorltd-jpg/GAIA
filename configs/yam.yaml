@@ -1,0 +1,8 @@
+crop: "yam"
+num_classes: 3
+class_names:
+  - "Mosaic"
+  - "Anthracnose"
+  - "Healthy"
+dataset:
+  source: "plantvillage/yam"    # to be filled with actual dataset source

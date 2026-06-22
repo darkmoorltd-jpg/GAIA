@@ -1,0 +1,17 @@
+# GAIA global defaults
+model:
+  image_size: 224
+  patch_size: 16
+  in_channels: 1          # grayscale
+  embed_dim: 128
+  depth: 4
+  num_heads: 4
+training:
+  batch_size: 32
+  learning_rate: 0.001
+  max_epochs: 25
+  early_stop_patience: 5
+  num_workers: 2
+data:
+  processed_dir: "data/processed"
+  raw_dir: "data/raw"

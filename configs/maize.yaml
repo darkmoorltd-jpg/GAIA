@@ -1,9 +1,7 @@
 crop: "maize"
 num_classes: 4
 class_names:
-  - "Blight"
-  - "Common Rust"
-  - "Gray Leaf Spot"
+  - "Northern Leaf Blight"
   - "Healthy"
-dataset:
-  source: "plantvillage/maize"   # placeholder
+  - "Southern Leaf Blight"
+  - "Common Rust"

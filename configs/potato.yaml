@@ -1,6 +1,12 @@
 crop: "potato"
-num_classes: 3
+num_classes: 7
 class_names:
-  - "Early Blight"
-  - "Late Blight"
+  - "Bacteria"
+  - "Fungi"
   - "Healthy"
+  - "Nematode"
+  - "Pest"
+  - "Phytophthora"
+  - "Virus"
+model_type: "vit_pretrained"
+in_channels: 3

@@ -3,7 +3,7 @@ from PIL import Image
 import numpy as np
 import torch
 import torch.nn.functional as F
-import sys, os
+import sys, os, yaml
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
@@ -16,14 +16,8 @@ st.title("Diagnose Crop Disease")
 st.markdown("Select a crop and upload a leaf photo to get an instant AI diagnosis.")
 
 # ---------- 2. Crop selection ----------
-crop = st.selectbox("Select crop", [
-    "cassava",
-    "maize",
-    "tomato",
-    "rice",
-    "beans",
-    "potato",
-])
+CROP_LIST = ["cassava", "maize", "tomato", "rice", "beans", "potato"]
+crop = st.selectbox("Select crop", CROP_LIST)
 
 # ---------- 3. Helpers ----------
 @st.cache_resource
@@ -31,9 +25,11 @@ def load_model(crop_name):
     """Load the correct model for the crop based on its config."""
     checkpoint_path = f"checkpoints/{crop_name}/best_model.pt"
     if not os.path.exists(checkpoint_path):
-        raise FileNotFoundError(f"No model found at {checkpoint_path}. Train and save it first.")
+        raise FileNotFoundError(
+            f"No model found at {checkpoint_path}. "
+            f"Train and save it first."
+        )
 
-    import yaml
     with open(f"configs/{crop_name}.yaml") as f:
         cfg = yaml.safe_load(f)
 
@@ -52,11 +48,9 @@ def load_model(crop_name):
     return model, cfg
 
 @st.cache_data
-def get_class_names(crop_name):
-    import yaml
+def get_config(crop_name):
     with open(f"configs/{crop_name}.yaml") as f:
-        cfg = yaml.safe_load(f)
-    return cfg.get("class_names", [str(i) for i in range(cfg["num_classes"])])
+        return yaml.safe_load(f)
 
 # ---------- 4. Image upload ----------
 uploaded_file = st.file_uploader("Choose a leaf image...", type=["jpg", "jpeg", "png"])
@@ -66,14 +60,16 @@ if uploaded_file is not None:
     st.image(image, caption="Uploaded leaf", width=300)
     st.write("Analysing…")
 
-    model, cfg = load_model(crop)
-    class_names = get_class_names(crop)
+    cfg = get_config(crop)
+    class_names = cfg.get("class_names", [str(i) for i in range(cfg["num_classes"])])
+    num_classes = cfg["num_classes"]
     model_type = cfg.get("model_type", "tinyvit")
     in_chans = cfg.get("in_channels", 1)
 
+    model, _ = load_model(crop)
+
     # ---------- 5. Preprocess based on model type ----------
     if in_chans == 3:
-        # RGB + ImageNet normalization for pretrained ViT
         from torchvision.transforms import Compose, Resize, ToTensor, Normalize
         transform = Compose([
             Resize((224, 224)),
@@ -81,9 +77,8 @@ if uploaded_file is not None:
             Normalize(mean=[0.485, 0.456, 0.406],
                       std=[0.229, 0.224, 0.225])
         ])
-        img_tensor = transform(image).unsqueeze(0)  # (1, 3, 224, 224)
+        img_tensor = transform(image).unsqueeze(0)
     else:
-        # Grayscale for TinyViT
         gray = image.convert("L").resize((224, 224))
         img_array = np.array(gray, dtype=np.float32) / 255.0
         img_tensor = torch.from_numpy(img_array).unsqueeze(0).unsqueeze(0)
@@ -93,15 +88,20 @@ if uploaded_file is not None:
         logits = model(img_tensor)
         probs = F.softmax(logits, dim=1)[0]
 
-    top_probs, top_indices = torch.topk(probs, min(3, len(class_names)))
+    # ---------- 7. Show ALL predictions (not just top‑3) ----------
+    st.subheader(f"Predictions — {crop.title()} ({num_classes} diseases)")
 
-    st.subheader("Predictions")
-    for i, idx in enumerate(top_indices):
+    # Sort by probability (highest first)
+    sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+
+    for idx, prob in zip(sorted_indices, sorted_probs):
         disease = class_names[idx]
-        percent = top_probs[i] * 100
+        percent = prob.item() * 100
         st.write(f"**{disease}**: {percent:.1f}%")
+        # Progress bar for visual comparison
+        st.progress(float(prob))
 
-    # ---------- 7. Grad‑CAM (only for TinyViT) ----------
+    # ---------- 8. Grad‑CAM (TinyViT only) ----------
     if model_type == "vit_pretrained":
         st.info("Grad‑CAM visualisation is not yet available for the pretrained ViT model.")
     else:

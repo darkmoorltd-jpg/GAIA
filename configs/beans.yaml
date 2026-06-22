@@ -4,5 +4,5 @@ class_names:
   - "Angular Leaf Spot"
   - "Bean Rust"
   - "Healthy"
-model_type: "vit_pretrained"   # note so the app knows to use RGB
+model_type: "vit_pretrained"
 in_channels: 3

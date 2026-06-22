@@ -5,3 +5,5 @@ class_names:
   - "Healthy"
   - "Southern Leaf Blight"
   - "Common Rust"
+model_type: "tinyvit"
+in_channels: 1

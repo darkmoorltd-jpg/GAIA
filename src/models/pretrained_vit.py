@@ -7,6 +7,7 @@ class PretrainedViTClassifier(pl.LightningModule):
     def __init__(self, num_classes, lr=5e-5):
         super().__init__()
         self.save_hyperparameters()
+        # Load architecture without pretrained weights (our fine‑tuned state dict will be loaded)
         self.backbone = timm.create_model('vit_tiny_patch16_224', pretrained=False, num_classes=0)
         self.head = nn.Linear(self.backbone.embed_dim, num_classes)
         self.criterion = nn.CrossEntropyLoss()

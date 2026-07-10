@@ -1,12 +1,12 @@
-# Soil type classification (image)
 crop: "soil"
-task: "image_classification"
-num_classes: 3
+num_classes: 7
 class_names:
-  - "Clay"
-  - "Sand"
-  - "Loam"
-dataset:
-  image_size: 224
-  grayscale: false          # soil colour matters – use RGB
-  in_channels: 3
+  - "Alluvial Soil"
+  - "Arid Soil"
+  - "Black Soil"
+  - "Laterite Soil"
+  - "Mountain Soil"
+  - "Red Soil"
+  - "Yellow Soil"
+model_type: "vit_pretrained"
+in_channels: 3

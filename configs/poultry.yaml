@@ -1,9 +1,9 @@
-crop: "banana"
+crop: "poultry"
 num_classes: 4
 class_names:
-  - "Fusarium Wilt"
+  - "Coccidiosis"
   - "Healthy"
-  - "Natural Death Leaf"
-  - "Rhizome Root"
+  - "Newcastle Disease"
+  - "Salmonella"
 model_type: "vit_pretrained"
 in_channels: 3

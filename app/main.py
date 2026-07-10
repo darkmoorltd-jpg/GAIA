@@ -1,30 +1,17 @@
 import streamlit as st
 
-# ---------- GAIA Navigation ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
-# Build navigation pages
-dashboard_page = st.Page(
-    "pages/1_Dashboard.py",
-    title="Dashboard",
-    icon="🏠",
-)
-diagnose_page = st.Page(
-    "pages/2_Diagnose_Crop.py",
-    title="Diagnose Crop",
-    icon="🌿",
-)
-history_page = st.Page(
-    "pages/3_History.py",
-    title="History",
-    icon="📋",
-)
-# Add more pages later (soil, nutrients, …) by creating st.Page objects
+dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
+crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
+pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")
+soil_page      = st.Page("pages/4_Soil.py", title="Soil Analysis", icon="🏞️")
+livestock_page = st.Page("pages/5_Livestock.py", title="Livestock Health", icon="🐄")
 
 pg = st.navigation(
     {
-        "GAIA": [dashboard_page, diagnose_page, history_page],
+        "GAIA": [dashboard_page],
+        "Diagnose": [crops_page, pests_page, soil_page, livestock_page],
     }
 )
-
 pg.run()

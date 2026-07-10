@@ -1,0 +1,8 @@
+crop: "cattle"
+num_classes: 3
+class_names:
+  - "Foot-and-Mouth Disease"
+  - "Healthy"
+  - "Lumpy Skin Disease"
+model_type: "vit_pretrained"
+in_channels: 3

@@ -1,0 +1,17 @@
+crop: "pests"
+num_classes: 12
+class_names:
+  - "Ants"
+  - "Bees"
+  - "Beetles"
+  - "Caterpillars"
+  - "Earthworms"
+  - "Earwigs"
+  - "Grasshoppers"
+  - "Moths"
+  - "Slugs"
+  - "Snails"
+  - "Wasps"
+  - "Weevils"
+model_type: "vit_pretrained"
+in_channels: 3

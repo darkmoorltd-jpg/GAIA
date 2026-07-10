@@ -1,0 +1,20 @@
+crop: "wheat"
+num_classes: 15
+class_names:
+  - "Aphid"
+  - "Black Rust"
+  - "Blast"
+  - "Brown Rust"
+  - "Common Root Rot"
+  - "Fusarium Head Blight"
+  - "Healthy"
+  - "Leaf Blight"
+  - "Mildew"
+  - "Mite"
+  - "Septoria"
+  - "Smut"
+  - "Stem Fly"
+  - "Tan Spot"
+  - "Yellow Rust"
+model_type: "vit_pretrained"
+in_channels: 3

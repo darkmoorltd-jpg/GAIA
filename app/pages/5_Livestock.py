@@ -1,3 +1,4 @@
+
 import streamlit as st
 from PIL import Image
 import torch
@@ -30,10 +31,11 @@ ANIMAL_CLASSES = {
     "poultry": ["Coccidiosis", "Healthy", "Newcastle Disease", "Salmonella"]
 }
 
-# ---------- Model loader (one per animal) ----------
+# ---------- Model loader with auto‑download ----------
 @st.cache_resource
 def load_animal_model(animal: str):
-    checkpoint = f"checkpoints/{animal}/best_model.pt"
+    from app.utils.download_models import ensure_model
+    checkpoint = ensure_model(animal)
     if not os.path.exists(checkpoint):
         raise FileNotFoundError(f"Model not found at {checkpoint}")
     num_classes = len(ANIMAL_CLASSES[animal])
@@ -74,7 +76,7 @@ if uploaded_file:
         probs = predict_image(model, image)
     except FileNotFoundError as e:
         st.error(f"🚫 {e}")
-        st.info("Please train/save the model for this animal first.")
+        st.info("The model file could not be found. Please check your internet connection or try again later.")
         st.stop()
     except Exception as e:
         st.error(f"An error occurred: {e}")

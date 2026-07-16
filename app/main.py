@@ -1,7 +1,69 @@
+
 import streamlit as st
+from app.utils.auth import sign_up, sign_in, sign_out, reset_password, get_current_user
 
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
+# ---------- Session state ----------
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+# ---------- Authentication UI ----------
+if st.session_state.user is None:
+    st.title("🌱 GAIA – Sign In / Create Account")
+
+    tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
+
+    with tab1:
+        with st.form("login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.form_submit_button("Login"):
+                    user, error = sign_in(email, password)
+                    if error:
+                        st.error(f"Login failed: {error}")
+                    else:
+                        st.session_state.user = user
+                        st.rerun()
+            with col2:
+                if st.form_submit_button("Forgot Password?"):
+                    if email:
+                        err = reset_password(email)
+                        if err:
+                            st.error(err)
+                        else:
+                            st.success("Password reset email sent (if email is registered).")
+                    else:
+                        st.warning("Enter your email first.")
+
+    with tab2:
+        with st.form("signup_form"):
+            new_email = st.text_input("Email")
+            new_password = st.text_input("Password (min 6 characters)", type="password")
+            if st.form_submit_button("Create Account"):
+                if len(new_password) < 6:
+                    st.error("Password must be at least 6 characters.")
+                else:
+                    user, error = sign_up(new_email, new_password)
+                    if error:
+                        st.error(f"Sign up failed: {error}")
+                    else:
+                        st.session_state.user = user
+                        st.success("Account created! You are now logged in.")
+                        st.rerun()
+
+    st.stop()   # Don't show the main app if not logged in
+
+# ---------- Logged‑in user ----------
+st.sidebar.write(f"👤 {st.session_state.user.email}")
+if st.sidebar.button("Logout"):
+    sign_out()
+    st.session_state.user = None
+    st.rerun()
+
+# ---------- Main navigation (unchanged) ----------
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")

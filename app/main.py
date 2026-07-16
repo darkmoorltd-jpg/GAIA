@@ -1,7 +1,57 @@
 
 import streamlit as st
-from auth import sign_up, sign_in, sign_out, reset_password, get_current_user
+from supabase import create_client, Client
 
+# ---------- Supabase configuration ----------
+SUPABASE_URL = "https://pxvtvuwlpzwlkdoxjrep.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4dnR2dXdscHp3bGtkb3hqcmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMTA0NTcsImV4cCI6MjA5OTc4NjQ1N30.gZH1uepXwrCrxC6ElRzkzvGEyGlp-Ep-o4CHXgBMXiY"
+
+@st.cache_resource
+def init_supabase() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+def sign_up(email: str, password: str):
+    supabase = init_supabase()
+    try:
+        res = supabase.auth.sign_up({"email": email, "password": password})
+        return res.user, None
+    except Exception as e:
+        return None, str(e)
+
+def sign_in(email: str, password: str):
+    supabase = init_supabase()
+    try:
+        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        return res.user, None
+    except Exception as e:
+        return None, str(e)
+
+def sign_out():
+    supabase = init_supabase()
+    supabase.auth.sign_out()
+
+def reset_password(email: str):
+    supabase = init_supabase()
+    try:
+        supabase.auth.reset_password_for_email(email)
+        return None
+    except Exception as e:
+        return str(e)
+
+def get_current_user():
+    supabase = init_supabase()
+    if "user" in st.session_state and st.session_state.user:
+        return st.session_state.user
+    try:
+        session = supabase.auth.get_session()
+        if session and session.user:
+            st.session_state.user = session.user
+            return session.user
+    except:
+        pass
+    return None
+
+# ---------- Streamlit page config ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
 if "user" not in st.session_state:
@@ -56,18 +106,19 @@ if st.session_state.user is None:
 
     with tab3:
         st.write("Sign in instantly with your Google account (no rate limits).")
-        # Direct link to the manual test URL – guaranteed to work
         google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app"
         st.markdown(f'<a href="{google_auth_url}" target="_self"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;cursor:pointer;">Sign in with Google</button></a>', unsafe_allow_html=True)
 
     st.stop()
 
+# ---------- Logged‑in user ----------
 st.sidebar.write(f"👤 {st.session_state.user.email}")
 if st.sidebar.button("Logout"):
     sign_out()
     st.session_state.user = None
     st.rerun()
 
+# ---------- Main navigation ----------
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")

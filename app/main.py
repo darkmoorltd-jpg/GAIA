@@ -2,6 +2,7 @@
 import streamlit as st
 from supabase import create_client, Client
 
+# ---------- Supabase configuration ----------
 SUPABASE_URL = "https://pxvtvuwlpzwlkdoxjrep.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4dnR2dXdscHp3bGtkb3hqcmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMTA0NTcsImV4cCI6MjA5OTc4NjQ1N30.gZH1uepXwrCrxC6ElRzkzvGEyGlp-Ep-o4CHXgBMXiY"
 
@@ -37,12 +38,33 @@ def reset_password(email: str):
     except Exception as e:
         return str(e)
 
+def exchange_code_for_session(code: str):
+    supabase = init_supabase()
+    try:
+        supabase.auth.exchange_code_for_session({"auth_code": code})
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+# ---------- Streamlit page config ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# Check for existing session
+# ----- Handle Google OAuth callback -----
+query_params = st.experimental_get_query_params()
+auth_code = query_params.get("code", [None])[0]
+
+if auth_code and st.session_state.user is None:
+    success, error = exchange_code_for_session(auth_code)
+    if success:
+        st.experimental_set_query_params()  # clear the code from URL
+        st.rerun()
+    else:
+        st.error(f"Google sign‑in failed: {error}")
+
+# ----- Check for existing session -----
 if st.session_state.user is None:
     supabase = init_supabase()
     try:
@@ -52,6 +74,7 @@ if st.session_state.user is None:
     except:
         pass
 
+# ----- Show login page if not authenticated -----
 if st.session_state.user is None:
     st.title("🌱 GAIA – Sign In / Create Account")
     tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Sign Up", "🅶 Google"])
@@ -98,18 +121,19 @@ if st.session_state.user is None:
 
     with tab3:
         st.write("Sign in instantly with your Google account (no rate limits).")
-        # Google OAuth URL that redirects to our callback page
-        google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app/~/auth_callback"
+        google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app"
         st.markdown(f'<a href="{google_auth_url}" target="_self"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;cursor:pointer;">Sign in with Google</button></a>', unsafe_allow_html=True)
 
     st.stop()
 
+# ---------- Logged‑in user ----------
 st.sidebar.write(f"👤 {st.session_state.user.email}")
 if st.sidebar.button("Logout"):
     sign_out()
     st.session_state.user = None
     st.rerun()
 
+# ---------- Main navigation ----------
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")

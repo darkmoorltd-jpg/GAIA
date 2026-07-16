@@ -25,6 +25,17 @@ def sign_in(email: str, password: str):
     except Exception as e:
         return None, str(e)
 
+def sign_in_with_google():
+    supabase = init_supabase()
+    try:
+        res = supabase.auth.sign_in_with_oauth({
+            "provider": "google",
+            "options": {"redirect_to": "https://gaiagpt.streamlit.app"}
+        })
+        return res.url, None
+    except Exception as e:
+        return None, str(e)
+
 def sign_out():
     supabase = init_supabase()
     supabase.auth.sign_out()
@@ -38,6 +49,14 @@ def reset_password(email: str):
         return str(e)
 
 def get_current_user():
+    supabase = init_supabase()
     if "user" in st.session_state and st.session_state.user:
         return st.session_state.user
+    try:
+        session = supabase.auth.get_session()
+        if session and session.user:
+            st.session_state.user = session.user
+            return session.user
+    except:
+        pass
     return None

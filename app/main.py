@@ -2,7 +2,6 @@
 import streamlit as st
 from supabase import create_client, Client
 
-# ---------- Supabase configuration ----------
 SUPABASE_URL = "https://pxvtvuwlpzwlkdoxjrep.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4dnR2dXdscHp3bGtkb3hqcmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMTA0NTcsImV4cCI6MjA5OTc4NjQ1N30.gZH1uepXwrCrxC6ElRzkzvGEyGlp-Ep-o4CHXgBMXiY"
 
@@ -38,27 +37,20 @@ def reset_password(email: str):
     except Exception as e:
         return str(e)
 
-def get_current_user():
-    supabase = init_supabase()
-    if "user" in st.session_state and st.session_state.user:
-        return st.session_state.user
-    try:
-        session = supabase.auth.get_session()
-        if session and session.user:
-            st.session_state.user = session.user
-            return session.user
-    except:
-        pass
-    return None
-
-# ---------- Streamlit page config ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
 if "user" not in st.session_state:
     st.session_state.user = None
 
+# Check for existing session
 if st.session_state.user is None:
-    st.session_state.user = get_current_user()
+    supabase = init_supabase()
+    try:
+        session = supabase.auth.get_session()
+        if session and session.user:
+            st.session_state.user = session.user
+    except:
+        pass
 
 if st.session_state.user is None:
     st.title("🌱 GAIA – Sign In / Create Account")
@@ -106,19 +98,18 @@ if st.session_state.user is None:
 
     with tab3:
         st.write("Sign in instantly with your Google account (no rate limits).")
-        google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app"
+        # Google OAuth URL that redirects to our callback page
+        google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app/~/auth_callback"
         st.markdown(f'<a href="{google_auth_url}" target="_self"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;cursor:pointer;">Sign in with Google</button></a>', unsafe_allow_html=True)
 
     st.stop()
 
-# ---------- Logged‑in user ----------
 st.sidebar.write(f"👤 {st.session_state.user.email}")
 if st.sidebar.button("Logout"):
     sign_out()
     st.session_state.user = None
     st.rerun()
 
-# ---------- Main navigation ----------
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")

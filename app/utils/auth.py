@@ -28,10 +28,8 @@ def sign_in(email: str, password: str):
 def sign_in_with_google():
     supabase = init_supabase()
     try:
-        res = supabase.auth.sign_in_with_oauth({
-            "provider": "google",
-            "options": {"redirect_to": "https://gaiagpt.streamlit.app"}
-        })
+        # Let Supabase use the default Site URL instead of overriding
+        res = supabase.auth.sign_in_with_oauth({"provider": "google"})
         return res.url, None
     except Exception as e:
         return None, str(e)

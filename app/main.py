@@ -1,5 +1,7 @@
 
 import streamlit as st
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.utils.auth import sign_up, sign_in, sign_in_with_google, sign_out, reset_password, get_current_user
 
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")

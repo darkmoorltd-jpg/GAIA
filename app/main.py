@@ -53,7 +53,7 @@ if "user" not in st.session_state:
     st.session_state.user = None
 
 # ----- Handle Google OAuth callback -----
-query_params = st.query_params()
+query_params = st.query_params
 auth_code = query_params.get("code", [None])[0]
 
 if auth_code and st.session_state.user is None:

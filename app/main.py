@@ -1,8 +1,6 @@
 
 import streamlit as st
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app.utils.auth import sign_up, sign_in, sign_in_with_google, sign_out, reset_password, get_current_user
+from app.utils.auth import sign_up, sign_in, sign_out, reset_password, get_current_user
 
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
@@ -58,13 +56,9 @@ if st.session_state.user is None:
 
     with tab3:
         st.write("Sign in instantly with your Google account (no rate limits).")
-        if st.button("Sign in with Google"):
-            url, error = sign_in_with_google()
-            if error:
-                st.error(f"Google sign‑in failed: {error}")
-            else:
-                st.markdown(f'<meta http-equiv="refresh" content="0; url={url}">', unsafe_allow_html=True)
-                st.stop()
+        # Direct link to the manual test URL – guaranteed to work
+        google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app"
+        st.markdown(f'<a href="{google_auth_url}" target="_self"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;cursor:pointer;">Sign in with Google</button></a>', unsafe_allow_html=True)
 
     st.stop()
 

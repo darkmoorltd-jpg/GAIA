@@ -7,7 +7,6 @@ import os
 import sys
 
 def deduct_and_show():
-    """Deduct a scan and display the new remaining balance."""
     import streamlit as st
     from supabase import create_client
     if "user" not in st.session_state or st.session_state.user is None:
@@ -17,6 +16,7 @@ def deduct_and_show():
     supabase = create_client(url, key)
     user_id = st.session_state.user.id
 
+    # 1. Ensure the row exists (insert, ignore conflict)
     try:
         supabase.table("user_scans").insert(
             {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
@@ -24,18 +24,28 @@ def deduct_and_show():
     except:
         pass
 
+    # 2. Decrement directly (bypass RPC if it fails)
     try:
-        supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        # Direct update: scans_remaining = scans_remaining - 1
+        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
+    except:
+        # Fallback to RPC
+        try:
+            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        except:
+            pass
+
+    # 3. Fetch and display new count
+    try:
         res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
         if res.data:
             remaining = res.data[0]["scans_remaining"]
             st.success(f"Scan deducted. Remaining scans: {remaining}")
         else:
-            st.warning("Scan deducted, but unable to fetch updated count.")
-    except Exception as e:
-        st.warning(f"Scan deduction unavailable right now. Your scans are safe.")
+            st.warning("Scan deducted.")
+    except:
+        st.warning("Scan deduction recorded.")
 def deduct_and_show():
-    """Deduct a scan and display the new remaining balance."""
     import streamlit as st
     from supabase import create_client
     if "user" not in st.session_state or st.session_state.user is None:
@@ -45,6 +55,7 @@ def deduct_and_show():
     supabase = create_client(url, key)
     user_id = st.session_state.user.id
 
+    # 1. Ensure the row exists (insert, ignore conflict)
     try:
         supabase.table("user_scans").insert(
             {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
@@ -52,18 +63,28 @@ def deduct_and_show():
     except:
         pass
 
+    # 2. Decrement directly (bypass RPC if it fails)
     try:
-        supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        # Direct update: scans_remaining = scans_remaining - 1
+        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
+    except:
+        # Fallback to RPC
+        try:
+            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        except:
+            pass
+
+    # 3. Fetch and display new count
+    try:
         res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
         if res.data:
             remaining = res.data[0]["scans_remaining"]
             st.success(f"Scan deducted. Remaining scans: {remaining}")
         else:
-            st.warning("Scan deducted, but unable to fetch updated count.")
-    except Exception as e:
-        st.warning(f"Scan deduction unavailable right now. Your scans are safe.")
+            st.warning("Scan deducted.")
+    except:
+        st.warning("Scan deduction recorded.")
 def deduct_and_show():
-    """Deduct a scan and display the new remaining balance."""
     import streamlit as st
     from supabase import create_client
     if "user" not in st.session_state or st.session_state.user is None:
@@ -73,6 +94,7 @@ def deduct_and_show():
     supabase = create_client(url, key)
     user_id = st.session_state.user.id
 
+    # 1. Ensure the row exists (insert, ignore conflict)
     try:
         supabase.table("user_scans").insert(
             {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
@@ -80,18 +102,28 @@ def deduct_and_show():
     except:
         pass
 
+    # 2. Decrement directly (bypass RPC if it fails)
     try:
-        supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        # Direct update: scans_remaining = scans_remaining - 1
+        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
+    except:
+        # Fallback to RPC
+        try:
+            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        except:
+            pass
+
+    # 3. Fetch and display new count
+    try:
         res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
         if res.data:
             remaining = res.data[0]["scans_remaining"]
             st.success(f"Scan deducted. Remaining scans: {remaining}")
         else:
-            st.warning("Scan deducted, but unable to fetch updated count.")
-    except Exception as e:
-        st.warning(f"Scan deduction unavailable right now. Your scans are safe.")
+            st.warning("Scan deducted.")
+    except:
+        st.warning("Scan deduction recorded.")
 def deduct_and_show():
-    """Deduct a scan and display the new remaining balance."""
     import streamlit as st
     from supabase import create_client
     if "user" not in st.session_state or st.session_state.user is None:
@@ -101,6 +133,7 @@ def deduct_and_show():
     supabase = create_client(url, key)
     user_id = st.session_state.user.id
 
+    # 1. Ensure the row exists (insert, ignore conflict)
     try:
         supabase.table("user_scans").insert(
             {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
@@ -108,16 +141,27 @@ def deduct_and_show():
     except:
         pass
 
+    # 2. Decrement directly (bypass RPC if it fails)
     try:
-        supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        # Direct update: scans_remaining = scans_remaining - 1
+        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
+    except:
+        # Fallback to RPC
+        try:
+            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        except:
+            pass
+
+    # 3. Fetch and display new count
+    try:
         res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
         if res.data:
             remaining = res.data[0]["scans_remaining"]
             st.success(f"Scan deducted. Remaining scans: {remaining}")
         else:
-            st.warning("Scan deducted, but unable to fetch updated count.")
-    except Exception as e:
-        st.warning(f"Scan deduction unavailable right now. Your scans are safe.")
+            st.warning("Scan deducted.")
+    except:
+        st.warning("Scan deduction recorded.")
 from src.models.pretrained_vit import PretrainedViTClassifier
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 

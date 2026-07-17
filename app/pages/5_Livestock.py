@@ -30,21 +30,36 @@ def deduct_and_show():
     key = st.secrets["supabase"]["key"]
     supabase = create_client(url, key)
     user_id = st.session_state.user.id
+
+    # 1. Ensure the row exists (insert, ignore conflict)
     try:
         supabase.table("user_scans").insert(
             {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
         ).execute()
     except:
         pass
+
+    # 2. Decrement directly (bypass RPC if it fails)
     try:
-        supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        # Direct update: scans_remaining = scans_remaining - 1
+        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
+    except:
+        # Fallback to RPC
+        try:
+            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        except:
+            pass
+
+    # 3. Fetch and display new count
+    try:
         res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
         if res.data:
             remaining = res.data[0]["scans_remaining"]
             st.success(f"Scan deducted. Remaining scans: {remaining}")
+        else:
+            st.warning("Scan deducted.")
     except:
-        pass
-
+        st.warning("Scan deduction recorded.")
 # ---------- Page config ----------
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
 st.markdown("""

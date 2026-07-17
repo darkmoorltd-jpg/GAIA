@@ -6,71 +6,7 @@ import hashlib
 import os
 import sys
 
-# ---------- Theme-aware CSS ----------
-if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
-
-is_dark = st.session_state.theme == "dark"
-
-st.set_page_config(page_title="GAIA – Soil Analysis", page_icon="🏞️", layout="wide")
-st.markdown(f"""
-<style>
-    .stApp {{
-        background: {'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)' if is_dark else 'linear-gradient(135deg, #efebe9 0%, #d7ccc8 100%)'};
-        color: {'#ffffff' if is_dark else '#3e2723'};
-    }}
-    header, footer {{visibility: hidden;}}
-    .title {{
-        font-size: 3.5rem; font-weight: 900; text-align: center;
-        background: {'linear-gradient(90deg, #8d6e63, #a1887f, #8d6e63)' if is_dark else 'linear-gradient(90deg, #5d4037, #8d6e63, #5d4037)'};
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        margin-bottom: 0;
-        animation: {'glowSoilDark 2s ease-in-out infinite alternate' if is_dark else 'glowSoilLight 2s ease-in-out infinite alternate'};
-    }}
-    @keyframes glowSoilDark {{
-        from {{ text-shadow: 0 0 15px rgba(141,110,99,0.6); }}
-        to {{ text-shadow: 0 0 30px rgba(141,110,99,1), 0 0 60px rgba(141,110,99,0.8); }}
-    }}
-    @keyframes glowSoilLight {{
-        from {{ text-shadow: 0 0 10px rgba(93,64,55,0.5); }}
-        to {{ text-shadow: 0 0 25px rgba(93,64,55,1), 0 0 50px rgba(93,64,55,0.7); }}
-    }}
-    .subtitle {{ text-align: center; font-size: 1.2rem; color: {'#bcaaa4' if is_dark else '#5d4037'}; margin-bottom: 2rem; }}
-    .pred-box {{
-        background: {'rgba(255,255,255,0.05)' if is_dark else 'rgba(255,255,255,0.9)'};
-        backdrop-filter: blur(10px);
-        border-left: 5px solid {'#8d6e63' if is_dark else '#5d4037'};
-        padding: 1.2rem 1.8rem;
-        border-radius: 12px;
-        margin: 0.8rem 0;
-        color: {'#ffffff' if is_dark else '#3e2723'};
-    }}
-    .pred-box-high {{
-        border-left-color: {'#a1887f' if is_dark else '#4e342e'};
-        background: {'rgba(141,110,99,0.15)' if is_dark else '#d7ccc8'};
-    }}
-    .stProgress > div > div > div > div {{
-        background: {'linear-gradient(90deg, #8d6e63, #a1887f)' if is_dark else 'linear-gradient(90deg, #5d4037, #8d6e63)'};
-    }}
-    .stButton > button {{
-        background: {'rgba(141,110,99,0.15)' if is_dark else 'rgba(93,64,55,0.1)'} !important;
-        border: 1px solid {'rgba(141,110,99,0.4)' if is_dark else 'rgba(93,64,55,0.3)'} !important;
-        color: {'#ffffff' if is_dark else '#3e2723'} !important;
-        border-radius: 15px !important;
-        padding: 1rem 2rem !important;
-        font-weight: 600 !important;
-        transition: all 0.3s !important;
-    }}
-    .stButton > button:hover {{
-        background: {'rgba(141,110,99,0.3)' if is_dark else 'rgba(93,64,55,0.2)'} !important;
-        border-color: {'#a1887f' if is_dark else '#4e342e'} !important;
-        transform: translateY(-3px);
-        box-shadow: 0 10px 25px {'rgba(141,110,99,0.4)' if is_dark else 'rgba(93,64,55,0.3)'};
-    }}
-</style>
-""", unsafe_allow_html=True)
-
-# ---------- Deduction function ----------
+# ---------- Scan deduction ----------
 def deduct_and_show():
     import streamlit as st
     from supabase import create_client
@@ -91,11 +27,98 @@ def deduct_and_show():
         res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
         if res.data:
             remaining = res.data[0]["scans_remaining"]
-            st.success(f"Scan deducted. Remaining: {remaining}")
+            st.success(f"Scan deducted. Remaining scans: {remaining}")
     except:
         pass
 
-# ---------- UI ----------
+# ---------- Page config ----------
+st.set_page_config(page_title="GAIA – Soil Analysis", page_icon="🏞️", layout="wide")
+
+# Video background CSS + content overlay
+st.markdown("""
+<style>
+    /* Video container */
+    .video-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -1;
+    }
+    /* Dark overlay for readability */
+    .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 0;
+    }
+    /* Content on top */
+    .content {
+        position: relative;
+        z-index: 1;
+        color: white;
+    }
+    .title {
+        font-size: 3.5rem;
+        font-weight: 900;
+        text-align: center;
+        background: linear-gradient(90deg, #a1887f, #d7ccc8, #a1887f);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 15px rgba(255,255,255,0.5);
+        margin-bottom: 0.5rem;
+    }
+    .subtitle {
+        text-align: center;
+        font-size: 1.3rem;
+        color: #d7ccc8;
+        margin-bottom: 2rem;
+    }
+    .pred-box {
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(12px);
+        border-left: 5px solid #a1887f;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        margin: 0.5rem 0;
+        color: white;
+    }
+    .pred-box-high {
+        border-left-color: #ffffff;
+        background: rgba(255,255,255,0.2);
+        font-weight: bold;
+    }
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #8d6e63, #d7ccc8);
+    }
+    .stButton > button {
+        background: rgba(255,255,255,0.15) !important;
+        backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255,255,255,0.3) !important;
+        color: white !important;
+    }
+    .uploaded-file {
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(12px);
+        border-radius: 15px;
+        padding: 1rem;
+    }
+</style>
+
+<video autoplay muted loop class="video-background">
+    <source src="https://cdn.coverr.co/videos/coverr-close-up-of-soil-5468/1080p.mp4" type="video/mp4">
+</video>
+<div class="overlay"></div>
+""", unsafe_allow_html=True)
+
+# ---------- Content ----------
+st.markdown('<div class="content">', unsafe_allow_html=True)
+
 st.markdown('<div class="title">🏞️ Soil Type Classification</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload a close‑up photo of soil to identify its type</div>', unsafe_allow_html=True)
 
@@ -103,26 +126,25 @@ uploaded_file = st.file_uploader("📤 Upload soil photo", type=["jpg", "jpeg", 
 
 if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Soil sample", width=320)
+    st.image(image, caption="Soil sample", width=300)
 
     st.markdown("---")
-    st.subheader("🧪 Soil Analysis Result")
+    st.subheader("🧪 Analysis Result")
 
     soil_types = ["Alluvial","Arid","Black","Laterite","Mountain","Red","Yellow"]
     seed = int(hashlib.md5(uploaded_file.name.encode()).hexdigest()[:8], 16)
     np.random.seed(seed)
     probs = np.random.rand(len(soil_types))
     probs = probs / probs.sum()
-    sorted_idx = np.argsort(probs)[::-1]
+    top_idx = np.argmax(probs)
 
-    for i, idx in enumerate(sorted_idx):
-        soil = soil_types[idx]
-        pct = probs[idx] * 100
-        box_class = "pred-box-high" if i == 0 else "pred-box"
-        st.markdown(f'<div class="{box_class}"><b>{soil}</b> – {pct:.1f}%</div>', unsafe_allow_html=True)
-        st.progress(float(probs[idx]))
+    st.markdown(f'<div class="pred-box-high"><h3 style="margin:0">{soil_types[top_idx]}</h3><span style="font-size:1.5rem; font-weight:bold;">{probs[top_idx]*100:.1f}%</span></div>', unsafe_allow_html=True)
+    st.markdown("### All soil types")
+    for i, name in enumerate(soil_types):
+        st.write(f"**{name}**: {probs[i]*100:.1f}%")
+        st.progress(float(probs[i]))
 
+    # Deduct scan
     deduct_and_show()
 
-    top_soil = soil_types[sorted_idx[0]]
-    st.success(f"✅ Predominant soil type: **{top_soil}**")
+st.markdown('</div>', unsafe_allow_html=True)

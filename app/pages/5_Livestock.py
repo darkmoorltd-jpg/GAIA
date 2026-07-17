@@ -16,6 +16,34 @@ def deduct_and_show():
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["key"]
     supabase = create_client(url, key)
+    user_id = st.session_state.user.id
+
+    # Ensure the user_scans row exists (create if missing)
+    supabase.table("user_scans").insert(
+        {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
+    ).execute()
+
+    # Decrement
+    supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+
+    # Fetch the new count
+    res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+    if res.data:
+        remaining = res.data[0]["scans_remaining"]
+        st.success(f"Scan deducted. Remaining scans: {remaining}")
+    else:
+        st.warning("Scan deducted, but unable to fetch updated count.")
+
+
+def deduct_and_show():
+    """Deduct a scan and display the new remaining balance."""
+    import streamlit as st
+    from supabase import create_client
+    if "user" not in st.session_state or st.session_state.user is None:
+        return
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    supabase = create_client(url, key)
 
     # Call the RPC function
     supabase.rpc("decrement_scan", {"uid": st.session_state.user.id}).execute()

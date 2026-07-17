@@ -2,36 +2,23 @@
 import streamlit as st
 from supabase import create_client, Client
 import requests
+import time
 
-# ---------- Secrets (set these in Streamlit Cloud dashboard) ----------
+# ---------- Secrets ----------
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
 # ---------- Paystack plans ----------
 PAYSTACK_PLANS = {
-    "10": {
-        "scans": 10,
-        "url": "https://paystack.shop/pay/e-z03btaq-"
-    },
-    "25": {
-        "scans": 25,
-        "url": "https://paystack.shop/pay/nc3bs0quuh"
-    },
-    "60": {
-        "scans": 60,
-        "url": "https://paystack.shop/pay/1j9yrapbt4"
-    },
-    "250": {
-        "scans": 250,
-        "url": "https://paystack.shop/pay/rln87t1694"
-    },
-    "unlimited": {
-        "scans": 9999,
-        "url": "https://paystack.shop/pay/07zduaem6l"
-    }
+    "10": {"scans": 10, "url": "https://paystack.shop/pay/e-z03btaq-"},
+    "25": {"scans": 25, "url": "https://paystack.shop/pay/nc3bs0quuh"},
+    "60": {"scans": 60, "url": "https://paystack.shop/pay/1j9yrapbt4"},
+    "250": {"scans": 250, "url": "https://paystack.shop/pay/rln87t1694"},
+    "unlimited": {"scans": 9999, "url": "https://paystack.shop/pay/07zduaem6l"}
 }
 
+# ---------- Supabase helpers ----------
 @st.cache_resource
 def init_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -41,10 +28,9 @@ def sign_up(email: str, password: str):
     try:
         res = supabase.auth.sign_up({"email": email, "password": password})
         if res.user:
-            # Wait briefly for the auth user to be fully committed
-            import time
+            # Wait a bit for the auth user to be fully persisted
             time.sleep(0.5)
-            # Try to create the user_scans row; ignore if it fails
+            # Create user_scans row (ignore if already exists)
             try:
                 supabase.table("user_scans").insert({
                     "user_id": res.user.id,
@@ -52,7 +38,9 @@ def sign_up(email: str, password: str):
                     "plan": "free"
                 }).execute()
             except:
-                pass  # Row might already exist or constraint issue – we'll handle it on first login
+                pass
+            # Store user in session state
+            st.session_state.user = res.user
         return res.user, None
     except Exception as e:
         return None, str(e)
@@ -61,12 +49,19 @@ def sign_in(email: str, password: str):
     supabase = init_supabase()
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        # Store user in session state (this is the key fix)
+        st.session_state.user = res.user
         return res.user, None
     except Exception as e:
         return None, str(e)
 
 def sign_out():
-    init_supabase().auth.sign_out()
+    supabase = init_supabase()
+    try:
+        supabase.auth.sign_out()
+    except:
+        pass
+    st.session_state.user = None
 
 def reset_password(email: str):
     supabase = init_supabase()
@@ -83,9 +78,8 @@ def get_user_scans(user_id: str):
         if res.data:
             return res.data[0]
     except:
-        # Table might not exist – return free tier
-        return {"scans_remaining": 30, "plan": "free"}
-    # If row doesn't exist, create it
+        pass
+    # Create row if missing
     try:
         supabase.table("user_scans").insert({
             "user_id": user_id,
@@ -95,10 +89,6 @@ def get_user_scans(user_id: str):
     except:
         pass
     return {"scans_remaining": 30, "plan": "free"}
-
-def decrement_scan(user_id: str):
-    supabase = init_supabase()
-    supabase.rpc("decrement_scan", {"uid": user_id}).execute()
 
 def verify_paystack_transaction(reference: str):
     url = f"https://api.paystack.co/transaction/verify/{reference}"
@@ -110,7 +100,7 @@ def verify_paystack_transaction(reference: str):
             return data["data"]
     return None
 
-# ---------- Streamlit page config ----------
+# ---------- Streamlit page ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
 if "user" not in st.session_state:
@@ -124,6 +114,10 @@ if auth_code and st.session_state.user is None:
     supabase = init_supabase()
     try:
         supabase.auth.exchange_code_for_session({"auth_code": auth_code})
+        # After exchanging code, try to get the session
+        session = supabase.auth.get_session()
+        if session and session.user:
+            st.session_state.user = session.user
         st.rerun()
     except Exception as e:
         st.error(f"Google sign‑in failed: {e}")
@@ -136,11 +130,7 @@ if reference and plan and plan in PAYSTACK_PLANS:
     txn = verify_paystack_transaction(reference)
     if txn:
         supabase = init_supabase()
-        try:
-            session = supabase.auth.get_session()
-            user_id = session.user.id
-        except:
-            user_id = None
+        user_id = st.session_state.user.id if st.session_state.user else None
         if user_id:
             scans_to_add = PAYSTACK_PLANS[plan]["scans"]
             supabase.table("user_scans").update({
@@ -151,7 +141,7 @@ if reference and plan and plan in PAYSTACK_PLANS:
             # Record payment history
             supabase.table("payment_history").insert({
                 "user_id": user_id,
-                "amount": txn["amount"] / 100,  # kobo to dollars
+                "amount": txn["amount"] / 100,
                 "scans_added": scans_to_add,
                 "plan": plan,
                 "reference": reference
@@ -161,7 +151,7 @@ if reference and plan and plan in PAYSTACK_PLANS:
             st.query_params.clear()
             st.rerun()
 
-# ----- Check existing session -----
+# ----- Try to restore session from Supabase cookies (if page reloaded) -----
 if st.session_state.user is None:
     supabase = init_supabase()
     try:
@@ -187,7 +177,7 @@ if st.session_state.user is None:
                     if error:
                         st.error(f"Login failed: {error}")
                     else:
-                        st.session_state.user = user
+                        st.success("Logged in!")
                         st.rerun()
             with col2:
                 if st.form_submit_button("Forgot Password?"):
@@ -196,9 +186,7 @@ if st.session_state.user is None:
                         if err:
                             st.error(err)
                         else:
-                            st.success("Password reset email sent (if email is registered).")
-                    else:
-                        st.warning("Enter your email first.")
+                            st.success("Password reset email sent.")
 
     with tab2:
         with st.form("signup_form"):
@@ -212,18 +200,17 @@ if st.session_state.user is None:
                     if error:
                         st.error(f"Sign up failed: {error}")
                     else:
-                        st.session_state.user = user
-                        st.success("Account created! You are now logged in with 30 free scans.")
+                        st.success("Account created! You are logged in with 30 free scans.")
                         st.rerun()
 
     with tab3:
-        st.write("Sign in instantly with your Google account (no rate limits).")
+        st.write("Sign in instantly with your Google account.")
         google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app"
         st.markdown(f'<a href="{google_auth_url}" target="_blank"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;cursor:pointer;">Sign in with Google</button></a>', unsafe_allow_html=True)
 
     st.stop()
 
-# ---------- Logged‑in user ----------
+# ---------- Logged‑in area ----------
 user_id = st.session_state.user.id
 user_data = get_user_scans(user_id)
 
@@ -247,9 +234,9 @@ if scans_left <= 0:
 
 if st.sidebar.button("Logout"):
     sign_out()
-    st.session_state.user = None
     st.rerun()
 
+# ---------- Main navigation ----------
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")

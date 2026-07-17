@@ -72,7 +72,7 @@ if theme == "dark":
             background: linear-gradient(135deg, #1a120b 0%, #2e1c0d 30%, #3e2a14 60%, #1a0f05 100%);
             color: #f5f0eb;
         }
-        header, footer {visibility: hidden;}
+        /* header and footer are NOT hidden – sidebar will be visible */
         
         .soil-particle {
             position: fixed; border-radius: 50%;
@@ -110,6 +110,11 @@ if theme == "dark":
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             text-shadow: 0 0 25px rgba(212, 163, 115, 0.7);
             margin-bottom: 0.5rem; position: relative; z-index: 1;
+            animation: soilGlow 2s ease-in-out infinite alternate;
+        }
+        @keyframes soilGlow {
+            from { text-shadow: 0 0 25px rgba(212, 163, 115, 0.7); }
+            to { text-shadow: 0 0 50px rgba(212, 163, 115, 1), 0 0 80px rgba(212, 163, 115, 0.6); }
         }
         .subtitle { text-align: center; font-size: 1.2rem; color: #bcaaa4; margin-bottom: 2rem; position: relative; z-index: 1; }
         
@@ -163,7 +168,7 @@ else:
             background: linear-gradient(135deg, #efebe9 0%, #d7ccc8 100%);
             color: #3e2723;
         }
-        header, footer {visibility: hidden;}
+        /* header and footer are NOT hidden */
         .soil-particle { display: none; }
         .scan-ring { display: none; }
         .title {
@@ -172,6 +177,11 @@ else:
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             text-shadow: 0 0 10px rgba(93,64,55,0.3);
             margin-bottom: 0.5rem;
+            animation: soilGlowLight 2s ease-in-out infinite alternate;
+        }
+        @keyframes soilGlowLight {
+            from { text-shadow: 0 0 10px rgba(93,64,55,0.3); }
+            to { text-shadow: 0 0 25px rgba(93,64,55,0.8), 0 0 50px rgba(93,64,55,0.5); }
         }
         .subtitle { text-align: center; font-size: 1.2rem; color: #4e342e; margin-bottom: 2rem; }
         

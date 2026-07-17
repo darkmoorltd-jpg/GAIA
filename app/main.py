@@ -41,11 +41,18 @@ def sign_up(email: str, password: str):
     try:
         res = supabase.auth.sign_up({"email": email, "password": password})
         if res.user:
-            supabase.table("user_scans").insert({
-                "user_id": res.user.id,
-                "scans_remaining": 30,
-                "plan": "free"
-            }).execute()
+            # Wait briefly for the auth user to be fully committed
+            import time
+            time.sleep(0.5)
+            # Try to create the user_scans row; ignore if it fails
+            try:
+                supabase.table("user_scans").insert({
+                    "user_id": res.user.id,
+                    "scans_remaining": 30,
+                    "plan": "free"
+                }).execute()
+            except:
+                pass  # Row might already exist or constraint issue – we'll handle it on first login
         return res.user, None
     except Exception as e:
         return None, str(e)

@@ -71,14 +71,22 @@ def reset_password(email: str):
 
 def get_user_scans(user_id: str):
     supabase = init_supabase()
-    res = supabase.table("user_scans").select("*").eq("user_id", user_id).execute()
-    if res.data:
-        return res.data[0]
-    supabase.table("user_scans").insert({
-        "user_id": user_id,
-        "scans_remaining": 30,
-        "plan": "free"
-    }).execute()
+    try:
+        res = supabase.table("user_scans").select("*").eq("user_id", user_id).execute()
+        if res.data:
+            return res.data[0]
+    except:
+        # Table might not exist – return free tier
+        return {"scans_remaining": 30, "plan": "free"}
+    # If row doesn't exist, create it
+    try:
+        supabase.table("user_scans").insert({
+            "user_id": user_id,
+            "scans_remaining": 30,
+            "plan": "free"
+        }).execute()
+    except:
+        pass
     return {"scans_remaining": 30, "plan": "free"}
 
 def decrement_scan(user_id: str):

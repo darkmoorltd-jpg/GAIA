@@ -119,7 +119,12 @@ def deduct_and_show():
             st.warning("Scan deducted, but unable to fetch updated count.")
     except Exception as e:
         st.warning(f"Scan deduction unavailable right now. Your scans are safe.")
-from src.models.pretrained_vit import PretrainedViTClassifier
+
+try:
+    from src.models.pretrained_vit import PretrainedViTClassifier
+except ModuleNotFoundError:
+    PretrainedViTClassifier = None
+
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
 # ---------- Page config & CSS ----------
@@ -144,6 +149,8 @@ ANIMAL_CLASSES = {
 # ---------- Model loader with auto‑download ----------
 @st.cache_resource
 def load_animal_model(animal: str):
+    if PretrainedViTClassifier is None:
+        return None
     from app.utils.download_models import ensure_model
     checkpoint = ensure_model(animal)
     if not os.path.exists(checkpoint):

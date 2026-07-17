@@ -140,6 +140,16 @@ if reference and plan and plan in PAYSTACK_PLANS:
                 "scans_remaining": scans_to_add,
                 "plan": plan
             }).eq("user_id", user_id).execute()
+
+            # Record payment history
+            supabase.table("payment_history").insert({
+                "user_id": user_id,
+                "amount": txn["amount"] / 100,  # kobo to dollars
+                "scans_added": scans_to_add,
+                "plan": plan,
+                "reference": reference
+            }).execute()
+
             st.success(f"Payment successful! {scans_to_add} scans added to your account.")
             st.query_params.clear()
             st.rerun()
@@ -238,9 +248,11 @@ crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")
 soil_page      = st.Page("pages/4_Soil.py", title="Soil Analysis", icon="🏞️")
 livestock_page = st.Page("pages/5_Livestock.py", title="Livestock Health", icon="🐄")
+payment_history_page = st.Page("pages/6_Payment_History.py", title="Payment History", icon="💳")
 
 pg = st.navigation({
     "GAIA": [dashboard_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page],
+    "Account": [payment_history_page],
 })
 pg.run()

@@ -7,7 +7,29 @@ import os
 import yaml
 import sys
 
-def deduct_scan():
+def deduct_and_show():
+    """Deduct a scan and display the new remaining balance."""
+    import streamlit as st
+    from supabase import create_client
+    if "user" not in st.session_state or st.session_state.user is None:
+        return
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    supabase = create_client(url, key)
+
+    # Call the RPC function
+    supabase.rpc("decrement_scan", {"uid": st.session_state.user.id}).execute()
+
+    # Fetch the new count
+    res = supabase.table("user_scans").select("scans_remaining").eq("user_id", st.session_state.user.id).execute()
+    if res.data:
+        remaining = res.data[0]["scans_remaining"]
+        st.success(f"Scan deducted. Remaining scans: {remaining}")
+    else:
+        st.warning("Scan deducted, but unable to fetch updated count.")
+
+
+def deduct_and_show():
     """Atomically deduct one scan from the current user's balance."""
     import streamlit as st
     from supabase import create_client

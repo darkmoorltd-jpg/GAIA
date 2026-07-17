@@ -3,150 +3,109 @@ import streamlit as st
 
 st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wide")
 
-# ---------- Light / Dark mode toggle ----------
+# ---------- Theme toggle (session state) ----------
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
 
-mode = st.radio("🎨 Theme", ["🌙 Dark", "☀️ Light"], horizontal=True, 
-                index=0 if st.session_state.theme == "dark" else 1)
+# ---------- CSS for toggle and both themes ----------
+st.markdown(f"""
+<style>
+    /* Hide the default checkbox */
+    .theme-toggle {{
+        position: fixed;
+        top: 1.5rem;
+        right: 2rem;
+        z-index: 100;
+    }}
+    .theme-toggle input {{
+        display: none;
+    }}
+    .toggle-label {{
+        cursor: pointer;
+        width: 60px;
+        height: 30px;
+        background: {'#fdd835' if st.session_state.theme == 'dark' else '#90a4ae'};
+        border-radius: 30px;
+        position: relative;
+        display: inline-block;
+        box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        transition: background 0.3s;
+    }}
+    .toggle-label::after {{
+        content: "{'☀️' if st.session_state.theme == 'dark' else '🌙'}";
+        font-size: 18px;
+        position: absolute;
+        top: 2px;
+        left: {'32px' if st.session_state.theme == 'dark' else '4px'};
+        transition: all 0.3s;
+    }}
 
-if mode == "🌙 Dark":
-    st.session_state.theme = "dark"
-else:
-    st.session_state.theme = "light"
+    /* ---- Dark Theme ---- */
+    .stApp {{
+        background: {'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)' if st.session_state.theme == 'dark' else 'linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 50%, #fffde7 100%)'};
+        color: {'#ffffff' if st.session_state.theme == 'dark' else '#1b5e20'};
+    }}
+    header, footer {{visibility: hidden;}}
 
-# ---------- CSS for both themes ----------
-if st.session_state.theme == "dark":
-    st.markdown("""
-    <style>
-        .stApp {
-            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-            color: #ffffff;
-        }
-        header, footer {visibility: hidden;}
-        .particles {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -1; overflow: hidden;
-        }
-        .particle {
-            position: absolute; background: rgba(76, 175, 80, 0.15);
-            border-radius: 50%; animation: float 15s infinite ease-in-out;
-        }
-        .particle:nth-child(1) { width: 80px; height: 80px; left: 10%; top: 20%; animation-delay: 0s; }
-        .particle:nth-child(2) { width: 60px; height: 60px; left: 80%; top: 60%; animation-delay: 3s; }
-        .particle:nth-child(3) { width: 120px; height: 120px; left: 40%; top: 70%; animation-delay: 6s; }
-        .particle:nth-child(4) { width: 50px; height: 50px; left: 70%; top: 10%; animation-delay: 9s; }
-        .particle:nth-child(5) { width: 100px; height: 100px; left: 25%; top: 40%; animation-delay: 12s; }
-        @keyframes float {
-            0% { transform: translateY(0px) rotate(0deg); opacity: 0.5; }
-            50% { transform: translateY(-30px) rotate(180deg); opacity: 0.8; }
-            100% { transform: translateY(0px) rotate(360deg); opacity: 0.5; }
-        }
-        .hero-title {
-            font-size: 5rem; font-weight: 900; text-align: center;
-            background: linear-gradient(90deg, #00c853, #69f0ae, #00c853);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 20px rgba(0,200,83,0.6);
-            margin-bottom: 0;
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-        @keyframes glow {
-            from { text-shadow: 0 0 20px rgba(0,200,83,0.6); }
-            to { text-shadow: 0 0 40px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.8); }
-        }
-        .subtitle { text-align: center; font-size: 1.5rem; color: #b0bec5; margin-bottom: 2rem; }
-        /* Module buttons (cards) */
-        .stButton > button {
-            background: rgba(255,255,255,0.08) !important;
-            backdrop-filter: blur(12px) !important;
-            border: 1px solid rgba(255,255,255,0.15) !important;
-            border-radius: 20px !important;
-            padding: 2rem 1rem !important;
-            width: 100% !important;
-            height: 120px !important;
-            color: #ffffff !important;
-            font-size: 1.3rem !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-            white-space: pre-line !important;
-            line-height: 1.5 !important;
-        }
-        .stButton > button:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(0,200,83,0.3);
-            border-color: #00c853 !important;
-            background: rgba(0,200,83,0.15) !important;
-        }
-        .stat-item { background: rgba(255,255,255,0.05); border-radius: 15px; padding: 1rem 2rem; backdrop-filter: blur(5px); text-align: center; }
-        .stat-number { font-size: 2rem; font-weight: 700; color: #00c853; }
-        .stat-label { color: #90a4ae; font-size: 0.9rem; }
-        .footer { text-align: center; padding: 2rem; color: #78909c; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 3rem; }
-        .footer a { color: #00c853; text-decoration: none; }
-    </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <style>
-        .stApp {
-            background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 50%, #fffde7 100%);
-            color: #1b5e20;
-        }
-        header, footer {visibility: hidden;}
-        .hero-title {
-            font-size: 5rem; font-weight: 900; text-align: center;
-            background: linear-gradient(90deg, #2e7d32, #66bb6a, #2e7d32);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 15px rgba(46,125,50,0.5);
-            margin-bottom: 0;
-            animation: glowLight 2s ease-in-out infinite alternate;
-        }
-        @keyframes glowLight {
-            from { text-shadow: 0 0 15px rgba(46,125,50,0.5); }
-            to { text-shadow: 0 0 30px rgba(46,125,50,1), 0 0 60px rgba(46,125,50,0.7); }
-        }
-        .subtitle { text-align: center; font-size: 1.5rem; color: #33691e; margin-bottom: 2rem; }
-        /* Module buttons (cards) */
-        .stButton > button {
-            background: rgba(255,255,255,0.9) !important;
-            backdrop-filter: blur(10px) !important;
-            border: 1px solid rgba(0,0,0,0.1) !important;
-            border-radius: 20px !important;
-            padding: 2rem 1rem !important;
-            width: 100% !important;
-            height: 120px !important;
-            color: #1b5e20 !important;
-            font-size: 1.3rem !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-            white-space: pre-line !important;
-            line-height: 1.5 !important;
-        }
-        .stButton > button:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(46,125,50,0.25);
-            border-color: #2e7d32 !important;
-            background: rgba(46,125,50,0.1) !important;
-        }
-        .stat-item { background: rgba(255,255,255,0.9); border-radius: 15px; padding: 1rem 2rem; text-align: center; }
-        .stat-number { font-size: 2rem; font-weight: 700; color: #2e7d32; }
-        .stat-label { color: #558b2f; font-size: 0.9rem; }
-        .footer { text-align: center; padding: 2rem; color: #4e342e; border-top: 1px solid rgba(0,0,0,0.1); margin-top: 3rem; }
-        .footer a { color: #2e7d32; text-decoration: none; }
-        /* Remove particles in light mode */
-        .particles { display: none; }
-    </style>
-    """, unsafe_allow_html=True)
+    .hero-title {{
+        font-size: 5rem; font-weight: 900; text-align: center;
+        background: {'linear-gradient(90deg, #00c853, #69f0ae, #00c853)' if st.session_state.theme == 'dark' else 'linear-gradient(90deg, #2e7d32, #66bb6a, #2e7d32)'};
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        margin-bottom: 0;
+        animation: {'glowDark 2s ease-in-out infinite alternate' if st.session_state.theme == 'dark' else 'glowLight 2s ease-in-out infinite alternate'};
+    }}
 
-# ---------- Floating particles (dark mode only) ----------
-st.markdown("""
-<div class="particles">
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-    <div class="particle"></div>
-</div>
+    @keyframes glowDark {{
+        from {{ text-shadow: 0 0 20px rgba(0,200,83,0.6); }}
+        to {{ text-shadow: 0 0 40px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.8); }}
+    }}
+    @keyframes glowLight {{
+        from {{ text-shadow: 0 0 15px rgba(46,125,50,0.5); }}
+        to {{ text-shadow: 0 0 30px rgba(46,125,50,1), 0 0 60px rgba(46,125,50,0.7); }}
+    }}
+
+    .subtitle {{ text-align: center; font-size: 1.5rem; color: {'#b0bec5' if st.session_state.theme == 'dark' else '#33691e'}; margin-bottom: 2rem; }}
+
+    .stButton > button {{
+        background: {'rgba(255,255,255,0.08)' if st.session_state.theme == 'dark' else 'rgba(255,255,255,0.9)'} !important;
+        backdrop-filter: blur(12px) !important;
+        border: 1px solid {'rgba(255,255,255,0.15)' if st.session_state.theme == 'dark' else 'rgba(0,0,0,0.1)'} !important;
+        border-radius: 20px !important;
+        padding: 2rem 1rem !important;
+        width: 100% !important;
+        height: 120px !important;
+        color: {'#ffffff' if st.session_state.theme == 'dark' else '#1b5e20'} !important;
+        font-size: 1.3rem !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        white-space: pre-line !important;
+        line-height: 1.5 !important;
+    }}
+    .stButton > button:hover {{
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px {'rgba(0,200,83,0.3)' if st.session_state.theme == 'dark' else 'rgba(46,125,50,0.25)'};
+        border-color: {'#00c853' if st.session_state.theme == 'dark' else '#2e7d32'} !important;
+    }}
+
+    .stat-item {{ background: {'rgba(255,255,255,0.05)' if st.session_state.theme == 'dark' else 'rgba(255,255,255,0.9)'}; border-radius: 15px; padding: 1rem 2rem; text-align: center; }}
+    .stat-number {{ font-size: 2rem; font-weight: 700; color: {'#00c853' if st.session_state.theme == 'dark' else '#2e7d32'}; }}
+    .stat-label {{ color: {'#90a4ae' if st.session_state.theme == 'dark' else '#558b2f'}; font-size: 0.9rem; }}
+    .footer {{ text-align: center; padding: 2rem; color: {'#78909c' if st.session_state.theme == 'dark' else '#4e342e'}; border-top: 1px solid {'rgba(255,255,255,0.1)' if st.session_state.theme == 'dark' else 'rgba(0,0,0,0.1)'}; margin-top: 3rem; }}
+    .footer a {{ color: {'#00c853' if st.session_state.theme == 'dark' else '#2e7d32'}; text-decoration: none; }}
+</style>
 """, unsafe_allow_html=True)
+
+# ---------- Toggle (checkbox styled as switch) ----------
+with st.container():
+    st.markdown('<div class="theme-toggle">', unsafe_allow_html=True)
+    toggle = st.checkbox("", value=(st.session_state.theme == "light"), key="theme_toggle")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Update theme based on checkbox
+if toggle:
+    st.session_state.theme = "light"
+else:
+    st.session_state.theme = "dark"
 
 # ---------- Hero Section ----------
 st.markdown('<div class="hero-title">GAIA</div>', unsafe_allow_html=True)
@@ -157,14 +116,6 @@ col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     st.image("https://images.unsplash.com/photo-1556801712-76c8eb07bbc9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
              caption="", use_column_width=True)
-    st.markdown("""
-    <style>
-        img {
-            border-radius: 20px;
-            box-shadow: 0 0 30px rgba(0,200,83,0.4);
-        }
-    </style>
-    """, unsafe_allow_html=True)
 
 # ---------- Stats Bar ----------
 col1, col2, col3, col4 = st.columns(4)
@@ -177,7 +128,7 @@ with col3:
 with col4:
     st.markdown('<div class="stat-item"><div class="stat-number">24/7</div><div class="stat-label">Offline Ready</div></div>', unsafe_allow_html=True)
 
-# ---------- Module Cards (as buttons) ----------
+# ---------- Module Cards ----------
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.button("🌿\n\nCrop Disease", key="crops", help="Identify diseases in crops"):

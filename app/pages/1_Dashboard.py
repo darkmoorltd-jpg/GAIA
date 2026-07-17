@@ -10,13 +10,12 @@ if "theme" not in st.session_state:
 mode = st.radio("🎨 Theme", ["🌙 Dark", "☀️ Light"], horizontal=True, 
                 index=0 if st.session_state.theme == "dark" else 1)
 
-# Update session state when the user changes the radio
 if mode == "🌙 Dark":
     st.session_state.theme = "dark"
 else:
     st.session_state.theme = "light"
 
-# ---------- CSS for dark and light themes ----------
+# ---------- CSS for both themes ----------
 if st.session_state.theme == "dark":
     st.markdown("""
     <style>
@@ -56,13 +55,28 @@ if st.session_state.theme == "dark":
             to { text-shadow: 0 0 40px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.8); }
         }
         .subtitle { text-align: center; font-size: 1.5rem; color: #b0bec5; margin-bottom: 2rem; }
-        .module-card {
-            background: rgba(255,255,255,0.05); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
-            padding: 2rem; width: 200px; text-align: center;
-            transition: all 0.3s ease; cursor: pointer;
+        /* Module buttons (cards) */
+        .stButton > button {
+            background: rgba(255,255,255,0.08) !important;
+            backdrop-filter: blur(12px) !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            border-radius: 20px !important;
+            padding: 2rem 1rem !important;
+            width: 100% !important;
+            height: 120px !important;
+            color: #ffffff !important;
+            font-size: 1.3rem !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            white-space: pre-line !important;
+            line-height: 1.5 !important;
         }
-        .module-card:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,200,83,0.3); border-color: #00c853; }
+        .stButton > button:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,200,83,0.3);
+            border-color: #00c853 !important;
+            background: rgba(0,200,83,0.15) !important;
+        }
         .stat-item { background: rgba(255,255,255,0.05); border-radius: 15px; padding: 1rem 2rem; backdrop-filter: blur(5px); text-align: center; }
         .stat-number { font-size: 2rem; font-weight: 700; color: #00c853; }
         .stat-label { color: #90a4ae; font-size: 0.9rem; }
@@ -82,18 +96,37 @@ else:
             font-size: 5rem; font-weight: 900; text-align: center;
             background: linear-gradient(90deg, #2e7d32, #66bb6a, #2e7d32);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 10px rgba(46,125,50,0.3);
+            text-shadow: 0 0 15px rgba(46,125,50,0.5);
             margin-bottom: 0;
+            animation: glowLight 2s ease-in-out infinite alternate;
+        }
+        @keyframes glowLight {
+            from { text-shadow: 0 0 15px rgba(46,125,50,0.5); }
+            to { text-shadow: 0 0 30px rgba(46,125,50,1), 0 0 60px rgba(46,125,50,0.7); }
         }
         .subtitle { text-align: center; font-size: 1.5rem; color: #33691e; margin-bottom: 2rem; }
-        .module-card {
-            background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);
-            border: 1px solid rgba(0,0,0,0.1); border-radius: 20px;
-            padding: 2rem; width: 200px; text-align: center;
-            transition: all 0.3s ease; cursor: pointer;
-            color: #1b5e20;
+        /* Module buttons (cards) */
+        .stButton > button {
+            background: rgba(255,255,255,0.9) !important;
+            backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(0,0,0,0.1) !important;
+            border-radius: 20px !important;
+            padding: 2rem 1rem !important;
+            width: 100% !important;
+            height: 120px !important;
+            color: #1b5e20 !important;
+            font-size: 1.3rem !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
+            white-space: pre-line !important;
+            line-height: 1.5 !important;
         }
-        .module-card:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(46,125,50,0.2); border-color: #2e7d32; }
+        .stButton > button:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(46,125,50,0.25);
+            border-color: #2e7d32 !important;
+            background: rgba(46,125,50,0.1) !important;
+        }
         .stat-item { background: rgba(255,255,255,0.9); border-radius: 15px; padding: 1rem 2rem; text-align: center; }
         .stat-number { font-size: 2rem; font-weight: 700; color: #2e7d32; }
         .stat-label { color: #558b2f; font-size: 0.9rem; }
@@ -104,7 +137,7 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
-# ---------- Floating particles (dark mode only, hidden via CSS in light mode) ----------
+# ---------- Floating particles (dark mode only) ----------
 st.markdown("""
 <div class="particles">
     <div class="particle"></div>
@@ -134,7 +167,6 @@ with col2:
     """, unsafe_allow_html=True)
 
 # ---------- Stats Bar ----------
-st.markdown('<div class="stats-bar">', unsafe_allow_html=True)
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.markdown('<div class="stat-item"><div class="stat-number">10+</div><div class="stat-label">Crop Models</div></div>', unsafe_allow_html=True)
@@ -144,10 +176,8 @@ with col3:
     st.markdown('<div class="stat-item"><div class="stat-number">62</div><div class="stat-label">Diagnostic Classes</div></div>', unsafe_allow_html=True)
 with col4:
     st.markdown('<div class="stat-item"><div class="stat-number">24/7</div><div class="stat-label">Offline Ready</div></div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
-# ---------- Module Cards ----------
-st.markdown('<div class="module-grid">', unsafe_allow_html=True)
+# ---------- Module Cards (as buttons) ----------
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.button("🌿\n\nCrop Disease", key="crops", help="Identify diseases in crops"):
@@ -161,7 +191,6 @@ with col3:
 with col4:
     if st.button("🐄\n\nLivestock Health", key="livestock", help="Diagnose cattle and poultry"):
         st.switch_page("pages/5_Livestock.py")
-st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------- Footer ----------
 st.markdown("""

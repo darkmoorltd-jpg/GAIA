@@ -5,7 +5,18 @@ import torch.nn.functional as F
 import numpy as np
 import os
 import sys
-from app.utils.supabase_utils import decrement_scan
+
+def deduct_scan():
+    """Atomically deduct one scan from the current user's balance."""
+    import streamlit as st
+    from supabase import create_client
+    if "user" not in st.session_state or st.session_state.user is None:
+        return
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    supabase = create_client(url, key)
+    supabase.rpc("decrement_scan", {"uid": st.session_state.user.id}).execute()
+
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 

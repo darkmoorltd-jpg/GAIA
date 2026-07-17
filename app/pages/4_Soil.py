@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 import os
 import sys
+from app.utils.supabase_utils import decrement_scan
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
@@ -84,6 +85,11 @@ if uploaded_file:
     )
 
     st.markdown("### All soil types")
+
+    # Deduct a scan
+    if st.session_state.user:
+        decrement_scan(st.session_state.user.id)
+
     for i, name in enumerate(SOIL_CLASSES):
         st.write(f"**{name}**: {probs[i]*100:.1f}%")
         st.progress(float(probs[i]))

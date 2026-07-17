@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import numpy as np
 import os
 import sys
+from app.utils.supabase_utils import decrement_scan
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 

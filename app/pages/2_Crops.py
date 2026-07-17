@@ -6,6 +6,7 @@ import numpy as np
 import os
 import yaml
 import sys
+from app.utils.supabase_utils import decrement_scan
 
 # Ensure the project root is on the path so we can import from src
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))

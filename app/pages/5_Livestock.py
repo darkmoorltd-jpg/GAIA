@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import numpy as np
 import os
 import sys
+from app.utils.supabase_utils import decrement_scan
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
@@ -96,6 +97,10 @@ if uploaded_file:
         st.progress(float(probs[idx]))
 
     top_disease = class_names[sorted_idx[0]]
+    
+    # Deduct a scan
+    if st.session_state.user:
+        decrement_scan(st.session_state.user.id)
     if "healthy" in top_disease.lower():
         st.success(f"✅ Your {animal} appears healthy! Keep up the good care.")
     else:

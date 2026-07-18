@@ -11,6 +11,22 @@ import timm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+def _get_recommendation(disease, animal):
+    if animal == "cattle":
+        recs = {
+            "Foot‑and‑Mouth Disease": "Isolate immediately. Contact veterinarian. Vaccinate herd. Disinfect all equipment.",
+            "Healthy": "Animal appears healthy. Continue regular check‑ups and vaccination schedule.",
+            "Lumpy Skin Disease": "Isolate affected cattle. Apply insecticide to control flies. Vaccinate remaining herd."
+        }
+    else:
+        recs = {
+            "Coccidiosis": "Administer anticoccidial drugs. Improve litter management. Provide clean water.",
+            "Healthy": "Bird appears healthy. Maintain biosecurity protocols.",
+            "Newcastle Disease": "Isolate immediately. This is a notifiable disease. Contact veterinary authorities urgently.",
+            "Salmonella": "Administer antibiotics as prescribed. Improve sanitation. Isolate affected birds."
+        }
+    return recs.get(disease, "Consult a veterinarian for proper diagnosis and treatment plan.")
+
 
 # ---------- Theme toggle ----------
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
@@ -342,18 +358,3 @@ if uploaded_file:
             pass
 
 # ---------- Helper ----------
-def _get_recommendation(disease, animal):
-    if animal == "cattle":
-        recs = {
-            "Foot‑and‑Mouth Disease": "Isolate immediately. Contact veterinarian. Vaccinate herd. Disinfect all equipment.",
-            "Healthy": "Animal appears healthy. Continue regular check‑ups and vaccination schedule.",
-            "Lumpy Skin Disease": "Isolate affected cattle. Apply insecticide to control flies. Vaccinate remaining herd."
-        }
-    else:
-        recs = {
-            "Coccidiosis": "Administer anticoccidial drugs. Improve litter management. Provide clean water.",
-            "Healthy": "Bird appears healthy. Maintain biosecurity protocols.",
-            "Newcastle Disease": "Isolate immediately. This is a notifiable disease. Contact veterinary authorities urgently.",
-            "Salmonella": "Administer antibiotics as prescribed. Improve sanitation. Isolate affected birds."
-        }
-    return recs.get(disease, "Consult a veterinarian for proper diagnosis and treatment plan.")

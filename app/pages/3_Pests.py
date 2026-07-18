@@ -48,10 +48,10 @@ PEST_CLASSES = [
 ]
 NUM_CLASSES = len(PEST_CLASSES)
 
-# ---------- Model loader (with auto‑download) ----------
+# ---------- Model loader (local file, no download) ----------
 @st.cache_resource
 def load_pest_model():
-        checkpoint = ensure_model("pests_102class")
+    checkpoint = "checkpoints/pests_102class/best_model.pt"
     if not os.path.exists(checkpoint):
         raise FileNotFoundError(f"Model not found at {checkpoint}")
     model = PretrainedViTClassifier(num_classes=NUM_CLASSES)
@@ -90,7 +90,7 @@ if uploaded_file:
         probs = predict_image(model, image)
     except FileNotFoundError as e:
         st.error(f"🚫 {e}")
-        st.info("The 102‑class pest model is being downloaded. Please refresh in a few seconds.")
+        st.info("The 102‑class pest model is not installed. Please contact support.")
         st.stop()
     except Exception as e:
         st.error(f"An error occurred: {e}")
@@ -111,6 +111,9 @@ if uploaded_file:
 
     # Scan deduction
     if st.session_state.get("user"):
-        from app.utils.supabase_utils import decrement_scan
-        decrement_scan(st.session_state.user.id)
-        st.success("Scan deducted.")
+        try:
+            from app.utils.supabase_utils import decrement_scan
+            decrement_scan(st.session_state.user.id)
+            st.success("Scan deducted.")
+        except:
+            pass

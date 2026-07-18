@@ -347,9 +347,8 @@ st.markdown("""
 
 st.sidebar.write(f"👤 {st.session_state.user.email}")
 st.sidebar.metric("Scans Remaining", scans_left)
-st.sidebar.markdown("```
-══════════════════════
-```")
+st.sidebar.markdown("-" * 30)
+
 st.sidebar.write(f"Plan: {plan_name}")
 
 if scans_left <= 0:

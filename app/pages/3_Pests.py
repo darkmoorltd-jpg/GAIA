@@ -24,8 +24,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-dark_mode = st.toggle("", value=True, key="pest_theme_toggle")
-theme = "dark" if dark_mode else "light"
+dark_mode = st.toggle("", value=False, key="pest_theme_toggle")
+theme = "light" if not dark_mode else "dark"
 
 # ---------- 102 pest classes ----------
 PEST_CLASSES = [

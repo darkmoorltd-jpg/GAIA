@@ -40,7 +40,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-dark_mode = st.toggle("", value=True, key="livestock_theme_toggle")
+dark_mode = st.toggle("", value=False, key="livestock_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
 # ---------- Animal selection ----------

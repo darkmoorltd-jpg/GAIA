@@ -5,7 +5,7 @@ st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wi
 
 # ---------- Light / Dark mode toggle ----------
 if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
+    st.session_state.theme = "light"
 
 st.markdown("""
 <style>
@@ -18,7 +18,7 @@ st.markdown("""
 dark_mode = st.toggle("", value=st.session_state.theme == "dark", key="dashboard_theme_toggle")
 
 if dark_mode:
-    st.session_state.theme = "dark"
+    st.session_state.theme = "light"
 else:
     st.session_state.theme = "light"
 

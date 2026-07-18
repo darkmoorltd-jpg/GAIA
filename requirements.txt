@@ -1,0 +1,16 @@
+streamlit
+supabase
+timm
+torch
+torchvision
+pytorch-lightning
+torchmetrics
+numpy
+pandas
+pillow
+opencv-python-headless
+scikit-learn
+pyyaml
+requests
+kagglehub
+matplotlib

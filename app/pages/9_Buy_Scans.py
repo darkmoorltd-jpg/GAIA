@@ -3,23 +3,60 @@ import streamlit as st
 
 st.set_page_config(page_title="GAIA – Buy Scans", page_icon="💳", layout="wide")
 
-# ---------- Theme ----------
+# ---------- Sidebar (consistent with main app) ----------
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+# If user is logged in, show their info in the sidebar
+if st.session_state.user:
+    from supabase import create_client, Client
+    SUPABASE_URL = st.secrets["supabase"]["url"]
+    SUPABASE_KEY = st.secrets["supabase"]["key"]
+    
+    @st.cache_resource
+    def get_supabase():
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    
+    supabase = get_supabase()
+    user_id = st.session_state.user.id
+    try:
+        res = supabase.table("user_scans").select("*").eq("user_id", user_id).execute()
+        if res.data:
+            scans_left = res.data[0]["scans_remaining"]
+            plan_name = res.data[0]["plan"]
+        else:
+            scans_left = 0
+            plan_name = "free"
+    except:
+        scans_left = 0
+        plan_name = "free"
+    
+    st.sidebar.write(f"👤 {st.session_state.user.email}")
+    st.sidebar.metric("Scans Remaining", scans_left)
+    st.sidebar.write(f"Plan: {plan_name}")
+    if st.sidebar.button("Logout"):
+        from supabase import create_client
+        supabase_auth = create_client(SUPABASE_URL, SUPABASE_KEY)
+        supabase_auth.auth.sign_out()
+        st.session_state.user = None
+        st.rerun()
+else:
+    st.sidebar.warning("Please log in to manage your scans.")
+    if st.sidebar.button("Go to Login"):
+        st.switch_page("main")
+
+st.sidebar.markdown("---")
+st.sidebar.caption("Navigate to other GAIA modules using the sidebar menu above.")
+
+# ---------- Theme toggle (moved to top of main area) ----------
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
-
-st.markdown("""
-<style>
-    .stToggle > label { display: none !important; }
-    .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
-    .stToggle > div { transform: scale(1.3); }
-</style>
-""", unsafe_allow_html=True)
 
 dark_mode = st.toggle("", value=st.session_state.theme == "dark", key="buy_theme_toggle")
 st.session_state.theme = "dark" if dark_mode else "light"
 theme = st.session_state.theme
 
-# ---------- Professional CSS (both themes) ----------
+# ---------- CSS ----------
 if theme == "dark":
     st.markdown("""
     <style>
@@ -27,7 +64,6 @@ if theme == "dark":
             background: linear-gradient(145deg, #0a0a0a 0%, #1a1a2e 50%, #0d0d0d 100%);
             color: #e0e0e0;
         }
-        header, footer {visibility: hidden;}
         .title {
             font-size: 3rem; font-weight: 900; text-align: center;
             background: linear-gradient(90deg, #00c853, #69f0ae, #00c853);
@@ -77,7 +113,6 @@ else:
     st.markdown("""
     <style>
         .stApp { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); color: #1b5e20; }
-        header, footer {visibility: hidden;}
         .title { font-size: 3rem; font-weight: 900; text-align: center; background: linear-gradient(90deg, #2e7d32, #66bb6a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .subtitle { text-align: center; font-size: 1.2rem; color: #33691e; margin-bottom: 2rem; }
         .pricing-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem; margin: 2rem 0; }
@@ -116,11 +151,11 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
-# ---------- Page content ----------
+# ---------- Main content ----------
 st.markdown('<div class="title">💳 Buy Scans</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Choose a plan that fits your diagnostic needs</div>', unsafe_allow_html=True)
 
-# Paystack badge with reliable inline SVG
+# Paystack badge
 st.markdown("""
 <div class="paystack-badge">
     <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">

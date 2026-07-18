@@ -51,8 +51,7 @@ NUM_CLASSES = len(PEST_CLASSES)
 # ---------- Model loader (with auto‑download) ----------
 @st.cache_resource
 def load_pest_model():
-    from app.utils.download_models import ensure_model
-    checkpoint = ensure_model("pests_102class")
+        checkpoint = ensure_model("pests_102class")
     if not os.path.exists(checkpoint):
         raise FileNotFoundError(f"Model not found at {checkpoint}")
     model = PretrainedViTClassifier(num_classes=NUM_CLASSES)

@@ -13,6 +13,23 @@ import time
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+def _get_recommendation(pest):
+    recs = {
+        'aphids': "Apply neem oil or insecticidal soap. Introduce ladybugs as natural predators.",
+        'corn borer': "Use Bt (Bacillus thuringiensis) spray. Apply before larvae enter the stalk.",
+        'mole cricket': "Apply parasitic nematodes to soil. Use bait traps at dusk.",
+        'grub': "Apply milky spore bacteria to lawn. Beneficial nematodes are highly effective.",
+        'wireworm': "Rotate crops with non‑host plants. Use soil insecticides if infestation is severe.",
+        'rice leaf roller': "Spray neem oil at early infestation. Encourage natural enemies like spiders.",
+        'brown plant hopper': "Apply systemic insecticides. Maintain field drainage and avoid excessive nitrogen.",
+        'army worm': "Use Bt or spinosad spray. Hand‑pick caterpillars in small gardens.",
+        'red spider': "Spray with water to dislodge mites. Apply horticultural oil or sulfur.",
+        'blister beetle': "Hand‑pick beetles (wear gloves). Use spinosad for severe infestations.",
+        'white margined moth': "Apply Bt or pyrethrin spray. Remove infested leaves.",
+        'thrips': "Use blue sticky traps. Apply spinosad or insecticidal soap.",
+    }
+    return recs.get(pest, "Consult a local agronomist for targeted treatment options. Isolate affected plants and monitor daily.")
+
 
 # ---------- Page config ----------
 st.set_page_config(page_title="GAIA – Pest Detection", page_icon="🐛", layout="wide")
@@ -372,19 +389,3 @@ if uploaded_file:
             pass
 
 # ---------- Helper ----------
-def _get_recommendation(pest):
-    recs = {
-        'aphids': "Apply neem oil or insecticidal soap. Introduce ladybugs as natural predators.",
-        'corn borer': "Use Bt (Bacillus thuringiensis) spray. Apply before larvae enter the stalk.",
-        'mole cricket': "Apply parasitic nematodes to soil. Use bait traps at dusk.",
-        'grub': "Apply milky spore bacteria to lawn. Beneficial nematodes are highly effective.",
-        'wireworm': "Rotate crops with non‑host plants. Use soil insecticides if infestation is severe.",
-        'rice leaf roller': "Spray neem oil at early infestation. Encourage natural enemies like spiders.",
-        'brown plant hopper': "Apply systemic insecticides. Maintain field drainage and avoid excessive nitrogen.",
-        'army worm': "Use Bt or spinosad spray. Hand‑pick caterpillars in small gardens.",
-        'red spider': "Spray with water to dislodge mites. Apply horticultural oil or sulfur.",
-        'blister beetle': "Hand‑pick beetles (wear gloves). Use spinosad for severe infestations.",
-        'white margined moth': "Apply Bt or pyrethrin spray. Remove infested leaves.",
-        'thrips': "Use blue sticky traps. Apply spinosad or insecticidal soap.",
-    }
-    return recs.get(pest, "Consult a local agronomist for targeted treatment options. Isolate affected plants and monitor daily.")

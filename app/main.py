@@ -156,6 +156,7 @@ st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 if "user" not in st.session_state:
     st.session_state.user = None
 
+# ----- Google OAuth callback -----
 query_params = st.query_params
 auth_code = query_params.get("code", [None])[0]
 
@@ -171,6 +172,7 @@ if auth_code and st.session_state.user is None:
     except Exception as e:
         st.error(f"Google sign‑in failed: {e}")
 
+# ----- Paystack callback -----
 reference = query_params.get("reference", [None])[0]
 plan = query_params.get("plan", [None])[0]
 
@@ -181,7 +183,6 @@ if reference and plan and plan in PAYSTACK_PLANS:
         user_id = st.session_state.user.id if st.session_state.user else None
         if user_id:
             scans_to_add = PAYSTACK_PLANS[plan]["scans"]
-            # Get current scans, then add the new ones
             current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
             current_scans = current.data[0]["scans_remaining"] if current.data else 0
             new_total = current_scans + scans_to_add
@@ -200,6 +201,7 @@ if reference and plan and plan in PAYSTACK_PLANS:
             st.query_params.clear()
             st.rerun()
 
+# ----- Restore session -----
 if st.session_state.user is None:
     supabase = init_supabase()
     try:
@@ -209,6 +211,7 @@ if st.session_state.user is None:
     except:
         pass
 
+# ----- Login page -----
 if st.session_state.user is None:
     st.title("🌱 GAIA – Sign In / Create Account")
     tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Sign Up", "🅶 Google"])
@@ -233,26 +236,35 @@ if st.session_state.user is None:
                         if err:
                             st.error(err)
                         else:
-                            st.success("Password reset email sent!")
+                            st.success("Password reset email sent! Check your inbox.")
                     else:
                         st.warning("Enter your email first.")
 
     with tab2:
         with st.form("signup_form"):
             col1, col2 = st.columns(2)
-            with col1: new_first_name = st.text_input("First Name")
-            with col2: new_last_name = st.text_input("Last Name")
+            with col1:
+                new_first_name = st.text_input("First Name")
+            with col2:
+                new_last_name = st.text_input("Last Name")
             new_email = st.text_input("Email *")
             new_password = st.text_input("Password (min 6 characters) *", type="password")
             col1, col2 = st.columns(2)
-            with col1: new_country = st.selectbox("Country", options=[""] + countries)
-            with col2: new_phone_code = st.selectbox("Country Code", options=[""] + country_codes)
+            with col1:
+                new_country = st.selectbox("Country", options=[""] + countries)
+            with col2:
+                new_phone_code = st.selectbox("Country Code", options=[""] + country_codes)
             new_phone = st.text_input("Phone Number", placeholder="+2347012345678")
+            
             st.markdown("**Social Media (optional)**")
             col1, col2, col3 = st.columns(3)
-            with col1: twitter = st.text_input("Twitter/X", placeholder="@username")
-            with col2: linkedin = st.text_input("LinkedIn", placeholder="linkedin.com/in/username")
-            with col3: instagram = st.text_input("Instagram", placeholder="@username")
+            with col1:
+                twitter = st.text_input("Twitter/X", placeholder="@username")
+            with col2:
+                linkedin = st.text_input("LinkedIn", placeholder="linkedin.com/in/username")
+            with col3:
+                instagram = st.text_input("Instagram", placeholder="@username")
+            
             if st.form_submit_button("Create Account"):
                 if not new_email or not new_password:
                     st.error("Email and password are required.")
@@ -262,82 +274,47 @@ if st.session_state.user is None:
                     full_phone = new_phone.strip()
                     if new_phone_code and not full_phone.startswith("+"):
                         full_phone = f"{new_phone_code}{full_phone}"
+                    
                     social = {}
                     if twitter.strip(): social["twitter"] = twitter.strip()
                     if linkedin.strip(): social["linkedin"] = linkedin.strip()
                     if instagram.strip(): social["instagram"] = instagram.strip()
+                    
                     user, error = sign_up(
                         new_email, new_password,
                         first_name=new_first_name.strip(),
                         last_name=new_last_name.strip(),
-                        phone=full_phone, country=new_country,
+                        phone=full_phone,
+                        country=new_country,
                         social_media=social
                     )
                     if error:
                         st.error(f"Sign up failed: {error}")
                     else:
-                        st.success("Account created! 30 free scans added.")
+                        st.success("Account created! You are logged in with 30 free scans.")
                         st.rerun()
 
     with tab3:
-        st.write("Sign in with Google.")
+        st.write("Sign in instantly with your Google account.")
         google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app"
-        st.markdown(f'<a href="{google_auth_url}" target="_blank"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;">Sign in with Google</button></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{google_auth_url}" target="_blank"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;cursor:pointer;">Sign in with Google</button></a>', unsafe_allow_html=True)
 
     st.stop()
 
 # ---------- Logged‑in area ----------
 user_id = st.session_state.user.id
 user_data = get_user_scans(user_id)
+
 scans_left = user_data["scans_remaining"]
 plan_name = user_data["plan"]
 
-
-# ---------- CLEAN LIGHT SIDEBAR ----------
-st.sidebar.markdown("""
-<style>
-    /* Sidebar – clean light mode */
-    section[data-testid="stSidebar"] {
-        background: #ffffff !important;
-        color: #1b5e20 !important;
-        border-right: 1px solid #e0e0e0 !important;
-    }
-    section[data-testid="stSidebar"] * {
-        color: #1b5e20 !important;
-        font-family: 'Inter', sans-serif !important;
-        text-transform: none !important;
-    }
-    /* Hide Streamlit keyboard shortcut (stronger) */
-    button[data-testid="stSidebar"] + div,
-    div[data-testid="stToolbar"] {
-        display: none !important;
-    }
-    /* Metric */
-    div[data-testid="stMetric"] label {
-        color: #1b5e20 !important;
-    }
-    /* Logout button */
-    section[data-testid="stSidebar"] button {
-        background: #f5f5f5 !important;
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 8px !important;
-        color: #1b5e20 !important;
-    }
-    section[data-testid="stSidebar"] button:hover {
-        background: #e0e0e0 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
+# Clean sidebar – no complex CSS, just standard Streamlit
 st.sidebar.write(f"👤 {st.session_state.user.email}")
-
 st.sidebar.metric("Scans Remaining", scans_left)
-
-
 st.sidebar.write(f"Plan: {plan_name}")
 
 if scans_left <= 0:
-    st.warning("You have no scans left.")
+    st.warning("You have no scans left. Choose a plan to continue.")
     st.markdown("### Choose a Plan")
     cols = st.columns(len(PAYSTACK_PLANS))
     for i, (plan_key, plan_data) in enumerate(PAYSTACK_PLANS.items()):
@@ -347,12 +324,11 @@ if scans_left <= 0:
             st.markdown(f'<a href="{plan_data["url"]}" target="_blank"><button style="width:100%;padding:10px;background:#0d6efd;color:white;border:none;border-radius:5px;">Select</button></a>', unsafe_allow_html=True)
     st.stop()
 
-
 if st.sidebar.button("Logout"):
     sign_out()
     st.rerun()
 
-# ---------- Navigation ----------
+# ---------- Main navigation ----------
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")

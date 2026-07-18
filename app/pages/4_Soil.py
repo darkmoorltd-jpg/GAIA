@@ -19,7 +19,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-dark_mode = st.toggle("", value=True, key="soil_theme_toggle")
+dark_mode = st.toggle("", value=False, key="soil_theme_toggle")
 
 if dark_mode:
     theme = "dark"

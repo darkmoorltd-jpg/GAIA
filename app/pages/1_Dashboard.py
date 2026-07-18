@@ -29,10 +29,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Use Streamlit's built-in toggle (no label, just the switch)
-dark_mode = st.toggle("", value=True, key="theme_toggle")
+dark_mode = st.toggle("", value=False, key="theme_toggle")
 
 if dark_mode:
-    st.session_state.theme = "dark"
+    st.session_state.theme = "light"
 else:
     st.session_state.theme = "light"
 

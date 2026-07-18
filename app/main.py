@@ -28,9 +28,7 @@ def sign_up(email: str, password: str):
     try:
         res = supabase.auth.sign_up({"email": email, "password": password})
         if res.user:
-            # Wait a bit for the auth user to be fully persisted
             time.sleep(0.5)
-            # Create user_scans row (ignore if already exists)
             try:
                 supabase.table("user_scans").insert({
                     "user_id": res.user.id,
@@ -39,7 +37,6 @@ def sign_up(email: str, password: str):
                 }).execute()
             except:
                 pass
-            # Store user in session state
             st.session_state.user = res.user
         return res.user, None
     except Exception as e:
@@ -49,7 +46,6 @@ def sign_in(email: str, password: str):
     supabase = init_supabase()
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        # Store user in session state (this is the key fix)
         st.session_state.user = res.user
         return res.user, None
     except Exception as e:
@@ -66,10 +62,21 @@ def sign_out():
 def reset_password(email: str):
     supabase = init_supabase()
     try:
-        supabase.auth.reset_password_for_email(email)
+        # The redirect_to must be a URL that points back to our app with type=recovery
+        supabase.auth.reset_password_for_email(email, {
+            "redirect_to": "https://gaiagpt.streamlit.app/~/reset-password"
+        })
         return None
     except Exception as e:
         return str(e)
+
+def update_password(new_password: str):
+    supabase = init_supabase()
+    try:
+        supabase.auth.update_user({"password": new_password})
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
 def get_user_scans(user_id: str):
     supabase = init_supabase()
@@ -79,7 +86,6 @@ def get_user_scans(user_id: str):
             return res.data[0]
     except:
         pass
-    # Create row if missing
     try:
         supabase.table("user_scans").insert({
             "user_id": user_id,
@@ -106,18 +112,44 @@ st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 if "user" not in st.session_state:
     st.session_state.user = None
 
-# ----- Google OAuth callback -----
+# ----- Handle password reset callback -----
 query_params = st.query_params
+reset_token = query_params.get("token", [None])[0]
+reset_type = query_params.get("type", [None])[0]
+
+if reset_type == "recovery" and reset_token:
+    # User arrived from password reset email
+    st.title("🔑 Set New Password")
+    with st.form("reset_password_form"):
+        new_password = st.text_input("New password", type="password")
+        confirm_password = st.text_input("Confirm password", type="password")
+        if st.form_submit_button("Update Password"):
+            if new_password != confirm_password:
+                st.error("Passwords do not match.")
+            elif len(new_password) < 6:
+                st.error("Password must be at least 6 characters.")
+            else:
+                success, error = update_password(new_password)
+                if success:
+                    st.success("Password updated! You can now log in with your new password.")
+                    st.session_state.user = None
+                    st.query_params.clear()
+                    st.rerun()
+                else:
+                    st.error(f"Failed to update password: {error}")
+    st.stop()
+
+# ----- Google OAuth callback -----
 auth_code = query_params.get("code", [None])[0]
 
 if auth_code and st.session_state.user is None:
     supabase = init_supabase()
     try:
         supabase.auth.exchange_code_for_session({"auth_code": auth_code})
-        # After exchanging code, try to get the session
         session = supabase.auth.get_session()
         if session and session.user:
             st.session_state.user = session.user
+        st.query_params.clear()
         st.rerun()
     except Exception as e:
         st.error(f"Google sign‑in failed: {e}")
@@ -137,8 +169,6 @@ if reference and plan and plan in PAYSTACK_PLANS:
                 "scans_remaining": scans_to_add,
                 "plan": plan
             }).eq("user_id", user_id).execute()
-
-            # Record payment history
             supabase.table("payment_history").insert({
                 "user_id": user_id,
                 "amount": txn["amount"] / 100,
@@ -146,12 +176,11 @@ if reference and plan and plan in PAYSTACK_PLANS:
                 "plan": plan,
                 "reference": reference
             }).execute()
-
             st.success(f"Payment successful! {scans_to_add} scans added to your account.")
             st.query_params.clear()
             st.rerun()
 
-# ----- Try to restore session from Supabase cookies (if page reloaded) -----
+# ----- Restore session -----
 if st.session_state.user is None:
     supabase = init_supabase()
     try:
@@ -186,7 +215,9 @@ if st.session_state.user is None:
                         if err:
                             st.error(err)
                         else:
-                            st.success("Password reset email sent.")
+                            st.success("Password reset email sent! Check your inbox (and spam folder).")
+                    else:
+                        st.warning("Enter your email first.")
 
     with tab2:
         with st.form("signup_form"):

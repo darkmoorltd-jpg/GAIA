@@ -314,14 +314,10 @@ if uploaded_file:
 
     # ---------- Top result card ----------
     st.markdown(f"""
-    <div class="result-card top-result">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div>
-                <p style="color: #66ff99; margin: 0; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;">Identified Pest</p>
-                <h3 style="margin: 0.3rem 0;">{PEST_CLASSES[top_idx]}</h3>
-            </div>
-            <div class="counter">{top_prob:.1f}%</div>
-        </div>
+    <div class="result-card top-result" style="padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+        <span style="color: #66ff99; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;">IDENTIFIED:&nbsp;</span>
+        <span style="font-size: 1.1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; background: linear-gradient(90deg, #00ff88, #66ff99); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{PEST_CLASSES[top_idx]}</span>
+        <span class="counter" style="font-size: 1.8rem; margin-left: auto;">{top_prob:.1f}%</span>
     </div>
     """, unsafe_allow_html=True)
 

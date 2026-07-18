@@ -66,7 +66,9 @@ def sign_out():
 def reset_password(email: str):
     supabase = init_supabase()
     try:
-        supabase.auth.reset_password_for_email(email)
+        supabase.auth.reset_password_for_email(email, {
+            "redirect_to": "https://gaiagpt.streamlit.app/~/reset-password"
+        })
         return None
     except Exception as e:
         return str(e)

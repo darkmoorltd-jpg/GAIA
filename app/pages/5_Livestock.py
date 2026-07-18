@@ -1,157 +1,367 @@
 
 import streamlit as st
 from PIL import Image
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
-import hashlib
 import os
 import sys
+import timm
 
-# ---------- Real model detection ----------
-REAL_MODEL = False
-MODEL_LOAD_ERROR = None
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-try:
-    sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-    from src.models.pretrained_vit import PretrainedViTClassifier
-    from torchvision.transforms import Compose, Resize, ToTensor, Normalize
-    import torch
-    import torch.nn.functional as F
-    REAL_MODEL = True
-except Exception as e:
-    MODEL_LOAD_ERROR = str(e)
-
-# ---------- Scan deduction ----------
-def deduct_and_show():
-    import streamlit as st
-    from supabase import create_client
-    if "user" not in st.session_state or st.session_state.user is None:
-        return
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    supabase = create_client(url, key)
-    user_id = st.session_state.user.id
-
-    # 1. Ensure the row exists (insert, ignore conflict)
-    try:
-        supabase.table("user_scans").insert(
-            {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
-        ).execute()
-    except:
-        pass
-
-    # 2. Decrement directly (bypass RPC if it fails)
-    try:
-        # Direct update: scans_remaining = scans_remaining - 1
-        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
-    except:
-        # Fallback to RPC
-        try:
-            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
-        except:
-            pass
-
-    # 3. Fetch and display new count
-    try:
-        res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
-        if res.data:
-            remaining = res.data[0]["scans_remaining"]
-            st.success(f"Scan deducted. Remaining scans: {remaining}")
-        else:
-            st.warning("Scan deducted.")
-    except:
-        st.warning("Scan deduction recorded.")
-# ---------- Page config ----------
+# ---------- Theme toggle ----------
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
+
 st.markdown("""
 <style>
-    .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #ede7f6 100%); }
-    .title { font-size: 2.8rem; font-weight: 800; background: linear-gradient(90deg, #4a148c, #7c4dff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .subtitle { font-size: 1.2rem; color: #555; margin-bottom: 2rem; }
-    .pred-box { background: #f3e5f5; border-left: 5px solid #7c4dff; padding: 1rem 1.5rem; border-radius: 10px; margin: 0.5rem 0; }
-    .pred-box-high { border-left-color: #4a148c; background: #e1bee7; }
-    .stProgress > div > div > div > div { background: linear-gradient(90deg, #7c4dff, #b388ff); }
-    .badge-real { background: #4caf50; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; display: inline-block; }
-    .badge-demo { background: #ff9800; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; display: inline-block; }
+    .stToggle > label { display: none !important; }
+    .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
+    .stToggle > div { transform: scale(1.3); }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="title">🐄 Livestock Health</div>', unsafe_allow_html=True)
+dark_mode = st.toggle("", value=True, key="livestock_theme_toggle")
+theme = "dark" if dark_mode else "light"
 
-# Show which mode is active
-if REAL_MODEL:
-    st.markdown('<span class="badge-real">✅ Real AI Model Active</span>', unsafe_allow_html=True)
-else:
-    st.markdown(f'<span class="badge-demo">⚠️ Demo Mode — Real model unavailable ({MODEL_LOAD_ERROR})</span>', unsafe_allow_html=True)
-
-st.markdown('<div class="subtitle">Detect common diseases in cattle and poultry from a photo</div>', unsafe_allow_html=True)
-
+# ---------- Animal selection ----------
 ANIMAL_CLASSES = {
     "cattle": ["Foot‑and‑Mouth Disease", "Healthy", "Lumpy Skin Disease"],
     "poultry": ["Coccidiosis", "Healthy", "Newcastle Disease", "Salmonella"]
 }
 
 animal = st.selectbox("🐾 Choose animal", list(ANIMAL_CLASSES.keys()))
-uploaded_file = st.file_uploader("📤 Upload animal photo", type=["jpg", "jpeg", "png"])
+
+# ---------- Dynamic background based on animal ----------
+if animal == "cattle":
+    bg_image = "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+    bg_overlay = "rgba(20, 10, 5, 0.85)" if theme == "dark" else "rgba(255, 255, 255, 0.85)"
+    accent_color = "#d4a373"
+    glow_color = "rgba(212, 163, 115, 0.6)"
+else:
+    bg_image = "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+    bg_overlay = "rgba(30, 20, 5, 0.85)" if theme == "dark" else "rgba(255, 255, 255, 0.85)"
+    accent_color = "#ff9800"
+    glow_color = "rgba(255, 152, 0, 0.6)"
+
+# ---------- CSS ----------
+if theme == "dark":
+    st.markdown(f"""
+    <style>
+        .stApp {{
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+        }}
+        header, footer {{visibility: hidden;}}
+        
+        /* Dynamic background */
+        .bg-container {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background: url('{bg_image}') center/cover no-repeat fixed;
+        }}
+        .bg-overlay {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: {bg_overlay};
+        }}
+        
+        /* Title */
+        .title {{
+            font-size: 3rem; font-weight: 900; text-align: center;
+            background: linear-gradient(90deg, {accent_color}, #fff, {accent_color});
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px {glow_color};
+            animation: titleGlow 2s ease-in-out infinite alternate;
+            position: relative; z-index: 1;
+        }}
+        @keyframes titleGlow {{
+            from {{ text-shadow: 0 0 30px {glow_color}; }}
+            to {{ text-shadow: 0 0 60px {glow_color}, 0 0 100px {glow_color}; }}
+        }}
+        .subtitle {{ text-align: center; font-size: 1.1rem; color: #ddd; margin-bottom: 2rem; position: relative; z-index: 1; }}
+        
+        /* Upload zone */
+        .stFileUploader > div {{
+            background: rgba(255,255,255,0.03) !important; backdrop-filter: blur(15px) !important;
+            border: 2px dashed rgba({accent_color.replace('#','')}, 0.3) !important;
+            border-radius: 20px !important; padding: 2rem !important;
+            position: relative; z-index: 1;
+        }}
+        .stFileUploader > div:hover {{
+            border-color: {accent_color} !important;
+            box-shadow: 0 0 30px {glow_color};
+        }}
+        
+        /* Image preview */
+        .stImage img {{
+            border-radius: 20px;
+            box-shadow: 0 0 40px {glow_color};
+            border: 1px solid {accent_color};
+            position: relative; z-index: 1;
+        }}
+        
+        /* Result cards */
+        .result-card {{
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(25px);
+            border: 1px solid {accent_color}44;
+            border-radius: 20px; padding: 1.5rem;
+            margin: 0.8rem 0; position: relative; overflow: hidden;
+        }}
+        .result-card::before {{
+            content: ''; position: absolute; top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: conic-gradient(transparent, {accent_color}22, transparent, transparent);
+            animation: rotate 6s linear infinite;
+        }}
+        @keyframes rotate {{
+            from {{ transform: rotate(0deg); }}
+            to {{ transform: rotate(360deg); }}
+        }}
+        .result-card > * {{ position: relative; z-index: 1; }}
+        
+        .top-result {{
+            background: rgba(0,0,0,0.8); border: 2px solid {accent_color};
+            box-shadow: 0 0 50px {glow_color}, inset 0 0 30px {accent_color}11;
+        }}
+        .top-result h3 {{
+            font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px;
+            color: {accent_color}; margin: 0.3rem 0;
+        }}
+        .counter {{
+            font-size: 2rem; font-weight: 900; color: {accent_color};
+            text-shadow: 0 0 30px {glow_color};
+            animation: pulse 2s ease-in-out infinite;
+        }}
+        @keyframes pulse {{
+            0%, 100% {{ transform: scale(1); }}
+            50% {{ transform: scale(1.05); }}
+        }}
+        
+        .progress-container {{ margin: 0.6rem 0; position: relative; }}
+        .progress-label {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }}
+        .progress-label span {{ font-weight: 600; color: #ddd; }}
+        .progress-label .percent {{ color: {accent_color}; font-size: 1rem; font-weight: 700; }}
+        .progress-bar {{ height: 6px; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; }}
+        .progress-fill {{
+            height: 100%; border-radius: 8px;
+            background: linear-gradient(90deg, {accent_color}, #fff, {accent_color});
+            background-size: 200% 100%;
+            animation: shimmer 2s ease infinite, grow 1.5s ease-out;
+            box-shadow: 0 0 10px {glow_color};
+            transition: width 1s ease;
+        }}
+        @keyframes shimmer {{
+            0% {{ background-position: 200% 0; }}
+            100% {{ background-position: -200% 0; }}
+        }}
+        @keyframes grow {{ from {{ width: 0% !important; }} }}
+        
+        .action-box {{
+            background: {accent_color}11; border: 1px solid {accent_color}33;
+            border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1rem;
+            backdrop-filter: blur(10px);
+        }}
+    </style>
+    <div class="bg-container"></div>
+    <div class="bg-overlay"></div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown(f"""
+    <style>
+        .stApp {{
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8f5e9 100%);
+            color: #1b5e20;
+        }}
+        .bg-container, .bg-overlay {{ display: none; }}
+        .title {{
+            font-size: 3rem; font-weight: 900; text-align: center;
+            background: linear-gradient(90deg, {accent_color}, #333, {accent_color});
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 10px {glow_color};
+            animation: titleGlowLight 2s ease-in-out infinite alternate;
+        }}
+        @keyframes titleGlowLight {{
+            from {{ text-shadow: 0 0 10px {glow_color}; }}
+            to {{ text-shadow: 0 0 25px {glow_color}, 0 0 50px {glow_color}; }}
+        }}
+        .subtitle {{ text-align: center; font-size: 1.1rem; color: #333; margin-bottom: 2rem; }}
+        .stFileUploader > div {{
+            background: rgba(255,255,255,0.8) !important; backdrop-filter: blur(10px) !important;
+            border: 2px dashed {accent_color}66 !important; border-radius: 20px !important;
+            padding: 2rem !important;
+        }}
+        .stImage img {{ border-radius: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.2); }}
+        .result-card {{
+            background: rgba(255,255,255,0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(0,0,0,0.1); border-radius: 20px;
+            padding: 1.5rem; margin: 0.8rem 0;
+        }}
+        .top-result {{ border-color: {accent_color}; box-shadow: 0 0 20px {accent_color}44; }}
+        .top-result h3 {{ font-size: 1.2rem; color: #1b5e20; }}
+        .counter {{ font-size: 2rem; font-weight: 900; color: {accent_color}; }}
+        .progress-container {{ margin: 0.6rem 0; }}
+        .progress-label {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }}
+        .progress-label span {{ font-weight: 600; color: #1b5e20; }}
+        .progress-label .percent {{ color: {accent_color}; font-size: 1rem; font-weight: 700; }}
+        .progress-bar {{ height: 6px; background: rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }}
+        .progress-fill {{
+            height: 100%; border-radius: 8px;
+            background: linear-gradient(90deg, {accent_color}, #fff);
+            animation: grow 1.5s ease-out;
+        }}
+        @keyframes grow {{ from {{ width: 0% !important; }} }}
+        .action-box {{
+            background: {accent_color}11; border: 1px solid {accent_color}33;
+            border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1rem;
+        }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# ---------- Custom model class (matches the trained architecture) ----------
+class LivestockClassifier(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.backbone = timm.create_model('vit_small_patch16_224', pretrained=False, num_classes=0)
+        self.head = nn.Sequential(
+            nn.Linear(self.backbone.embed_dim, 1024),
+            nn.GELU(),
+            nn.Dropout(0.3),
+            nn.Linear(1024, 512),
+            nn.GELU(),
+            nn.Dropout(0.2),
+            nn.Linear(512, num_classes)
+        )
+    def forward(self, x):
+        return self.head(self.backbone(x))
+
+@st.cache_resource
+def load_animal_model(animal: str):
+    checkpoint = f"checkpoints/{animal}/best_model.pt"
+    if not os.path.exists(checkpoint):
+        raise FileNotFoundError(f"Model not found at {checkpoint}")
+    num_classes = len(ANIMAL_CLASSES[animal])
+    model = LivestockClassifier(num_classes=num_classes)
+    state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    model.load_state_dict(state_dict)
+    model.eval()
+    return model
+
+def predict_image(model, image: Image.Image):
+    transform = Compose([
+        Resize((224, 224)),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    img_tensor = transform(image).unsqueeze(0)
+    with torch.no_grad():
+        logits = model(img_tensor)
+        probs = F.softmax(logits, dim=1)[0].cpu().numpy()
+    return probs
+
+# ---------- UI ----------
+st.markdown('<div class="title">🐄 LIVESTOCK HEALTH</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Select animal, upload photo, get instant diagnosis.</div>', unsafe_allow_html=True)
+
+uploaded_file = st.file_uploader("📤 UPLOAD ANIMAL PHOTO", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption=f"Your {animal}", width=300)
+    st.image(image, caption="", width=300)
+
     st.markdown("---")
-    st.subheader("🩺 Health Check Result")
 
-    probs = None
-    used_real = False
-
-    # ----- Try real model -----
-    if REAL_MODEL:
-        try:
-            from app.utils.download_models import ensure_model
-            checkpoint = ensure_model(animal)
-            if os.path.exists(checkpoint):
-                num_classes = len(ANIMAL_CLASSES[animal])
-                model = PretrainedViTClassifier(num_classes=num_classes)
-                state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
-                model.load_state_dict(state_dict)
-                model.eval()
-                transform = Compose([
-                    Resize((224, 224)),
-                    ToTensor(),
-                    Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                ])
-                img_tensor = transform(image).unsqueeze(0)
-                with torch.no_grad():
-                    logits = model(img_tensor)
-                    probs = F.softmax(logits, dim=1)[0].cpu().numpy()
-                used_real = True
-        except Exception as e:
-            st.warning(f"Real model error: {e}")
-
-    # ----- Fallback to demo -----
-    if probs is None:
-        class_names = ANIMAL_CLASSES[animal]
-        seed = int(hashlib.md5(uploaded_file.name.encode()).hexdigest()[:8], 16)
-        np.random.seed(seed)
-        probs = np.random.rand(len(class_names))
-        probs = probs / probs.sum()
+    try:
+        model = load_animal_model(animal)
+        probs = predict_image(model, image)
+    except FileNotFoundError as e:
+        st.error(f"🚫 {e}")
+        st.info("Model not installed. Please contact support.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Scan failed: {e}")
+        st.stop()
 
     class_names = ANIMAL_CLASSES[animal]
+    top_idx = np.argmax(probs)
+    top_prob = probs[top_idx] * 100
+
+    # Top result card
+    st.markdown(f"""
+    <div class="result-card top-result">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <p style="color: {accent_color}; margin: 0; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;">Diagnosis</p>
+                <h3 style="margin: 0.3rem 0;">{class_names[top_idx]}</h3>
+            </div>
+            <div class="counter">{top_prob:.1f}%</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("### 📊 PROBABILITY BREAKDOWN")
+
     sorted_idx = np.argsort(probs)[::-1]
+    for i in sorted_idx:
+        disease = class_names[i]
+        percent = probs[i] * 100
+        bar_class = " warning" if percent < 40 else (" danger" if percent < 20 else "")
 
-    for i, idx in enumerate(sorted_idx):
-        disease = class_names[idx]
-        percent = probs[idx] * 100
-        box_class = "pred-box-high" if i == 0 else "pred-box"
-        st.markdown(f'<div class="{box_class}"><b>{disease}</b> – {percent:.1f}%</div>', unsafe_allow_html=True)
-        st.progress(float(probs[idx]))
+        st.markdown(f"""
+        <div class="result-card">
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>{disease.upper()}</span>
+                    <span class="percent">{percent:.1f}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill{bar_class}" style="width: {percent}%;"></div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # Only deduct scan if real model was used
-    if used_real:
-        deduct_and_show()
+    # Recommendation
+    recommendation = _get_recommendation(class_names[top_idx], animal)
+    st.markdown(f"""
+    <div class="action-box">
+        <h3 style="color: {accent_color}; margin: 0;">⚡ RECOMMENDATION</h3>
+        <p style="margin-top: 0.5rem;">{recommendation}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Scan deduction
+    if st.session_state.get("user"):
+        try:
+            from app.utils.supabase_utils import decrement_scan
+            decrement_scan(st.session_state.user.id)
+            st.success("Scan deducted.")
+        except:
+            pass
+
+# ---------- Helper ----------
+def _get_recommendation(disease, animal):
+    if animal == "cattle":
+        recs = {
+            "Foot‑and‑Mouth Disease": "Isolate immediately. Contact veterinarian. Vaccinate herd. Disinfect all equipment.",
+            "Healthy": "Animal appears healthy. Continue regular check‑ups and vaccination schedule.",
+            "Lumpy Skin Disease": "Isolate affected cattle. Apply insecticide to control flies. Vaccinate remaining herd."
+        }
     else:
-        st.info("Demo mode — no scan deducted.")
-
-    top_disease = class_names[sorted_idx[0]]
-    if "healthy" in top_disease.lower():
-        st.success(f"✅ Your {animal} appears healthy! Keep up the good care.")
-    else:
-        st.warning(f"⚠️ Possible **{top_disease}** detected. Isolate and consult a veterinarian immediately.")
+        recs = {
+            "Coccidiosis": "Administer anticoccidial drugs. Improve litter management. Provide clean water.",
+            "Healthy": "Bird appears healthy. Maintain biosecurity protocols.",
+            "Newcastle Disease": "Isolate immediately. This is a notifiable disease. Contact veterinary authorities urgently.",
+            "Salmonella": "Administer antibiotics as prescribed. Improve sanitation. Isolate affected birds."
+        }
+    return recs.get(disease, "Consult a veterinarian for proper diagnosis and treatment plan.")

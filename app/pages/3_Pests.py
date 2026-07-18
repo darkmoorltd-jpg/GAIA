@@ -2,14 +2,15 @@
 import streamlit as st
 from PIL import Image
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import os
 import sys
+import timm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-from src.models.pretrained_vit import PretrainedViTClassifier
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
 # ---------- Page config & CSS ----------
@@ -48,13 +49,30 @@ PEST_CLASSES = [
 ]
 NUM_CLASSES = len(PEST_CLASSES)
 
-# ---------- Model loader (local file, no download) ----------
+# ---------- Custom model class (matches the training architecture exactly) ----------
+class Pest102Classifier(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone = timm.create_model('vit_small_patch16_224', pretrained=False, num_classes=0)
+        self.head = nn.Sequential(
+            nn.Linear(self.backbone.embed_dim, 2048),
+            nn.GELU(),
+            nn.Dropout(0.3),
+            nn.Linear(2048, 1024),
+            nn.GELU(),
+            nn.Dropout(0.2),
+            nn.Linear(1024, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        return self.head(self.backbone(x))
+
 @st.cache_resource
 def load_pest_model():
     checkpoint = "checkpoints/pests_102class/best_model.pt"
     if not os.path.exists(checkpoint):
         raise FileNotFoundError(f"Model not found at {checkpoint}")
-    model = PretrainedViTClassifier(num_classes=NUM_CLASSES)
+    model = Pest102Classifier()
     state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
     model.load_state_dict(state_dict)
     model.eval()

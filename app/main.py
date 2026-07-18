@@ -315,11 +315,12 @@ livestock_page = st.Page("pages/5_Livestock.py", title="Livestock Health", icon=
 payment_history_page = st.Page("pages/6_Payment_History.py", title="Payment History", icon="💳")
 admin_page = st.Page("pages/7_Admin.py", title="Admin Dashboard", icon="🔐")
 profile_page = st.Page("pages/8_Profile.py", title="My Profile", icon="👤")
+buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 
 pg = st.navigation({
     "GAIA": [dashboard_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page],
-    "Account": [payment_history_page, profile_page],
+    "Account": [payment_history_page, profile_page, buy_scans_page],
     "Admin": [admin_page],
 })
 pg.run()

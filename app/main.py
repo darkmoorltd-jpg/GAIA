@@ -292,62 +292,46 @@ user_data = get_user_scans(user_id)
 scans_left = user_data["scans_remaining"]
 plan_name = user_data["plan"]
 
-# ---------- CYBERPUNK SIDEBAR CSS ----------
-st.markdown("""
+
+# ---------- CLEAN LIGHT SIDEBAR ----------
+st.sidebar.markdown("""
 <style>
-    /* Sidebar background – dark green matrix with scanlines */
+    /* Sidebar – clean light mode */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0a1a0a 0%, #0d260d 50%, #0a1a0a 100%);
-        border-right: 1px solid #00ff88;
-        box-shadow: 0 0 20px rgba(0, 255, 100, 0.3);
+        background: #ffffff !important;
+        color: #1b5e20 !important;
+        border-right: 1px solid #e0e0e0 !important;
     }
-    /* Scanline overlay for the sidebar */
-    section[data-testid="stSidebar"]::before {
-        content: "";
-        position: absolute;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background: repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 2px,
-            rgba(0, 255, 100, 0.03) 2px,
-            rgba(0, 255, 100, 0.03) 4px
-        );
-        z-index: 0; pointer-events: none;
-    }
-    /* Sidebar text styling */
     section[data-testid="stSidebar"] * {
-        color: #00ff88 !important;
-        font-family: 'Courier New', monospace !important;
-        text-transform: uppercase !important;
+        color: #1b5e20 !important;
+        font-family: 'Inter', sans-serif !important;
+        text-transform: none !important;
     }
-    /* Sidebar links and buttons */
+    /* Hide Streamlit keyboard shortcut */
+    button[data-testid="stSidebar"] + div {
+        display: none !important;
+    }
+    /* Metric */
+    div[data-testid="stMetric"] label {
+        color: #1b5e20 !important;
+    }
+    /* Logout button */
     section[data-testid="stSidebar"] button {
-        background: transparent !important;
-        border: 1px solid #00ff88 !important;
-        border-radius: 0 !important;
-        color: #00ff88 !important;
-        transition: all 0.3s ease;
+        background: #f5f5f5 !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 8px !important;
+        color: #1b5e20 !important;
     }
     section[data-testid="stSidebar"] button:hover {
-        background: #00ff88 !important;
-        color: #0a1a0a !important;
-        box-shadow: 0 0 15px rgba(0, 255, 100, 0.6);
-    }
-    /* Scan count metric */
-    div[data-testid="stMetric"] {
-        color: #00ff88 !important;
-    }
-    /* Divider line */
-    hr {
-        border-color: #00ff88 !important;
+        background: #e0e0e0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 st.sidebar.write(f"👤 {st.session_state.user.email}")
+
 st.sidebar.metric("Scans Remaining", scans_left)
-st.sidebar.markdown("-" * 30)
+
 
 st.sidebar.write(f"Plan: {plan_name}")
 
@@ -362,7 +346,7 @@ if scans_left <= 0:
             st.markdown(f'<a href="{plan_data["url"]}" target="_blank"><button style="width:100%;padding:10px;background:#0d6efd;color:white;border:none;border-radius:5px;">Select</button></a>', unsafe_allow_html=True)
     st.stop()
 
-st.sidebar.caption("⚡ SYS.ONLINE // 24.7.365")
+
 if st.sidebar.button("Logout"):
     sign_out()
     st.rerun()

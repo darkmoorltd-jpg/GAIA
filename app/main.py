@@ -190,13 +190,54 @@ if st.session_state.user is None:
 
     with tab2:
         with st.form("signup_form"):
-            new_email = st.text_input("Email")
-            new_password = st.text_input("Password (min 6 characters)", type="password")
+            col1, col2 = st.columns(2)
+            with col1:
+                new_first_name = st.text_input("First Name")
+            with col2:
+                new_last_name = st.text_input("Last Name")
+            new_email = st.text_input("Email *")
+            new_password = st.text_input("Password (min 6 characters) *", type="password")
+            col1, col2 = st.columns(2)
+            with col1:
+                new_country = st.selectbox("Country", options=[""] + countries)
+            with col2:
+                new_phone_code = st.selectbox("Country Code", options=[""] + country_codes, index=0)
+            new_phone = st.text_input("Phone Number (with country code, e.g. +2347012345678)", value="", placeholder="+2347012345678")
+            
+            # Optional social media
+            st.markdown("**Social Media (optional)**")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                twitter = st.text_input("Twitter/X", placeholder="@username")
+            with col2:
+                linkedin = st.text_input("LinkedIn", placeholder="linkedin.com/in/username")
+            with col3:
+                instagram = st.text_input("Instagram", placeholder="@username")
+            
             if st.form_submit_button("Create Account"):
-                if len(new_password) < 6:
+                if not new_email or not new_password:
+                    st.error("Email and password are required.")
+                elif len(new_password) < 6:
                     st.error("Password must be at least 6 characters.")
                 else:
-                    user, error = sign_up(new_email, new_password)
+                    # Combine phone code + number if provided
+                    full_phone = new_phone.strip()
+                    if new_phone_code and not full_phone.startswith("+"):
+                        full_phone = f"{new_phone_code}{full_phone}" if new_phone_code else new_phone.strip()
+                    
+                    social = {}
+                    if twitter.strip(): social["twitter"] = twitter.strip()
+                    if linkedin.strip(): social["linkedin"] = linkedin.strip()
+                    if instagram.strip(): social["instagram"] = instagram.strip()
+                    
+                    user, error = sign_up(
+                        new_email, new_password,
+                        first_name=new_first_name.strip(),
+                        last_name=new_last_name.strip(),
+                        phone=full_phone,
+                        country=new_country,
+                        social_media=social
+                    )
                     if error:
                         st.error(f"Sign up failed: {error}")
                     else:

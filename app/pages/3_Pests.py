@@ -56,7 +56,7 @@ def load_pest_model():
     if not os.path.exists(checkpoint):
         raise FileNotFoundError(f"Model not found at {checkpoint}")
     model = PretrainedViTClassifier(num_classes=NUM_CLASSES)
-    state_dict = torch.load(checkpoint, map_location="cpu")
+    state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
     model.load_state_dict(state_dict)
     model.eval()
     return model

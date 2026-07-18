@@ -110,7 +110,7 @@ if uploaded_file:
             if os.path.exists(checkpoint):
                 num_classes = len(ANIMAL_CLASSES[animal])
                 model = PretrainedViTClassifier(num_classes=num_classes)
-                state_dict = torch.load(checkpoint, map_location="cpu")
+                state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
                 model.load_state_dict(state_dict)
                 model.eval()
                 transform = Compose([

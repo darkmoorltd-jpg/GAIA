@@ -307,8 +307,9 @@ st.sidebar.markdown("""
         font-family: 'Inter', sans-serif !important;
         text-transform: none !important;
     }
-    /* Hide Streamlit keyboard shortcut */
-    button[data-testid="stSidebar"] + div {
+    /* Hide Streamlit keyboard shortcut (stronger) */
+    button[data-testid="stSidebar"] + div,
+    div[data-testid="stToolbar"] {
         display: none !important;
     }
     /* Metric */

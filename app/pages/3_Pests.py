@@ -114,17 +114,17 @@ if theme == "dark":
             to { transform: rotate(360deg); }
         }
         .result-card > * { position: relative; z-index: 1; }
-        .top-result {
+        .top-result { padding: 1rem;
             background: rgba(0, 0, 0, 0.8); border: 2px solid #00ff88;
             box-shadow: 0 0 50px rgba(0, 255, 100, 0.4), inset 0 0 30px rgba(0, 255, 100, 0.05);
         }
-        .top-result h3 {
+        .top-result h3 { font-size: 1.2rem;
             font-size: 1.6rem; text-transform: uppercase; letter-spacing: 2px;
             background: linear-gradient(90deg, #00ff88, #66ff99);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             margin: 0.3rem 0;
         }
-        .counter {
+        .counter { font-size: 2rem;
             font-size: 2.5rem; font-weight: 900;
             background: linear-gradient(90deg, #00ff88, #66ff99);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -197,9 +197,9 @@ else:
             border: 1px solid rgba(0,0,0,0.1); border-radius: 20px;
             padding: 1.5rem; margin: 0.8rem 0;
         }
-        .top-result { border-color: #2e7d32; box-shadow: 0 0 20px rgba(46,125,50,0.2); }
-        .top-result h3 { font-size: 1.6rem; color: #1b5e20; }
-        .counter { font-size: 2.5rem; font-weight: 900; color: #2e7d32; }
+        .top-result { padding: 1rem; border-color: #2e7d32; box-shadow: 0 0 20px rgba(46,125,50,0.2); }
+        .top-result h3 { font-size: 1.2rem; font-size: 1.6rem; color: #1b5e20; }
+        .counter { font-size: 2rem; font-size: 2.5rem; font-weight: 900; color: #2e7d32; }
         .progress-container { margin: 0.6rem 0; }
         .progress-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
         .progress-label span { font-weight: 600; color: #1b5e20; }
@@ -317,7 +317,7 @@ if uploaded_file:
     <div class="result-card top-result">
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
-                <p style="color: #66ff99; margin: 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px;">Identified Pest</p>
+                <p style="color: #66ff99; margin: 0; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;">Identified Pest</p>
                 <h3 style="margin: 0.3rem 0;">{PEST_CLASSES[top_idx]}</h3>
             </div>
             <div class="counter">{top_prob:.1f}%</div>

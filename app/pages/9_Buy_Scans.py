@@ -3,52 +3,7 @@ import streamlit as st
 
 st.set_page_config(page_title="GAIA – Buy Scans", page_icon="💳", layout="wide")
 
-# ---------- Sidebar (consistent with main app) ----------
-if "user" not in st.session_state:
-    st.session_state.user = None
-
-# If user is logged in, show their info in the sidebar
-if st.session_state.user:
-    from supabase import create_client, Client
-    SUPABASE_URL = st.secrets["supabase"]["url"]
-    SUPABASE_KEY = st.secrets["supabase"]["key"]
-    
-    @st.cache_resource
-    def get_supabase():
-        return create_client(SUPABASE_URL, SUPABASE_KEY)
-    
-    supabase = get_supabase()
-    user_id = st.session_state.user.id
-    try:
-        res = supabase.table("user_scans").select("*").eq("user_id", user_id).execute()
-        if res.data:
-            scans_left = res.data[0]["scans_remaining"]
-            plan_name = res.data[0]["plan"]
-        else:
-            scans_left = 0
-            plan_name = "free"
-    except:
-        scans_left = 0
-        plan_name = "free"
-    
-    st.sidebar.write(f"👤 {st.session_state.user.email}")
-    st.sidebar.metric("Scans Remaining", scans_left)
-    st.sidebar.write(f"Plan: {plan_name}")
-    if st.sidebar.button("Logout"):
-        from supabase import create_client
-        supabase_auth = create_client(SUPABASE_URL, SUPABASE_KEY)
-        supabase_auth.auth.sign_out()
-        st.session_state.user = None
-        st.rerun()
-else:
-    st.sidebar.warning("Please log in to manage your scans.")
-    if st.sidebar.button("Go to Login"):
-        st.switch_page("main")
-
-st.sidebar.markdown("---")
-st.sidebar.caption("Navigate to other GAIA modules using the sidebar menu above.")
-
-# ---------- Theme toggle (moved to top of main area) ----------
+# ---------- Theme toggle ----------
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
 

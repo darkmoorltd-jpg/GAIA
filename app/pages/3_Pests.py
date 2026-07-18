@@ -8,22 +8,215 @@ import numpy as np
 import os
 import sys
 import timm
+import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-# ---------- Page config & CSS ----------
+# ---------- Page config ----------
 st.set_page_config(page_title="GAIA – Pest Detection", page_icon="🐛", layout="wide")
+
+# ---------- Custom CSS (ruthless modern design) ----------
 st.markdown("""
 <style>
-    .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #fff3e0 100%); }
-    .title { font-size: 2.8rem; font-weight: 800; background: linear-gradient(90deg, #e65100, #ff9800); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .subtitle { font-size: 1.2rem; color: #555; margin-bottom: 2rem; }
-    .pred-box { background: #fff8e1; border-left: 5px solid #ff9800; padding: 1rem 1.5rem; border-radius: 10px; margin: 0.5rem 0; }
-    .pred-box-high { border-left-color: #e65100; background: #ffe0b2; }
-    .stProgress > div > div > div > div { background: linear-gradient(90deg, #ff9800, #ffb74d); }
+    /* ========== GLOBAL BACKGROUND & FONTS ========== */
+    .stApp {
+        background: linear-gradient(145deg, #0a0a0a 0%, #1a1a2e 50%, #0d0d0d 100%);
+        color: #e0e0e0;
+    }
+    header, footer {visibility: hidden;}
+
+    /* ========== SCANLINE OVERLAY ========== */
+    .scanlines {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 255, 100, 0.03) 2px,
+            rgba(0, 255, 100, 0.03) 4px
+        );
+        z-index: 0; pointer-events: none;
+    }
+
+    /* ========== FLOATING PARTICLES ========== */
+    .particle {
+        position: fixed; border-radius: 50%;
+        background: radial-gradient(circle, rgba(0, 255, 100, 0.4), transparent);
+        animation: float 10s infinite ease-in-out; z-index: 0; pointer-events: none;
+    }
+    .particle:nth-child(1) { width: 200px; height: 200px; top: 5%; left: 5%; animation-delay: 0s; }
+    .particle:nth-child(2) { width: 150px; height: 150px; top: 60%; left: 80%; animation-delay: 3s; }
+    .particle:nth-child(3) { width: 250px; height: 250px; top: 70%; left: 10%; animation-delay: 6s; }
+    @keyframes float {
+        0% { transform: translateY(0px) scale(1); opacity: 0.2; }
+        50% { transform: translateY(-50px) scale(1.1); opacity: 0.5; }
+        100% { transform: translateY(0px) scale(1); opacity: 0.2; }
+    }
+
+    /* ========== TITLE ========== */
+    .title {
+        font-size: 3.5rem; font-weight: 900; text-align: center;
+        background: linear-gradient(90deg, #00ff88, #00cc66, #00ff88);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 40px rgba(0, 255, 100, 0.6);
+        animation: titleGlow 2s ease-in-out infinite alternate;
+        position: relative; z-index: 1;
+    }
+    @keyframes titleGlow {
+        from { text-shadow: 0 0 40px rgba(0, 255, 100, 0.6); }
+        to { text-shadow: 0 0 80px rgba(0, 255, 100, 0.9), 0 0 120px rgba(0, 255, 100, 0.5); }
+    }
+
+    .subtitle {
+        text-align: center; font-size: 1.2rem; color: #66ff99;
+        margin-bottom: 2rem; position: relative; z-index: 1;
+    }
+
+    /* ========== UPLOAD ZONE ========== */
+    .stFileUploader > div {
+        background: rgba(0, 255, 100, 0.03) !important;
+        backdrop-filter: blur(15px) !important;
+        border: 2px dashed rgba(0, 255, 100, 0.3) !important;
+        border-radius: 20px !important;
+        padding: 2rem !important;
+        transition: all 0.3s ease;
+        position: relative; z-index: 1;
+    }
+    .stFileUploader > div:hover {
+        border-color: #00ff88 !important;
+        box-shadow: 0 0 30px rgba(0, 255, 100, 0.2);
+    }
+
+    /* ========== IMAGE PREVIEW ========== */
+    .stImage img {
+        border-radius: 20px;
+        box-shadow: 0 0 40px rgba(0, 255, 100, 0.3);
+        border: 1px solid rgba(0, 255, 100, 0.2);
+    }
+
+    /* ========== RESULT CARD ========== */
+    .result-card {
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(25px);
+        border: 1px solid rgba(0, 255, 100, 0.2);
+        border-radius: 25px;
+        padding: 2rem;
+        margin: 1rem 0;
+        position: relative;
+        overflow: hidden;
+    }
+    .result-card::before {
+        content: '';
+        position: absolute;
+        top: -50%; left: -50%;
+        width: 200%; height: 200%;
+        background: conic-gradient(transparent, rgba(0, 255, 100, 0.1), transparent, transparent);
+        animation: rotate 6s linear infinite;
+    }
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .result-card > * { position: relative; z-index: 1; }
+
+    /* ========== TOP RESULT ========== */
+    .top-result {
+        background: rgba(0, 0, 0, 0.8);
+        border: 2px solid #00ff88;
+        box-shadow: 0 0 60px rgba(0, 255, 100, 0.4), inset 0 0 30px rgba(0, 255, 100, 0.05);
+    }
+    .top-result h3 {
+        font-size: 2rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        background: linear-gradient(90deg, #00ff88, #66ff99);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    /* ========== PROGRESS BARS (RUTHLESS) ========== */
+    .progress-container {
+        margin: 0.8rem 0;
+        position: relative;
+    }
+    .progress-label {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 0.3rem;
+    }
+    .progress-label span {
+        font-weight: 600;
+        color: #ddd;
+    }
+    .progress-label .percent {
+        color: #00ff88;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+    .progress-bar {
+        height: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+    }
+    .progress-fill {
+        height: 100%;
+        border-radius: 10px;
+        background: linear-gradient(90deg, #00ff88, #00cc66, #00ff88);
+        background-size: 200% 100%;
+        animation: shimmer 2s ease infinite, grow 1.5s ease-out;
+        box-shadow: 0 0 15px rgba(0, 255, 100, 0.6);
+        transition: width 1s ease;
+    }
+    @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    @keyframes grow {
+        from { width: 0% !important; }
+    }
+    .progress-fill.warning {
+        background: linear-gradient(90deg, #ffaa00, #ff8800, #ffaa00);
+        box-shadow: 0 0 15px rgba(255, 170, 0, 0.6);
+    }
+    .progress-fill.danger {
+        background: linear-gradient(90deg, #ff4444, #ff0000, #ff4444);
+        box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+    }
+
+    /* ========== ANIMATED NUMBER COUNTER ========== */
+    .counter {
+        font-size: 4rem; font-weight: 900;
+        background: linear-gradient(90deg, #00ff88, #66ff99);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 40px rgba(0, 255, 100, 0.8);
+        animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+
+    /* ========== ACTION BOX ========== */
+    .action-box {
+        background: rgba(0, 255, 100, 0.05);
+        border: 1px solid rgba(0, 255, 100, 0.3);
+        border-radius: 20px;
+        padding: 1.5rem;
+        text-align: center;
+        margin-top: 1.5rem;
+        backdrop-filter: blur(10px);
+    }
 </style>
+
+<!-- Scanline overlay -->
+<div class="scanlines"></div>
+<!-- Floating particles -->
+<div class="particle"></div>
+<div class="particle"></div>
+<div class="particle"></div>
 """, unsafe_allow_html=True)
 
 # ---------- 102 pest classes ----------
@@ -49,7 +242,7 @@ PEST_CLASSES = [
 ]
 NUM_CLASSES = len(PEST_CLASSES)
 
-# ---------- Custom model class (matches the training architecture exactly) ----------
+# ---------- Custom model class ----------
 class Pest102Classifier(nn.Module):
     def __init__(self):
         super().__init__()
@@ -91,17 +284,16 @@ def predict_image(model, image: Image.Image):
     return probs
 
 # ---------- UI ----------
-st.markdown('<div class="title">🐛 Pest Detection (102 Classes)</div>', unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>Snap a photo of any insect and we'll identify it from 102 common pests</div>", unsafe_allow_html=True)
+st.markdown('<div class="title">🐛 PEST IDENTIFICATION</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Upload a photo. Instant neural scan. 102 species detected.</div>', unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("📤 Upload insect photo", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("📤 DROP YOUR INSECT PHOTO HERE", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Insect", width=300)
+    st.image(image, caption="", width=300)
 
     st.markdown("---")
-    st.subheader("🔍 Identification Result")
 
     try:
         model = load_pest_model()
@@ -111,21 +303,64 @@ if uploaded_file:
         st.info("The 102‑class pest model is not installed. Please contact support.")
         st.stop()
     except Exception as e:
-        st.error(f"An error occurred: {e}")
+        st.error(f"Scan failed: {e}")
         st.stop()
 
     top_idx = np.argmax(probs)
-    st.markdown(
-        f'<div class="pred-box-high"><h3 style="margin:0">{PEST_CLASSES[top_idx]}</h3>'
-        f'<span style="font-size:1.5rem; font-weight:bold;">{probs[top_idx]*100:.1f}%</span></div>',
-        unsafe_allow_html=True
-    )
+    top_prob = probs[top_idx] * 100
 
-    st.markdown("### Top 5 Probabilities")
+    # ---------- RUTHLESS RESULTS SECTION ----------
+    st.markdown(f"""
+    <div class="result-card top-result">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <p style="color: #66ff99; margin: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 3px;">Identified Pest</p>
+                <h3 style="margin: 0.5rem 0;">{PEST_CLASSES[top_idx]}</h3>
+            </div>
+            <div class="counter">{top_prob:.1f}%</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("### 🧬 TOP 5 PROBABILITIES")
+
     sorted_idx = np.argsort(probs)[::-1][:5]
+
     for i in sorted_idx:
-        st.write(f"**{PEST_CLASSES[i]}**: {probs[i]*100:.1f}%")
-        st.progress(float(probs[i]))
+        pest_name = PEST_CLASSES[i]
+        percent = probs[i] * 100
+
+        # Choose color class based on probability
+        if percent > 70:
+            bar_class = ""
+        elif percent > 30:
+            bar_class = " warning"
+        else:
+            bar_class = " danger"
+
+        st.markdown(f"""
+        <div class="result-card">
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>{pest_name.upper()}</span>
+                    <span class="percent">{percent:.1f}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill{bar_class}" style="width: {percent}%;"></div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ---------- Action recommendation ----------
+    st.markdown(f"""
+    <div class="action-box">
+        <h3 style="color: #00ff88; margin: 0;">⚡ RECOMMENDATION</h3>
+        <p style="margin-top: 0.5rem; color: #ddd;">
+            {_get_recommendation(PEST_CLASSES[top_idx])}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Scan deduction
     if st.session_state.get("user"):
@@ -135,3 +370,21 @@ if uploaded_file:
             st.success("Scan deducted.")
         except:
             pass
+
+# ---------- Helper ----------
+def _get_recommendation(pest):
+    recs = {
+        'aphids': "Apply neem oil or insecticidal soap. Introduce ladybugs as natural predators.",
+        'corn borer': "Use Bt (Bacillus thuringiensis) spray. Apply before larvae enter the stalk.",
+        'mole cricket': "Apply parasitic nematodes to soil. Use bait traps at dusk.",
+        'grub': "Apply milky spore bacteria to lawn. Beneficial nematodes are highly effective.",
+        'wireworm': "Rotate crops with non‑host plants. Use soil insecticides if infestation is severe.",
+        'rice leaf roller': "Spray neem oil at early infestation. Encourage natural enemies like spiders.",
+        'brown plant hopper': "Apply systemic insecticides. Maintain field drainage and avoid excessive nitrogen.",
+        'army worm': "Use Bt or spinosad spray. Hand‑pick caterpillars in small gardens.",
+        'red spider': "Spray with water to dislodge mites. Apply horticultural oil or sulfur.",
+        'blister beetle': "Hand‑pick beetles (wear gloves). Use spinosad for severe infestations.",
+        'white margined moth': "Apply Bt or pyrethrin spray. Remove infested leaves.",
+        'thrips': "Use blue sticky traps. Apply spinosad or insecticidal soap.",
+    }
+    return recs.get(pest, "Consult a local agronomist for targeted treatment options. Isolate affected plants and monitor daily.")

@@ -1,1 +1,0 @@
-# GAIA app utils package

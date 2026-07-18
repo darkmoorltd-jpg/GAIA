@@ -1,6 +1,0 @@
-crop: "sugarcane"
-num_classes: 3
-class_names:
-  - "Red Rot"
-  - "Smut"
-  - "Healthy"

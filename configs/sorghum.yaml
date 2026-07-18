@@ -1,6 +1,0 @@
-crop: "sorghum"
-num_classes: 3
-class_names:
-  - "Anthracnose"
-  - "Downy Mildew"
-  - "Healthy"

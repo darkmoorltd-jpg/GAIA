@@ -1,9 +1,0 @@
-crop: "maize"
-num_classes: 4
-class_names:
-  - "Northern Leaf Blight"
-  - "Healthy"
-  - "Southern Leaf Blight"
-  - "Common Rust"
-model_type: "tinyvit"
-in_channels: 1

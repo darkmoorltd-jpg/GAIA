@@ -1,9 +1,0 @@
-crop: "banana"
-num_classes: 4
-class_names:
-  - "Fusarium Wilt"
-  - "Healthy"
-  - "Natural Death Leaf"
-  - "Rhizome Root"
-model_type: "vit_pretrained"
-in_channels: 3

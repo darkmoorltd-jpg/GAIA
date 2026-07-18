@@ -1,9 +1,0 @@
-crop: "poultry"
-num_classes: 4
-class_names:
-  - "Coccidiosis"
-  - "Healthy"
-  - "Newcastle Disease"
-  - "Salmonella"
-model_type: "vit_pretrained"
-in_channels: 3

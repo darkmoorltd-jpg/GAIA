@@ -88,6 +88,11 @@ with st.form("profile_form"):
                 "instagram": instagram.strip()
             }
         }
-        supabase.table("user_profiles").upsert(update_data, returning="minimal").execute()
+        # Try update first, if it fails (row doesn't exist), insert
+        try:
+            supabase.table("user_profiles").update(update_data).eq("user_id", user.id).execute()
+        except:
+            update_data["user_id"] = user.id
+            supabase.table("user_profiles").insert(update_data).execute()
         st.success("Profile updated!")
         st.rerun()

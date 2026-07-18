@@ -1,8 +1,0 @@
-crop: "rice"
-num_classes: 3
-class_names:
-  - "Bacterial Blight"
-  - "Brown Spot"
-  - "Leaf Smut"
-model_type: "tinyvit"
-in_channels: 1

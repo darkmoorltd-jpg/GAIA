@@ -232,16 +232,8 @@ else:
 class LivestockClassifier(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
-        self.backbone = timm.create_model('vit_small_patch16_224', pretrained=False, num_classes=0)
-        self.head = nn.Sequential(
-            nn.Linear(self.backbone.embed_dim, 1024),
-            nn.GELU(),
-            nn.Dropout(0.3),
-            nn.Linear(1024, 512),
-            nn.GELU(),
-            nn.Dropout(0.2),
-            nn.Linear(512, num_classes)
-        )
+        self.backbone = timm.create_model('vit_tiny_patch16_224', pretrained=False, num_classes=0)
+        self.head = nn.Linear(self.backbone.embed_dim, num_classes)
     def forward(self, x):
         return self.head(self.backbone(x))
 

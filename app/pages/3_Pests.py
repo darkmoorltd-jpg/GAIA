@@ -1,3 +1,4 @@
+
 import streamlit as st
 from PIL import Image
 import torch
@@ -6,162 +7,8 @@ import numpy as np
 import os
 import sys
 
-def deduct_and_show():
-    import streamlit as st
-    from supabase import create_client
-    if "user" not in st.session_state or st.session_state.user is None:
-        return
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    supabase = create_client(url, key)
-    user_id = st.session_state.user.id
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-    # 1. Ensure the row exists (insert, ignore conflict)
-    try:
-        supabase.table("user_scans").insert(
-            {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
-        ).execute()
-    except:
-        pass
-
-    # 2. Decrement directly (bypass RPC if it fails)
-    try:
-        # Direct update: scans_remaining = scans_remaining - 1
-        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
-    except:
-        # Fallback to RPC
-        try:
-            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
-        except:
-            pass
-
-    # 3. Fetch and display new count
-    try:
-        res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
-        if res.data:
-            remaining = res.data[0]["scans_remaining"]
-            st.success(f"Scan deducted. Remaining scans: {remaining}")
-        else:
-            st.warning("Scan deducted.")
-    except:
-        st.warning("Scan deduction recorded.")
-def deduct_and_show():
-    import streamlit as st
-    from supabase import create_client
-    if "user" not in st.session_state or st.session_state.user is None:
-        return
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    supabase = create_client(url, key)
-    user_id = st.session_state.user.id
-
-    # 1. Ensure the row exists (insert, ignore conflict)
-    try:
-        supabase.table("user_scans").insert(
-            {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
-        ).execute()
-    except:
-        pass
-
-    # 2. Decrement directly (bypass RPC if it fails)
-    try:
-        # Direct update: scans_remaining = scans_remaining - 1
-        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
-    except:
-        # Fallback to RPC
-        try:
-            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
-        except:
-            pass
-
-    # 3. Fetch and display new count
-    try:
-        res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
-        if res.data:
-            remaining = res.data[0]["scans_remaining"]
-            st.success(f"Scan deducted. Remaining scans: {remaining}")
-        else:
-            st.warning("Scan deducted.")
-    except:
-        st.warning("Scan deduction recorded.")
-def deduct_and_show():
-    import streamlit as st
-    from supabase import create_client
-    if "user" not in st.session_state or st.session_state.user is None:
-        return
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    supabase = create_client(url, key)
-    user_id = st.session_state.user.id
-
-    # 1. Ensure the row exists (insert, ignore conflict)
-    try:
-        supabase.table("user_scans").insert(
-            {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
-        ).execute()
-    except:
-        pass
-
-    # 2. Decrement directly (bypass RPC if it fails)
-    try:
-        # Direct update: scans_remaining = scans_remaining - 1
-        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
-    except:
-        # Fallback to RPC
-        try:
-            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
-        except:
-            pass
-
-    # 3. Fetch and display new count
-    try:
-        res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
-        if res.data:
-            remaining = res.data[0]["scans_remaining"]
-            st.success(f"Scan deducted. Remaining scans: {remaining}")
-        else:
-            st.warning("Scan deducted.")
-    except:
-        st.warning("Scan deduction recorded.")
-def deduct_and_show():
-    import streamlit as st
-    from supabase import create_client
-    if "user" not in st.session_state or st.session_state.user is None:
-        return
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    supabase = create_client(url, key)
-    user_id = st.session_state.user.id
-
-    # 1. Ensure the row exists (insert, ignore conflict)
-    try:
-        supabase.table("user_scans").insert(
-            {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
-        ).execute()
-    except:
-        pass
-
-    # 2. Decrement directly (bypass RPC if it fails)
-    try:
-        # Direct update: scans_remaining = scans_remaining - 1
-        supabase.table("user_scans")             .update({"scans_remaining": supabase.raw("scans_remaining - 1")})             .eq("user_id", user_id)             .execute()
-    except:
-        # Fallback to RPC
-        try:
-            supabase.rpc("decrement_scan", {"uid": user_id}).execute()
-        except:
-            pass
-
-    # 3. Fetch and display new count
-    try:
-        res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
-        if res.data:
-            remaining = res.data[0]["scans_remaining"]
-            st.success(f"Scan deducted. Remaining scans: {remaining}")
-        else:
-            st.warning("Scan deducted.")
-    except:
-        st.warning("Scan deduction recorded.")
 from src.models.pretrained_vit import PretrainedViTClassifier
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
@@ -178,18 +25,34 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- Pest definitions ----------
+# ---------- 102 pest classes ----------
 PEST_CLASSES = [
-    "Ants", "Bees", "Beetles", "Caterpillars", "Earthworms",
-    "Earwigs", "Grasshoppers", "Moths", "Slugs", "Snails",
-    "Wasps", "Weevils"
+    'rice leaf roller', 'rice leaf caterpillar', 'paddy stem maggot', 'asiatic rice borer', 'yellow rice borer',
+    'rice gall midge', 'Rice Stemfly', 'brown plant hopper', 'white backed plant hopper', 'small brown plant hopper',
+    'rice water weevil', 'rice leafhopper', 'grain spreader thrips', 'rice shell pest', 'grub', 'mole cricket', 'wireworm',
+    'white margined moth', 'black cutworm', 'large cutworm', 'yellow cutworm', 'red spider', 'corn borer', 'army worm', 'aphids',
+    'Potosiabre vitarsis', 'peach borer', 'english grain aphid', 'green bug', 'bird cherry-oataphid', 'wheat blossom midge',
+    'penthaleus major', 'longlegged spider mite', 'wheat phloeothrips', 'wheat sawfly', 'cerodonta denticornis', 'beet fly',
+    'flea beetle', 'cabbage army worm', 'beet army worm', 'Beet spot flies', 'meadow moth', 'beet weevil', 'sericaorient alismots chulsky',
+    'alfalfa weevil', 'flax budworm', 'alfalfa plant bug', 'tarnished plant bug', 'Locustoidea', 'lytta polita', 'legume blister beetle',
+    'blister beetle', 'therioaphis maculata Buckton', 'odontothrips loti', 'Thrips', 'alfalfa seed chalcid', 'Pieris canidia',
+    'Apolygus lucorum', 'Limacodidae', 'Viteus vitifoliae', 'Colomerus vitis', 'Brevipoalpus lewisi McGregor', 'oides decempunctata',
+    'Polyphagotars onemus latus', 'Pseudococcus comstocki Kuwana', 'parathrene regalis', 'Ampelophaga', 'Lycorma delicatula', 'Xylotrechus',
+    'Cicadella viridis', 'Miridae', 'Trialeurodes vaporariorum', 'Erythroneura apicalis', 'Papilio xuthus', 'Panonchus citri McGregor',
+    'Phyllocoptes oleiverus ashmead', 'Icerya purchasi Maskell', 'Unaspis yanonensis', 'Ceroplastes rubens', 'Chrysomphalus aonidum',
+    'Parlatoria zizyphus Lucus', 'Nipaecoccus vastalor', 'Aleurocanthus spiniferus', 'Tetradacus c Bactrocera minax ', 'Dacus dorsalis(Hendel)',
+    'Bactrocera tsuneonis', 'Prodenia litura', 'Adristyrannus', 'Phyllocnistis citrella Stainton', 'Toxoptera citricidus', 'Toxoptera aurantii',
+    'Aphis citricola Vander Goot', 'Scirtothrips dorsalis Hood', 'Dasineura sp', 'Lawana imitata Melichar', 'Salurnis marginella Guerr',
+    'Deporaus marginatus Pascoe', 'Chlumetia transversa', 'Mango flat beak leafhopper', 'Rhytidodera bowrinii white', 'Sternochetus frigidus',
+    'Cicadellidae'
 ]
 NUM_CLASSES = len(PEST_CLASSES)
 
-# ---------- Model loader ----------
+# ---------- Model loader (with auto‑download) ----------
 @st.cache_resource
 def load_pest_model():
-    checkpoint = "checkpoints/pests/best_model.pt"
+    from app.utils.download_models import ensure_model
+    checkpoint = ensure_model("pests_102class")
     if not os.path.exists(checkpoint):
         raise FileNotFoundError(f"Model not found at {checkpoint}")
     model = PretrainedViTClassifier(num_classes=NUM_CLASSES)
@@ -211,8 +74,8 @@ def predict_image(model, image: Image.Image):
     return probs
 
 # ---------- UI ----------
-st.markdown('<div class="title">🐛 Pest Detection</div>', unsafe_allow_html=True)
-st.markdown("<div class='subtitle'>Snap a photo of an insect and we'll identify it instantly</div>", unsafe_allow_html=True)
+st.markdown('<div class="title">🐛 Pest Detection (102 Classes)</div>', unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>Snap a photo of any insect and we'll identify it from 102 common pests</div>", unsafe_allow_html=True)
 
 uploaded_file = st.file_uploader("📤 Upload insect photo", type=["jpg", "jpeg", "png"])
 
@@ -228,7 +91,7 @@ if uploaded_file:
         probs = predict_image(model, image)
     except FileNotFoundError as e:
         st.error(f"🚫 {e}")
-        st.info("Please train/save the pest model first.")
+        st.info("The 102‑class pest model is being downloaded. Please refresh in a few seconds.")
         st.stop()
     except Exception as e:
         st.error(f"An error occurred: {e}")
@@ -241,7 +104,14 @@ if uploaded_file:
         unsafe_allow_html=True
     )
 
-    st.markdown("### All probabilities")
-    for i, name in enumerate(PEST_CLASSES):
-        st.write(f"**{name}**: {probs[i]*100:.1f}%")
+    st.markdown("### Top 5 Probabilities")
+    sorted_idx = np.argsort(probs)[::-1][:5]
+    for i in sorted_idx:
+        st.write(f"**{PEST_CLASSES[i]}**: {probs[i]*100:.1f}%")
         st.progress(float(probs[i]))
+
+    # Scan deduction
+    if st.session_state.get("user"):
+        from app.utils.supabase_utils import decrement_scan
+        decrement_scan(st.session_state.user.id)
+        st.success("Scan deducted.")

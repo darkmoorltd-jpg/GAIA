@@ -3,36 +3,22 @@ import streamlit as st
 
 st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wide")
 
-# ---------- Toggle with custom styling ----------
+# ---------- Light / Dark mode toggle ----------
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
 st.markdown("""
 <style>
-    /* Hide the default label and make the toggle a centered switch */
-    .stToggle > label {
-        display: none !important;
-    }
-    .stToggle {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 1rem;
-    }
-    .stToggle > div {
-        transform: scale(1.3);
-    }
-    /* Toggle colors */
-    .st-bd {
-        background-color: #4caf50 !important;
-    }
-    .st-bd:hover {
-        background-color: #66bb6a !important;
-    }
+    .stToggle > label { display: none !important; }
+    .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
+    .stToggle > div { transform: scale(1.3); }
 </style>
 """, unsafe_allow_html=True)
 
-# Use Streamlit's built-in toggle (no label, just the switch)
-dark_mode = st.toggle("", value=False, key="theme_toggle")
+dark_mode = st.toggle("", value=st.session_state.theme == "dark", key="dashboard_theme_toggle")
 
 if dark_mode:
-    st.session_state.theme = "light"
+    st.session_state.theme = "dark"
 else:
     st.session_state.theme = "light"
 
@@ -176,30 +162,31 @@ with col2:
     st.image("https://images.unsplash.com/photo-1556801712-76c8eb07bbc9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
              caption="", use_column_width=True)
 
-# ---------- Stats Bar ----------
+# ---------- Stats Bar (UPDATED with 152 classes, 99.5% accuracy) ----------
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.markdown('<div class="stat-item"><div class="stat-number">10+</div><div class="stat-label">Crop Models</div></div>', unsafe_allow_html=True)
 with col2:
-    st.markdown('<div class="stat-item"><div class="stat-number">94.9%</div><div class="stat-label">Top Accuracy</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="stat-item"><div class="stat-number">99.5%</div><div class="stat-label">Top Accuracy</div></div>', unsafe_allow_html=True)
 with col3:
-    st.markdown('<div class="stat-item"><div class="stat-number">62</div><div class="stat-label">Diagnostic Classes</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="stat-item"><div class="stat-number">152</div><div class="stat-label">Diagnostic Classes</div></div>', unsafe_allow_html=True)
 with col4:
     st.markdown('<div class="stat-item"><div class="stat-number">24/7</div><div class="stat-label">Offline Ready</div></div>', unsafe_allow_html=True)
 
 # ---------- Module Cards ----------
+st.markdown("### 🚀 Quick Access")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    if st.button("🌿\n\nCrop Disease", key="crops", help="Identify diseases in crops"):
+    if st.button("🌿\n\nCrop Disease", key="crops", help="Identify diseases in 6+ crops"):
         st.switch_page("pages/2_Crops.py")
 with col2:
-    if st.button("🐛\n\nPest Detection", key="pests", help="Identify insects and pests"):
+    if st.button("🐛\n\nPest Detection\n(102 Species)", key="pests", help="Identify 102 insect pests with 99.5% accuracy"):
         st.switch_page("pages/3_Pests.py")
 with col3:
-    if st.button("🏞️\n\nSoil Analysis", key="soil", help="Classify soil types"):
+    if st.button("🏞️\n\nSoil Analysis", key="soil", help="Classify 7 soil types"):
         st.switch_page("pages/4_Soil.py")
 with col4:
-    if st.button("🐄\n\nLivestock Health", key="livestock", help="Diagnose cattle and poultry"):
+    if st.button("🐄\n\nLivestock Health", key="livestock", help="Diagnose cattle and poultry diseases"):
         st.switch_page("pages/5_Livestock.py")
 
 # ---------- Footer ----------

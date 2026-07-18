@@ -181,8 +181,12 @@ if reference and plan and plan in PAYSTACK_PLANS:
         user_id = st.session_state.user.id if st.session_state.user else None
         if user_id:
             scans_to_add = PAYSTACK_PLANS[plan]["scans"]
+            # Get current scans, then add the new ones
+            current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+            current_scans = current.data[0]["scans_remaining"] if current.data else 0
+            new_total = current_scans + scans_to_add
             supabase.table("user_scans").update({
-                "scans_remaining": scans_to_add,
+                "scans_remaining": new_total,
                 "plan": plan
             }).eq("user_id", user_id).execute()
             supabase.table("payment_history").insert({

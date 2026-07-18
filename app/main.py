@@ -61,20 +61,19 @@ country_codes = [
     "+1", "+598", "+998", "+678", "+39-06", "+58", "+84", "+967", "+260", "+263"
 ]
 
-
 # ---------- Supabase helpers ----------
 @st.cache_resource
 def init_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def sign_up(email: str, password: str):
+def sign_up(email: str, password: str, first_name: str = "", last_name: str = "",
+            phone: str = "", country: str = "", social_media: dict = None):
     supabase = init_supabase()
     try:
         res = supabase.auth.sign_up({"email": email, "password": password})
         if res.user:
-            # Wait a bit for the auth user to be fully persisted
             time.sleep(0.5)
-            # Create user_scans row (ignore if already exists)
+            # Create user_scans row
             try:
                 supabase.table("user_scans").insert({
                     "user_id": res.user.id,
@@ -83,7 +82,18 @@ def sign_up(email: str, password: str):
                 }).execute()
             except:
                 pass
-            # Store user in session state
+            # Save profile
+            try:
+                supabase.table("user_profiles").insert({
+                    "user_id": res.user.id,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "phone": phone,
+                    "country": country,
+                    "social_media": social_media or {}
+                }).execute()
+            except:
+                pass
             st.session_state.user = res.user
         return res.user, None
     except Exception as e:
@@ -93,7 +103,6 @@ def sign_in(email: str, password: str):
     supabase = init_supabase()
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        # Store user in session state (this is the key fix)
         st.session_state.user = res.user
         return res.user, None
     except Exception as e:
@@ -123,7 +132,6 @@ def get_user_scans(user_id: str):
             return res.data[0]
     except:
         pass
-    # Create row if missing
     try:
         supabase.table("user_scans").insert({
             "user_id": user_id,
@@ -158,10 +166,10 @@ if auth_code and st.session_state.user is None:
     supabase = init_supabase()
     try:
         supabase.auth.exchange_code_for_session({"auth_code": auth_code})
-        # After exchanging code, try to get the session
         session = supabase.auth.get_session()
         if session and session.user:
             st.session_state.user = session.user
+        st.query_params.clear()
         st.rerun()
     except Exception as e:
         st.error(f"Google sign‑in failed: {e}")
@@ -181,8 +189,6 @@ if reference and plan and plan in PAYSTACK_PLANS:
                 "scans_remaining": scans_to_add,
                 "plan": plan
             }).eq("user_id", user_id).execute()
-
-            # Record payment history
             supabase.table("payment_history").insert({
                 "user_id": user_id,
                 "amount": txn["amount"] / 100,
@@ -190,12 +196,11 @@ if reference and plan and plan in PAYSTACK_PLANS:
                 "plan": plan,
                 "reference": reference
             }).execute()
-
             st.success(f"Payment successful! {scans_to_add} scans added to your account.")
             st.query_params.clear()
             st.rerun()
 
-# ----- Try to restore session from Supabase cookies (if page reloaded) -----
+# ----- Restore session -----
 if st.session_state.user is None:
     supabase = init_supabase()
     try:
@@ -230,7 +235,9 @@ if st.session_state.user is None:
                         if err:
                             st.error(err)
                         else:
-                            st.success("Password reset email sent.")
+                            st.success("Password reset email sent! Check your inbox (and spam folder).")
+                    else:
+                        st.warning("Enter your email first.")
 
     with tab2:
         with st.form("signup_form"):
@@ -245,8 +252,8 @@ if st.session_state.user is None:
             with col1:
                 new_country = st.selectbox("Country", options=[""] + countries)
             with col2:
-                new_phone_code = st.selectbox("Country Code", options=[""] + country_codes, index=0)
-            new_phone = st.text_input("Phone Number (with country code, e.g. +2347012345678)", value="", placeholder="+2347012345678")
+                new_phone_code = st.selectbox("Country Code", options=[""] + country_codes)
+            new_phone = st.text_input("Phone Number", placeholder="+2347012345678")
             
             # Optional social media
             st.markdown("**Social Media (optional)**")

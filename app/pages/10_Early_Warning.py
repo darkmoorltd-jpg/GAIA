@@ -250,13 +250,21 @@ with st.expander("🌍 Farm Settings", expanded=not profile.get("farm_location")
                                       value=datetime.strptime(profile.get("planting_date", ""), "%Y-%m-%d") if profile.get("planting_date") else None,
                                       max_value=date.today())
         if st.form_submit_button("Save Settings"):
-            supabase.table("user_profiles").upsert({
-                "user_id": user_id,
-                "farm_location": farm_location.strip(),
-                "planting_date": planting_date.strftime("%Y-%m-%d") if planting_date else None
-            }).execute()
-            st.success("Farm settings saved!")
-            st.rerun()
+            try:
+                supabase.table("user_profiles").upsert({
+                    "user_id": user_id,
+                    "farm_location": farm_location.strip(),
+                    "planting_date": planting_date.strftime("%Y-%m-%d") if planting_date else None
+                }).execute()
+                st.success("Farm settings saved!")
+                st.rerun()
+            except Exception as e:
+                st.error("Could not save farm settings. Make sure you've run the required SQL in Supabase:")
+                st.code("""
+ALTER TABLE public.user_profiles 
+ADD COLUMN IF NOT EXISTS farm_location TEXT,
+ADD COLUMN IF NOT EXISTS planting_date DATE;
+                """, language="sql")
 
 # If farm location is set, show predictions
 if profile.get("farm_location"):

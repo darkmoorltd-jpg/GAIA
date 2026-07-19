@@ -4,7 +4,7 @@ import requests
 from datetime import datetime, date, timedelta
 import numpy as np
 
-st.set_page_config(page_title="GAIA – Early Warning", page_icon="🛰️", layout="wide")
+st.set_page_config(page_title="GAIA – Early Warning", page_icon="🛰️", layout="wide", initial_sidebar_state="expanded")
 
 # ---------- Theme ----------
 if "theme" not in st.session_state:
@@ -226,6 +226,13 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+<style>
+    section[data-testid="stSidebar"] {
+        display: block !important;
+    }
+</style>
 
 st.markdown('<div class="title">🛰️ EARLY WARNING SYSTEM</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Predictive disease alerts based on weather, crop stage, and regional data</div>', unsafe_allow_html=True)

@@ -47,6 +47,38 @@ def _get_recommendation(soil_type):
 # ---------- Theme toggle ----------
 st.set_page_config(page_title="GAIA – Soil Analysis", page_icon="🏞️", layout="wide", initial_sidebar_state="expanded")
 
+# ---------- Top Navigation Bar ----------
+st.markdown("""
+<style>
+    .top-nav {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        padding: 0.8rem;
+        background: rgba(0,0,0,0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    .top-nav a {
+        color: #2e7d32;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        transition: background 0.3s;
+    }
+    .top-nav a:hover {
+        background: rgba(46,125,50,0.2);
+    }
+</style>
+<div class="top-nav">
+    <a href="/" target="_self">🏠 Dashboard</a>
+</div>
+""", unsafe_allow_html=True)
+
+
 st.markdown("""
 <style>
     .stToggle > label { display: none !important; }

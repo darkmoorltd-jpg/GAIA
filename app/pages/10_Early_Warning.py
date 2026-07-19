@@ -214,6 +214,19 @@ def calculate_risk(weather_data, crop, growth_stage):
     return risks
 
 # ---------- Main UI ----------
+
+# ---------- Sidebar visibility helper ----------
+with st.sidebar:
+    st.caption("")  # Force sidebar to render
+st.markdown("""
+<style>
+    /* Ensure sidebar is not hidden */
+    section[data-testid="stSidebar"] {
+        display: block !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown('<div class="title">🛰️ EARLY WARNING SYSTEM</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Predictive disease alerts based on weather, crop stage, and regional data</div>', unsafe_allow_html=True)
 

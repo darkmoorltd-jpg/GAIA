@@ -8,12 +8,6 @@ import os
 
 # ---------- Optional geolocation imports ----------
 try:
-    from geopy.geocoders import Nominatim
-    GEO_AVAILABLE = True
-except:
-    GEO_AVAILABLE = False
-
-try:
     from streamlit_folium import st_folium
     import folium
     FOLIUM_AVAILABLE = True
@@ -45,67 +39,102 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- Nigeria administrative data (states → LGAs) ----------
+# ---------- Nigeria administrative data ----------
 NIGERIA_DATA = {
     "Abia": ["Aba North", "Aba South", "Arochukwu", "Bende", "Ikwuano", "Isiala Ngwa North", "Isiala Ngwa South", "Isuikwuato", "Obi Ngwa", "Ohafia", "Osisioma", "Ugwunagbo", "Ukwa East", "Ukwa West", "Umuahia North", "Umuahia South", "Umu Nneochi"],
     "Adamawa": ["Demsa", "Fufure", "Ganye", "Gayuk", "Gombi", "Grie", "Hong", "Jada", "Lamurde", "Madagali", "Maiha", "Mayo Belwa", "Michika", "Mubi North", "Mubi South", "Numan", "Shelleng", "Song", "Toungo", "Yola North", "Yola South"],
-    "Akwa Ibom": ["Abak", "Eastern Obolo", "Eket", "Esit Eket", "Essien Udim", "Etim Ekpo", "Etinan", "Ibeno", "Ibesikpo Asutan", "Ibiono-Ibom", "Ika", "Ikono", "Ikot Abasi", "Ikot Ekpene", "Ini", "Itu", "Mbo", "Mkpat-Enin", "Nsit-Atai", "Nsit-Ibom", "Nsit-Ubium", "Obot Akara", "Okobo", "Onna", "Oron", "Oruk Anam", "Udung-Uko", "Ukanafun", "Uruan", "Urue-Offong/Oruko", "Uyo"],
-    "Anambra": ["Aguata", "Anambra East", "Anambra West", "Anaocha", "Awka North", "Awka South", "Ayamelum", "Dunukofia", "Ekwusigo", "Idemili North", "Idemili South", "Ihiala", "Njikoka", "Nnewi North", "Nnewi South", "Ogbaru", "Onitsha North", "Onitsha South", "Orumba North", "Orumba South", "Oyi"],
-    "Bauchi": ["Alkaleri", "Bauchi", "Bogoro", "Damban", "Darazo", "Dass", "Gamawa", "Ganjuwa", "Giade", "Itas/Gadau", "Jama'are", "Katagum", "Kirfi", "Misau", "Ningi", "Shira", "Tafawa Balewa", "Toro", "Warji", "Zaki"],
-    "Bayelsa": ["Brass", "Ekeremor", "Kolokuma/Opokuma", "Nembe", "Ogbia", "Sagbama", "Southern Ijaw", "Yenagoa"],
-    "Benue": ["Ado", "Agatu", "Apa", "Buruku", "Gboko", "Guma", "Gwer East", "Gwer West", "Katsina-Ala", "Konshisha", "Kwande", "Logo", "Makurdi", "Obi", "Ogbadibo", "Ohimini", "Oju", "Okpokwu", "Oturkpo", "Tarka", "Ukum", "Ushongo", "Vandeikya"],
-    "Borno": ["Abadam", "Askira/Uba", "Bama", "Bayo", "Biu", "Chibok", "Damboa", "Dikwa", "Gubio", "Guzamala", "Gwoza", "Hawul", "Jere", "Kaga", "Kala/Balge", "Konduga", "Kukawa", "Kwaya Kusar", "Mafa", "Magumeri", "Maiduguri", "Marte", "Mobbar", "Monguno", "Ngala", "Nganzai", "Shani"],
-    "Cross River": ["Abi", "Akamkpa", "Akpabuyo", "Bakassi", "Bekwarra", "Biase", "Boki", "Calabar Municipal", "Calabar South", "Etung", "Ikom", "Obanliku", "Obubra", "Obudu", "Odukpani", "Ogoja", "Yakuur", "Yala"],
-    "Delta": ["Aniocha North", "Aniocha South", "Bomadi", "Burutu", "Ethiope East", "Ethiope West", "Ika North East", "Ika South", "Isoko North", "Isoko South", "Ndokwa East", "Ndokwa West", "Okpe", "Oshimili North", "Oshimili South", "Patani", "Sapele", "Udu", "Ughelli North", "Ughelli South", "Ukwuani", "Uvwie", "Warri North", "Warri South", "Warri South West"],
-    "Ebonyi": ["Abakaliki", "Afikpo North", "Afikpo South", "Ebonyi", "Ezza North", "Ezza South", "Ikwo", "Ishielu", "Ivo", "Izzi", "Ohaozara", "Ohaukwu", "Onicha"],
-    "Edo": ["Akoko-Edo", "Egor", "Esan Central", "Esan North-East", "Esan South-East", "Esan West", "Etsako Central", "Etsako East", "Etsako West", "Igueben", "Ikpoba Okha", "Orhionmwon", "Oredo", "Ovia North-East", "Ovia South-West", "Owan East", "Owan West", "Uhunmwonde"],
-    "Ekiti": ["Ado Ekiti", "Efon", "Ekiti East", "Ekiti South-West", "Ekiti West", "Emure", "Gbonyin", "Ido Osi", "Ijero", "Ikere", "Ikole", "Ilejemeje", "Irepodun/Ifelodun", "Ise/Orun", "Moba", "Oye"],
-    "Enugu": ["Aninri", "Awgu", "Enugu East", "Enugu North", "Enugu South", "Ezeagu", "Igbo Etiti", "Igbo Eze North", "Igbo Eze South", "Isi Uzo", "Nkanu East", "Nkanu West", "Nsukka", "Oji River", "Udenu", "Udi", "Uzo Uwani"],
     "FCT": ["Abaji", "Bwari", "Gwagwalada", "Kuje", "Kwali", "Municipal Area Council"],
-    "Gombe": ["Akko", "Balanga", "Billiri", "Dukku", "Funakaye", "Gombe", "Kaltungo", "Kwami", "Nafada", "Shongom", "Yamaltu/Deba"],
-    "Imo": ["Aboh Mbaise", "Ahiazu Mbaise", "Ehime Mbano", "Ezinihitte", "Ideato North", "Ideato South", "Ihitte/Uboma", "Ikeduru", "Isiala Mbano", "Isu", "Mbaitoli", "Ngor Okpala", "Njaba", "Nkwerre", "Nwangele", "Obowo", "Oguta", "Ohaji/Egbema", "Okigwe", "Orlu", "Orsu", "Oru East", "Oru West", "Owerri Municipal", "Owerri North", "Owerri West", "Unuimo"],
-    "Jigawa": ["Auyo", "Babura", "Biriniwa", "Birnin Kudu", "Buji", "Dutse", "Gagarawa", "Garki", "Gumel", "Guri", "Gwaram", "Gwiwa", "Hadejia", "Jahun", "Kafin Hausa", "Kazaure", "Kiri Kasama", "Kiyawa", "Kaugama", "Maigatari", "Malam Madori", "Miga", "Ringim", "Roni", "Sule Tankarkar", "Taura", "Yankwashi"],
-    "Kaduna": ["Birnin Gwari", "Chikun", "Giwa", "Igabi", "Ikara", "Jaba", "Jema'a", "Kachia", "Kaduna North", "Kaduna South", "Kagarko", "Kajuru", "Kaura", "Kauru", "Kubau", "Kudan", "Lere", "Makarfi", "Sabon Gari", "Sanga", "Soba", "Zangon Kataf", "Zaria"],
-    "Kano": ["Ajingi", "Albasu", "Bagwai", "Bebeji", "Bichi", "Bunkure", "Dala", "Dambatta", "Dawakin Kudu", "Dawakin Tofa", "Doguwa", "Fagge", "Gabasawa", "Garko", "Garun Mallam", "Gaya", "Gezawa", "Gwale", "Gwarzo", "Kabo", "Kano Municipal", "Karaye", "Kibiya", "Kiru", "Kumbotso", "Kunchi", "Kura", "Madobi", "Makoda", "Minjibir", "Nasarawa", "Rano", "Rimin Gado", "Rogo", "Shanono", "Sumaila", "Takai", "Tarauni", "Tofa", "Tsanyawa", "Tudun Wada", "Ungogo", "Warawa", "Wudil"],
-    "Katsina": ["Bakori", "Batagarawa", "Batsari", "Baure", "Bindawa", "Charanchi", "Dandume", "Danja", "Dan Musa", "Daura", "Dutsi", "Dutsin Ma", "Faskari", "Funtua", "Ingawa", "Jibia", "Kafur", "Kaita", "Kankara", "Kankia", "Katsina", "Kurfi", "Kusada", "Mai'Adua", "Malumfashi", "Mani", "Mashi", "Matazu", "Musawa", "Rimi", "Sabuwa", "Safana", "Sandamu", "Zango"],
-    "Kebbi": ["Aleiro", "Arewa Dandi", "Argungu", "Augie", "Bagudo", "Birnin Kebbi", "Bunza", "Dandi", "Fakai", "Gwandu", "Jega", "Kalgo", "Koko/Besse", "Maiyama", "Ngaski", "Sakaba", "Shanga", "Suru", "Wasagu/Danko", "Yauri", "Zuru"],
-    "Kogi": ["Adavi", "Ajaokuta", "Ankpa", "Bassa", "Dekina", "Ibaji", "Idah", "Igalamela Odolu", "Ijumu", "Kabba/Bunu", "Kogi", "Lokoja", "Mopa Muro", "Ofu", "Ogori/Magongo", "Okehi", "Okene", "Olamaboro", "Omala", "Yagba East", "Yagba West"],
-    "Kwara": ["Asa", "Baruten", "Edu", "Ekiti", "Ifelodun", "Ilorin East", "Ilorin South", "Ilorin West", "Irepodun", "Isin", "Kaiama", "Moro", "Offa", "Oke Ero", "Oyun", "Pategi"],
     "Lagos": ["Agege", "Ajeromi-Ifelodun", "Alimosho", "Amuwo-Odofin", "Apapa", "Badagry", "Epe", "Eti Osa", "Ibeju-Lekki", "Ifako-Ijaiye", "Ikeja", "Ikorodu", "Kosofe", "Lagos Island", "Lagos Mainland", "Mushin", "Ojo", "Oshodi-Isolo", "Shomolu", "Surulere"],
-    "Nasarawa": ["Akwanga", "Awe", "Doma", "Karu", "Keana", "Keffi", "Kokona", "Lafia", "Nasarawa", "Nasarawa Egon", "Obi", "Toto", "Wamba"],
-    "Niger": ["Agaie", "Agwara", "Bida", "Borgu", "Bosso", "Chanchaga", "Edati", "Gbako", "Gurara", "Katcha", "Kontagora", "Lapai", "Lavun", "Magama", "Mariga", "Mashegu", "Mokwa", "Moya", "Paikoro", "Rafi", "Rijau", "Shiroro", "Suleja", "Tafa", "Wushishi"],
-    "Ogun": ["Abeokuta North", "Abeokuta South", "Ado-Odo/Ota", "Egbado North", "Egbado South", "Ewekoro", "Ifo", "Ijebu East", "Ijebu North", "Ijebu North East", "Ijebu Ode", "Ikenne", "Imeko Afon", "Ipokia", "Obafemi Owode", "Odeda", "Odogbolu", "Remo North", "Sagamu"],
-    "Ondo": ["Akoko North-East", "Akoko North-West", "Akoko South-West", "Akoko South-East", "Akure North", "Akure South", "Ese Odo", "Idanre", "Ifedore", "Ilaje", "Ile Oluji/Okeigbo", "Irele", "Odigbo", "Okitipupa", "Ondo East", "Ondo West", "Ose", "Owo"],
-    "Osun": ["Atakunmosa East", "Atakunmosa West", "Aiyedaade", "Aiyedire", "Boluwaduro", "Boripe", "Ede North", "Ede South", "Egbedore", "Ejigbo", "Ife Central", "Ife East", "Ife North", "Ife South", "Ifedayo", "Ifelodun", "Ila", "Ilesa East", "Ilesa West", "Irepodun", "Irewole", "Isokan", "Iwo", "Obokun", "Odo Otin", "Ola Oluwa", "Olorunda", "Oriade", "Orolu", "Osogbo"],
-    "Oyo": ["Afijio", "Akinyele", "Atiba", "Atisbo", "Egbeda", "Ibadan North", "Ibadan North-East", "Ibadan North-West", "Ibadan South-East", "Ibadan South-West", "Ibarapa Central", "Ibarapa East", "Ibarapa North", "Ido", "Irepo", "Iseyin", "Itesiwaju", "Iwajowa", "Kajola", "Lagelu", "Ogbomosho North", "Ogbomosho South", "Ogo Oluwa", "Olorunsogo", "Oluyole", "Ona Ara", "Orelope", "Ori Ire", "Oyo East", "Oyo West", "Saki East", "Saki West", "Surulere"],
-    "Plateau": ["Barkin Ladi", "Bassa", "Jos East", "Jos North", "Jos South", "Kanam", "Kanke", "Langtang North", "Langtang South", "Mangu", "Mikang", "Pankshin", "Qua'an Pan", "Riyom", "Shendam", "Wase"],
-    "Rivers": ["Abua/Odual", "Ahoada East", "Ahoada West", "Akuku-Toru", "Andoni", "Asari-Toru", "Bonny", "Degema", "Eleme", "Emuoha", "Etche", "Gokana", "Ikwerre", "Khana", "Obio/Akpor", "Ogba/Egbema/Ndoni", "Ogu/Bolo", "Okrika", "Omuma", "Opobo/Nkoro", "Oyigbo", "Port Harcourt", "Tai"],
-    "Sokoto": ["Binji", "Bodinga", "Dange Shuni", "Gada", "Goronyo", "Gudu", "Gwadabawa", "Illela", "Isa", "Kebbe", "Kware", "Rabah", "Sabon Birni", "Shagari", "Silame", "Sokoto North", "Sokoto South", "Tambuwal", "Tangaza", "Tureta", "Wamako", "Wurno", "Yabo"],
-    "Taraba": ["Ardo Kola", "Bali", "Donga", "Gashaka", "Gassol", "Ibi", "Jalingo", "Karim Lamido", "Kumi", "Lau", "Sardauna", "Takum", "Ussa", "Wukari", "Yorro", "Zing"],
-    "Yobe": ["Bade", "Bursari", "Damaturu", "Fika", "Fune", "Geidam", "Gujba", "Gulani", "Jakusko", "Karasuwa", "Machina", "Nangere", "Nguru", "Potiskum", "Tarmuwa", "Yunusari", "Yusufari"],
-    "Zamfara": ["Anka", "Bakura", "Birnin Magaji/Kiyaw", "Bukkuyum", "Bungudu", "Gummi", "Gusau", "Kaura Namoda", "Maradun", "Maru", "Shinkafi", "Talata Mafara", "Tsafe", "Zurmi"]
+    "Kano": ["Ajingi", "Albasu", "Bagwai", "Bebeji", "Bichi", "Bunkure", "Dala", "Dambatta", "Dawakin Kudu", "Dawakin Tofa", "Doguwa", "Fagge", "Gabasawa", "Garko", "Garun Mallam", "Gaya", "Gezawa", "Gwale", "Gwarzo", "Kabo", "Kano Municipal", "Karaye", "Kibiya", "Kiru", "Kumbotso", "Kunchi", "Kura", "Madobi", "Makoda", "Minjibir", "Nasarawa", "Rano", "Rimin Gado", "Rogo", "Shanono", "Sumaila", "Takai", "Tarauni", "Tofa", "Tsanyawa", "Tudun Wada", "Ungogo", "Warawa", "Wudil"]
 }
-
-# Default to Nigeria for now; extend with other countries as needed
 COUNTRIES = ["Nigeria"]
 STATES = list(NIGERIA_DATA.keys())
 
-# ---------- Helper functions ----------
-def fetch_weather_forecast(lat, lon):
+# ---------- Enhanced weather API ----------
+def fetch_precision_weather(lat, lon):
+    """Fetch 14-day forecast with leaf wetness, soil moisture, solar radiation."""
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat, "longitude": lon,
-        "daily": ["temperature_2m_max", "temperature_2m_min", "precipitation_sum",
-                  "relative_humidity_2m_max", "relative_humidity_2m_min"],
-        "forecast_days": 7, "timezone": "Africa/Lagos"
+        "daily": [
+            "temperature_2m_max", "temperature_2m_min",
+            "relative_humidity_2m_max", "relative_humidity_2m_min",
+            "precipitation_sum", "precipitation_hours",
+            "shortwave_radiation_sum",
+            "wind_speed_10m_max",
+            "soil_temperature_0cm",
+            "soil_moisture_0_to_10cm"
+        ],
+        "hourly": ["leaf_wetness_probability"],
+        "forecast_days": 14,
+        "past_days": 3,
+        "timezone": "auto",
+        "models": "best_match"
     }
     try:
-        r = requests.get(url, params=params, timeout=10)
+        r = requests.get(url, params=params, timeout=15)
         if r.status_code == 200:
-            return r.json()
+            data = r.json()
+            if "hourly" in data:
+                daily = data["daily"]
+                lw = data["hourly"]["leaf_wetness_probability"]
+                daily["leaf_wetness_hours"] = []
+                for day_start in range(0, len(lw), 24):
+                    day_vals = lw[day_start:day_start+24]
+                    wet_hours = sum(1 for v in day_vals if v and v > 50)
+                    daily["leaf_wetness_hours"].append(wet_hours)
+            return data
     except:
         pass
     return None
+
+# ---------- Complete crop-disease encyclopedia ----------
+CROP_DISEASE_MAP = {
+    "maize": [
+        {"name": "Northern Leaf Blight", "temp_min": 18, "temp_max": 27, "humidity_min": 80, "leaf_wetness_hours": 10, "rainfall_weekly": 30},
+        {"name": "Common Rust", "temp_min": 15, "temp_max": 25, "humidity_min": 90, "leaf_wetness_hours": 8, "rainfall_weekly": 15},
+        {"name": "Gray Leaf Spot", "temp_min": 22, "temp_max": 30, "humidity_min": 85, "leaf_wetness_hours": 12, "rainfall_weekly": 35},
+    ],
+    "rice": [
+        {"name": "Rice Blast", "temp_min": 20, "temp_max": 30, "humidity_min": 85, "leaf_wetness_hours": 10, "rainfall_weekly": 20},
+        {"name": "Brown Spot", "temp_min": 25, "temp_max": 35, "humidity_min": 80, "leaf_wetness_hours": 8, "rainfall_weekly": 10},
+        {"name": "Bacterial Leaf Blight", "temp_min": 25, "temp_max": 34, "humidity_min": 70, "leaf_wetness_hours": 0, "rainfall_weekly": 40},
+    ],
+    "wheat": [
+        {"name": "Yellow Rust", "temp_min": 10, "temp_max": 20, "humidity_min": 80, "leaf_wetness_hours": 8, "rainfall_weekly": 10},
+        {"name": "Septoria Tritici Blotch", "temp_min": 15, "temp_max": 25, "humidity_min": 85, "leaf_wetness_hours": 12, "rainfall_weekly": 20},
+    ],
+    "beans": [
+        {"name": "Angular Leaf Spot", "temp_min": 20, "temp_max": 28, "humidity_min": 85, "leaf_wetness_hours": 10, "rainfall_weekly": 20},
+        {"name": "Bean Rust", "temp_min": 15, "temp_max": 25, "humidity_min": 90, "leaf_wetness_hours": 8, "rainfall_weekly": 15},
+    ],
+    "potato": [
+        {"name": "Late Blight", "temp_min": 10, "temp_max": 24, "humidity_min": 90, "leaf_wetness_hours": 12, "rainfall_weekly": 30},
+        {"name": "Early Blight", "temp_min": 20, "temp_max": 30, "humidity_min": 70, "leaf_wetness_hours": 6, "rainfall_weekly": 10},
+    ],
+    "tomato": [
+        {"name": "Late Blight", "temp_min": 10, "temp_max": 24, "humidity_min": 90, "leaf_wetness_hours": 12, "rainfall_weekly": 30},
+        {"name": "Early Blight", "temp_min": 20, "temp_max": 30, "humidity_min": 70, "leaf_wetness_hours": 6, "rainfall_weekly": 10},
+        {"name": "Bacterial Spot", "temp_min": 24, "temp_max": 30, "humidity_min": 80, "leaf_wetness_hours": 8, "rainfall_weekly": 20},
+    ],
+    "banana": [
+        {"name": "Black Sigatoka", "temp_min": 22, "temp_max": 30, "humidity_min": 85, "leaf_wetness_hours": 12, "rainfall_weekly": 25},
+        {"name": "Fusarium Wilt", "temp_min": 25, "temp_max": 35, "humidity_min": 75, "leaf_wetness_hours": 4, "rainfall_weekly": 15},
+    ],
+    "cassava": [
+        {"name": "Cassava Mosaic Disease", "temp_min": 25, "temp_max": 35, "humidity_min": 60, "leaf_wetness_hours": 0, "rainfall_weekly": 20},
+        {"name": "Cassava Bacterial Blight", "temp_min": 25, "temp_max": 35, "humidity_min": 80, "leaf_wetness_hours": 8, "rainfall_weekly": 30},
+    ],
+    "coffee": [
+        {"name": "Coffee Leaf Rust", "temp_min": 15, "temp_max": 28, "humidity_min": 80, "leaf_wetness_hours": 10, "rainfall_weekly": 25},
+    ],
+    "sorghum": [
+        {"name": "Anthracnose", "temp_min": 22, "temp_max": 30, "humidity_min": 85, "leaf_wetness_hours": 10, "rainfall_weekly": 25},
+    ],
+    "groundnut": [
+        {"name": "Early Leaf Spot", "temp_min": 20, "temp_max": 30, "humidity_min": 85, "leaf_wetness_hours": 10, "rainfall_weekly": 20},
+    ],
+}
 
 def get_growth_stage(planting_date_str):
     if not planting_date_str:
@@ -122,61 +151,38 @@ def get_growth_stage(planting_date_str):
     except:
         return "Unknown"
 
-def calculate_risk(weather_data, crop, growth_stage):
+def calculate_precision_risk(weather_data, crop, growth_stage):
     if not weather_data or "daily" not in weather_data:
         return []
     daily = weather_data["daily"]
-    dates = daily["time"]
-    risks = []
-    disease_map = {
-        "maize": [
-            {"name": "Northern Leaf Blight", "temp_range": (18, 27), "humidity_min": 80, "rainfall_min": 5},
-            {"name": "Common Rust", "temp_range": (15, 25), "humidity_min": 90, "rainfall_min": 2},
-        ],
-        "rice": [
-            {"name": "Rice Blast", "temp_range": (20, 30), "humidity_min": 85, "rainfall_min": 3},
-            {"name": "Brown Spot", "temp_range": (25, 35), "humidity_min": 80, "rainfall_min": 0},
-        ],
-        "beans": [
-            {"name": "Angular Leaf Spot", "temp_range": (20, 28), "humidity_min": 85, "rainfall_min": 2},
-        ],
-        "potato": [
-            {"name": "Late Blight", "temp_range": (10, 24), "humidity_min": 90, "rainfall_min": 5},
-            {"name": "Early Blight", "temp_range": (20, 30), "humidity_min": 70, "rainfall_min": 0},
-        ],
-        "wheat": [
-            {"name": "Yellow Rust", "temp_range": (10, 20), "humidity_min": 80, "rainfall_min": 1},
-        ],
-        "banana": [
-            {"name": "Fusarium Wilt", "temp_range": (25, 35), "humidity_min": 75, "rainfall_min": 0},
-        ],
-        "tomato": [
-            {"name": "Late Blight", "temp_range": (10, 24), "humidity_min": 90, "rainfall_min": 5},
-            {"name": "Early Blight", "temp_range": (20, 30), "humidity_min": 70, "rainfall_min": 0},
-        ]
-    }
-    if crop not in disease_map:
+    diseases = CROP_DISEASE_MAP.get(crop, [])
+    if not diseases:
         return []
-    diseases = disease_map[crop]
-    for i, date_str in enumerate(dates):
+    forecast_days = len(daily["time"])
+    risks = []
+    for day_idx in range(forecast_days):
         day_risks = []
         for disease in diseases:
-            temp_max = daily["temperature_2m_max"][i]
-            temp_min = daily["temperature_2m_min"][i]
-            humidity = max(daily["relative_humidity_2m_max"][i], daily["relative_humidity_2m_min"][i])
-            rainfall = daily["precipitation_sum"][i]
-            risk_score = 0
-            if disease["temp_range"][0] <= temp_max <= disease["temp_range"][1]:
-                risk_score += 30
-            if disease["temp_range"][0] <= temp_min <= disease["temp_range"][1]:
-                risk_score += 20
+            score = 0
+            t_max = daily["temperature_2m_max"][day_idx]
+            t_min = daily["temperature_2m_min"][day_idx]
+            if disease["temp_min"] <= t_max <= disease["temp_max"]:
+                score += 25
+            if disease["temp_min"] <= t_min <= disease["temp_max"]:
+                score += 15
+            humidity = max(daily.get("relative_humidity_2m_max", [0]*forecast_days)[day_idx],
+                          daily.get("relative_humidity_2m_min", [0]*forecast_days)[day_idx])
             if humidity >= disease["humidity_min"]:
-                risk_score += 35
-            if rainfall >= disease["rainfall_min"]:
-                risk_score += 15
+                score += 30
+            lw_hours = daily.get("leaf_wetness_hours", [0]*forecast_days)[day_idx]
+            if lw_hours >= disease.get("leaf_wetness_hours", 6):
+                score += 20
+            rainfall = sum(daily.get("precipitation_sum", [0]*forecast_days)[max(0,day_idx-6):day_idx+1])
+            if rainfall >= disease.get("rainfall_weekly", 20):
+                score += 10
             if growth_stage in ["Seedling", "Vegetative"]:
-                risk_score = min(100, risk_score + 10)
-            day_risks.append({"disease": disease["name"], "risk": min(100, risk_score), "date": date_str})
+                score = min(100, score + 10)
+            day_risks.append({"disease": disease["name"], "risk": min(100, score), "date": daily["time"][day_idx]})
         risks.append(day_risks)
     return risks
 
@@ -187,26 +193,6 @@ st.markdown('<div class="subtitle">Precision disease alerts based on your exact 
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("Please log in to use the Early Warning System.")
     st.stop()
-
-user_id = st.session_state.user.id
-
-# Supabase (service client for profile)
-from supabase import create_client, Client
-SUPABASE_URL = st.secrets["supabase"]["url"]
-SUPABASE_KEY = st.secrets["supabase"]["key"]
-
-@st.cache_resource
-def get_supabase():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
-
-@st.cache_resource
-def get_service_client():
-    SERVICE_KEY = st.secrets["supabase"]["service_key"]
-    return create_client(SUPABASE_URL, SERVICE_KEY)
-
-service_client = get_service_client()
-res = service_client.table("user_profiles").select("*").eq("user_id", user_id).execute()
-profile = res.data[0] if res.data else {}
 
 # ---------- Location selection ----------
 st.subheader("📍 Pinpoint Your Farm")
@@ -220,7 +206,7 @@ with col3:
     lga = st.selectbox("LGA", [""] + lgas)
 
 # ---------- Interactive map ----------
-lat, lon = 9.082, 8.675  # default center Nigeria
+lat, lon = 9.082, 8.675
 if FOLIUM_AVAILABLE:
     st.write("**Click on the map to mark your exact farm location**")
     m = folium.Map(location=[lat, lon], zoom_start=6)
@@ -237,16 +223,16 @@ else:
 # ---------- Crop & planting date ----------
 col1, col2 = st.columns(2)
 with col1:
-    crop = st.selectbox("Current Crop", ["maize", "rice", "beans", "potato", "wheat", "banana", "tomato"])
+    crop = st.selectbox("Current Crop", list(CROP_DISEASE_MAP.keys()))
 with col2:
     planting_date = st.date_input("Planting Date", max_value=date.today())
 
 if st.button("🔍 Get Disease Risk Forecast"):
-    weather = fetch_weather_forecast(lat, lon)
+    weather = fetch_precision_weather(lat, lon)
     growth_stage = get_growth_stage(planting_date.strftime("%Y-%m-%d") if planting_date else "")
     
     if weather:
-        risks = calculate_risk(weather, crop, growth_stage)
+        risks = calculate_precision_risk(weather, crop, growth_stage)
         st.success(f"Forecast for coordinates ({lat:.4f}, {lon:.4f})")
         
         if risks and any(any(r["risk"] > 0 for r in day) for day in risks):

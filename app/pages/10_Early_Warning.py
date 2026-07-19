@@ -15,6 +15,7 @@ st.markdown("""
     .stToggle > label { display: none !important; }
     .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
     .stToggle > div { transform: scale(1.3); }
+    section[data-testid="stSidebar"] { display: block !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -26,49 +27,22 @@ theme = st.session_state.theme
 if theme == "dark":
     st.markdown("""
     <style>
-        .stApp {
-            background: linear-gradient(145deg, #0a0a0a 0%, #1a1a2e 50%, #0d0d0d 100%);
-            color: #e0e0e0;
-        }
+        .stApp { background: linear-gradient(145deg, #0a0a0a 0%, #1a1a2e 50%, #0d0d0d 100%); color: #e0e0e0; }
         header, footer {visibility: hidden;}
-        .title {
-            font-size: 3rem; font-weight: 900; text-align: center;
-            background: linear-gradient(90deg, #00c853, #69f0ae, #00c853);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(0,200,83,0.6);
-            margin-bottom: 0.5rem;
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-        @keyframes glow {
-            from { text-shadow: 0 0 20px rgba(0,200,83,0.6); }
-            to { text-shadow: 0 0 40px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.8); }
-        }
+        .title { font-size: 3rem; font-weight: 900; text-align: center; background: linear-gradient(90deg, #00c853, #69f0ae, #00c853); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 30px rgba(0,200,83,0.6); margin-bottom: 0.5rem; animation: glow 2s ease-in-out infinite alternate; }
+        @keyframes glow { from { text-shadow: 0 0 20px rgba(0,200,83,0.6); } to { text-shadow: 0 0 40px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.8); } }
         .subtitle { text-align: center; font-size: 1.2rem; color: #90a4ae; margin-bottom: 2rem; }
-        .farm-card {
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(20px);
-            border: 1px solid rgba(0,200,83,0.2); border-radius: 20px;
-            padding: 1.5rem; margin: 1rem 0;
-        }
-        .risk-card {
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(20px);
-            border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0;
-            display: flex; align-items: center; justify-content: space-between;
-        }
+        .farm-card { background: rgba(0,0,0,0.6); backdrop-filter: blur(20px); border: 1px solid rgba(0,200,83,0.2); border-radius: 20px; padding: 1.5rem; margin: 1rem 0; }
+        .risk-card { background: rgba(0,0,0,0.6); backdrop-filter: blur(20px); border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; display: flex; align-items: center; justify-content: space-between; }
         .risk-low { border: 2px solid #00c853; box-shadow: 0 0 20px rgba(0,200,83,0.3); }
         .risk-moderate { border: 2px solid #ff9800; box-shadow: 0 0 20px rgba(255,152,0,0.3); }
         .risk-high { border: 2px solid #ff1744; box-shadow: 0 0 30px rgba(255,23,68,0.5); animation: pulse 1.5s ease-in-out infinite; }
-        @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 30px rgba(255,23,68,0.5); }
-            50% { box-shadow: 0 0 60px rgba(255,23,68,0.8); }
-        }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 30px rgba(255,23,68,0.5); } 50% { box-shadow: 0 0 60px rgba(255,23,68,0.8); } }
         .risk-label { font-weight: 700; font-size: 1.2rem; }
         .risk-label.low { color: #00c853; }
         .risk-label.moderate { color: #ff9800; }
         .risk-label.high { color: #ff1744; }
-        .action-btn {
-            padding: 12px 25px; border-radius: 30px; font-weight: 600;
-            text-decoration: none; display: inline-block; margin-top: 0.5rem;
-        }
+        .action-btn { padding: 12px 25px; border-radius: 30px; font-weight: 600; text-decoration: none; display: inline-block; margin-top: 0.5rem; }
         .action-btn.green { background: #00c853; color: #000; }
         .action-btn.orange { background: #ff9800; color: #000; }
         .action-btn.red { background: #ff1744; color: #fff; }
@@ -99,14 +73,11 @@ else:
 
 # ---------- Helper functions ----------
 def fetch_weather_forecast(lat, lon):
-    """Fetch 7-day weather forecast from Open-Meteo (free, no API key)."""
-    url = f"https://api.open-meteo.com/v1/forecast"
+    url = "https://api.open-meteo.com/v1/forecast"
     params = {
-        "latitude": lat,
-        "longitude": lon,
+        "latitude": lat, "longitude": lon,
         "daily": ["temperature_2m_max", "temperature_2m_min", "precipitation_sum", "relative_humidity_2m_max", "relative_humidity_2m_min"],
-        "forecast_days": 7,
-        "timezone": "Africa/Lagos"
+        "forecast_days": 7, "timezone": "Africa/Lagos"
     }
     try:
         r = requests.get(url, params=params, timeout=10)
@@ -117,37 +88,26 @@ def fetch_weather_forecast(lat, lon):
     return None
 
 def get_growth_stage(planting_date_str):
-    """Estimate crop growth stage from planting date."""
     if not planting_date_str:
         return "Unknown"
     try:
         planting = datetime.strptime(planting_date_str, "%Y-%m-%d")
         days_since = (datetime.now() - planting).days
-        if days_since < 0:
-            return "Not planted yet"
-        elif days_since <= 21:
-            return "Seedling"
-        elif days_since <= 50:
-            return "Vegetative"
-        elif days_since <= 80:
-            return "Flowering"
-        elif days_since <= 120:
-            return "Grain-fill / Maturity"
-        else:
-            return "Harvest-ready"
+        if days_since < 0: return "Not planted yet"
+        elif days_since <= 21: return "Seedling"
+        elif days_since <= 50: return "Vegetative"
+        elif days_since <= 80: return "Flowering"
+        elif days_since <= 120: return "Grain-fill / Maturity"
+        else: return "Harvest-ready"
     except:
         return "Unknown"
 
 def calculate_risk(weather_data, crop, growth_stage):
-    """Rule-based risk engine (replaceable with ML model)."""
     if not weather_data or "daily" not in weather_data:
         return []
-    
     daily = weather_data["daily"]
     dates = daily["time"]
     risks = []
-    
-    # Crop-specific disease thresholds
     disease_map = {
         "maize": [
             {"name": "Northern Leaf Blight", "temp_range": (18, 27), "humidity_min": 80, "rainfall_min": 5},
@@ -175,12 +135,9 @@ def calculate_risk(weather_data, crop, growth_stage):
             {"name": "Early Blight", "temp_range": (20, 30), "humidity_min": 70, "rainfall_min": 0},
         ]
     }
-    
     if crop not in disease_map:
         return []
-    
     diseases = disease_map[crop]
-    
     for i, date_str in enumerate(dates):
         day_risks = []
         for disease in diseases:
@@ -188,8 +145,6 @@ def calculate_risk(weather_data, crop, growth_stage):
             temp_min = daily["temperature_2m_min"][i]
             humidity = max(daily["relative_humidity_2m_max"][i], daily["relative_humidity_2m_min"][i])
             rainfall = daily["precipitation_sum"][i]
-            
-            # Calculate risk based on conditions
             risk_score = 0
             if disease["temp_range"][0] <= temp_max <= disease["temp_range"][1]:
                 risk_score += 30
@@ -199,52 +154,22 @@ def calculate_risk(weather_data, crop, growth_stage):
                 risk_score += 35
             if rainfall >= disease["rainfall_min"]:
                 risk_score += 15
-            
-            # Adjust for growth stage (seedlings are more vulnerable)
             if growth_stage in ["Seedling", "Vegetative"]:
                 risk_score = min(100, risk_score + 10)
-            
-            day_risks.append({
-                "disease": disease["name"],
-                "risk": min(100, risk_score),
-                "date": date_str
-            })
+            day_risks.append({"disease": disease["name"], "risk": min(100, risk_score), "date": date_str})
         risks.append(day_risks)
-    
     return risks
 
 # ---------- Main UI ----------
-
-# ---------- Sidebar visibility helper ----------
-with st.sidebar:
-    st.caption("")  # Force sidebar to render
-st.markdown("""
-<style>
-    /* Ensure sidebar is not hidden */
-    section[data-testid="stSidebar"] {
-        display: block !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-
-<style>
-    section[data-testid="stSidebar"] {
-        display: block !important;
-    }
-</style>
-
 st.markdown('<div class="title">🛰️ EARLY WARNING SYSTEM</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Predictive disease alerts based on weather, crop stage, and regional data</div>', unsafe_allow_html=True)
 
-# Check if user is logged in
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("Please log in to use the Early Warning System.")
     st.stop()
 
 user_id = st.session_state.user.id
 
-# Fetch user profile
 from supabase import create_client, Client
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -255,23 +180,19 @@ def get_supabase():
 
 @st.cache_resource
 def get_service_client():
-    """Use service_role key to bypass RLS for profile operations."""
     SERVICE_KEY = st.secrets["supabase"]["service_key"]
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
 supabase = get_supabase()
 service_client = get_service_client()
-# Use service client to read profile (bypass RLS)
 res = service_client.table("user_profiles").select("*").eq("user_id", user_id).execute()
 profile = res.data[0] if res.data else {}
 
-# Farm settings form
 with st.expander("🌍 Farm Settings", expanded=not profile.get("farm_location")):
     with st.form("farm_settings"):
         col1, col2 = st.columns(2)
         with col1:
-            farm_location = st.text_input("Farm Location (City)", value=profile.get("farm_location", ""),
-                                         placeholder="e.g., Gwagwalada, Abuja")
+            farm_location = st.text_input("Farm Location (City)", value=profile.get("farm_location", ""), placeholder="e.g., Gwagwalada, Abuja")
         with col2:
             crop = st.selectbox("Current Crop", ["maize", "rice", "beans", "potato", "wheat", "banana", "tomato"])
         planting_date = st.date_input("Planting Date", 
@@ -279,7 +200,7 @@ with st.expander("🌍 Farm Settings", expanded=not profile.get("farm_location")
                                       max_value=date.today())
         if st.form_submit_button("Save Settings"):
             try:
-                get_service_client().table("user_profiles").upsert({
+                service_client.table("user_profiles").upsert({
                     "user_id": user_id,
                     "farm_location": farm_location.strip(),
                     "planting_date": planting_date.strftime("%Y-%m-%d") if planting_date else None
@@ -287,40 +208,24 @@ with st.expander("🌍 Farm Settings", expanded=not profile.get("farm_location")
                 st.success("Farm settings saved!")
                 st.rerun()
             except Exception as e:
-                st.error("Could not save farm settings. Make sure you've run the required SQL in Supabase:")
-                st.code("""
-ALTER TABLE public.user_profiles 
-ADD COLUMN IF NOT EXISTS farm_location TEXT,
-ADD COLUMN IF NOT EXISTS planting_date DATE;
-                """, language="sql")
+                st.error(f"Could not save: {e}")
 
-# If farm location is set, show predictions
 if profile.get("farm_location"):
-    # Approximate coordinates for the city (in production, use geocoding API)
-    # For demo, we use Abuja coordinates as fallback
     lat, lon = 9.05785, 7.49508  # Default: Abuja
-    
-    # Try to get real coordinates from city name (simplified)
     city_coords = {
-        "abuja": (9.05785, 7.49508),
-        "lagos": (6.5244, 3.3792),
-        "kano": (12.0, 8.5167),
-        "ibadan": (7.3775, 3.9470),
-        "kaduna": (10.5264, 7.4388),
-        "port harcourt": (4.8156, 7.0498),
-        "gwagwalada": (8.9333, 7.0833),
-        "accra": (5.6037, -0.1870),
-        "nairobi": (-1.2921, 36.8219),
+        "abuja": (9.05785, 7.49508), "lagos": (6.5244, 3.3792), "kano": (12.0, 8.5167),
+        "ibadan": (7.3775, 3.9470), "kaduna": (10.5264, 7.4388), "port harcourt": (4.8156, 7.0498),
+        "gwagwalada": (8.9333, 7.0833), "accra": (5.6037, -0.1870), "nairobi": (-1.2921, 36.8219),
         "london": (51.5074, -0.1278),
     }
     for city, coords in city_coords.items():
         if city in profile["farm_location"].lower():
             lat, lon = coords
             break
-    
+
     weather = fetch_weather_forecast(lat, lon)
     growth_stage = get_growth_stage(profile.get("planting_date", ""))
-    
+
     st.markdown(f"""
     <div class="farm-card">
         <h3>📍 {profile['farm_location']}</h3>
@@ -328,42 +233,25 @@ if profile.get("farm_location"):
         <p>📅 Planted: {profile.get('planting_date', 'Not set')}</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
     if weather:
         risks = calculate_risk(weather, crop, growth_stage)
-        
         if risks and any(any(r["risk"] > 0 for r in day) for day in risks):
             st.markdown("### 📊 7‑Day Disease Risk Forecast")
-            
             for day_idx, day_risks in enumerate(risks):
                 if not day_risks:
                     continue
-                
                 date_str = weather["daily"]["time"][day_idx]
                 date_obj = datetime.strptime(date_str, "%Y-%m-%d")
                 day_name = date_obj.strftime("%a %d %b")
-                
                 for risk_data in day_risks:
                     risk = risk_data["risk"]
                     if risk < 30:
-                        card_class = "risk-low"
-                        label_class = "low"
-                        badge = "🟢 LOW"
-                        action_text = "Monitor conditions"
-                        action_class = "green"
+                        card_class, label_class, badge, action_text, action_class = "risk-low", "low", "🟢 LOW", "Monitor conditions", "green"
                     elif risk < 60:
-                        card_class = "risk-moderate"
-                        label_class = "moderate"
-                        badge = "🟡 MODERATE"
-                        action_text = "Prepare preventive spray"
-                        action_class = "orange"
+                        card_class, label_class, badge, action_text, action_class = "risk-moderate", "moderate", "🟡 MODERATE", "Prepare preventive spray", "orange"
                     else:
-                        card_class = "risk-high"
-                        label_class = "high"
-                        badge = "🔴 HIGH"
-                        action_text = "Apply treatment NOW"
-                        action_class = "red"
-                    
+                        card_class, label_class, badge, action_text, action_class = "risk-high", "high", "🔴 HIGH", "Apply treatment NOW", "red"
                     st.markdown(f"""
                     <div class="risk-card {card_class}">
                         <div>
@@ -377,16 +265,8 @@ if profile.get("farm_location"):
                     </div>
                     """, unsafe_allow_html=True)
         else:
-            st.info("No significant disease risk detected for the next 7 days based on current weather forecasts. Keep monitoring.")
+            st.info("No significant disease risk detected for the next 7 days.")
     else:
-        st.warning("Unable to fetch weather data. Please check your farm location and try again.")
-        st.markdown(f"Debug: lat={lat}, lon={lon}")
+        st.warning("Unable to fetch weather data. Check your farm location.")
 else:
     st.info("👆 Set your farm location and crop above to see disease risk predictions.")
-    st.markdown("""
-    ### How It Works
-    1. Enter your **farm location** and **crop type**
-    2. GAIA fetches the **7‑day weather forecast** for your area
-    3. Our AI predicts the **risk of specific diseases** based on temperature, humidity, and rainfall
-    4. You get **color‑coded alerts** and **actionable advice** before disease strikes
-    """)

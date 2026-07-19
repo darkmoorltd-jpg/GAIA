@@ -14,3 +14,6 @@ pyyaml
 requests
 kagglehub
 matplotlib
+folium
+streamlit-folium
+geopy

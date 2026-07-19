@@ -11,6 +11,38 @@ import timm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+def _get_soil_description(soil_type):
+    descriptions = {
+        "alluvial": "Rich, fertile soil deposited by rivers. Excellent for agriculture.",
+        "black": "Dark, nutrient-rich soil. High water retention. Great for cotton.",
+        "cinder": "Volcanic soil, porous and well-draining. Good for root vegetables.",
+        "clay": "Heavy, sticky soil. High water retention but poor drainage.",
+        "laterite": "Iron-rich, weathered soil. Common in tropical regions.",
+        "loamy": "Ideal garden soil – balanced sand, silt, and clay.",
+        "peat": "Dark, organic soil. High moisture and acidity. Great for acid-loving plants.",
+        "red": "Iron oxide-rich soil. Good drainage. Suitable for groundnuts and millet.",
+        "sandy": "Loose, well-draining soil. Warms quickly in spring.",
+        "sandy_loam": "Sand-rich but with some silt and clay. Good for most crops.",
+        "yellow": "Moderately fertile soil. Contains hydrated iron oxides."
+    }
+    return descriptions.get(soil_type, "")
+
+def _get_recommendation(soil_type):
+    recommendations = {
+        "alluvial": "Ideal for rice, wheat, sugarcane. Add organic compost for best results.",
+        "black": "Perfect for cotton, soybeans. Maintain moisture with mulching.",
+        "cinder": "Excellent for carrots, potatoes. Add compost to improve nutrient content.",
+        "clay": "Add gypsum and organic matter. Suitable for paddy rice.",
+        "laterite": "Add lime and organic matter. Suitable for cashew, tea, coffee.",
+        "loamy": "Great for most vegetables. Rotate crops to maintain fertility.",
+        "peat": "Excellent for blueberries, cranberries. Monitor pH regularly.",
+        "red": "Apply nitrogen-rich fertilizers. Ideal for groundnuts, millet, and pulses.",
+        "sandy": "Add compost frequently. Use drip irrigation. Good for melons and groundnuts.",
+        "sandy_loam": "Balanced soil for maize, beans, and vegetables.",
+        "yellow": "Add compost and iron supplements. Suitable for maize, beans, and vegetables."
+    }
+    return recommendations.get(soil_type, "Consult a local agronomist for specific advice.")
+
 
 # ---------- Theme toggle ----------
 st.set_page_config(page_title="GAIA – Soil Analysis", page_icon="🏞️", layout="wide", initial_sidebar_state="expanded")
@@ -316,34 +348,3 @@ else:
         """, unsafe_allow_html=True)
 
 # ---------- Helper functions ----------
-def _get_soil_description(soil_type):
-    descriptions = {
-        "alluvial": "Rich, fertile soil deposited by rivers. Excellent for agriculture.",
-        "black": "Dark, nutrient-rich soil. High water retention. Great for cotton.",
-        "cinder": "Volcanic soil, porous and well-draining. Good for root vegetables.",
-        "clay": "Heavy, sticky soil. High water retention but poor drainage.",
-        "laterite": "Iron-rich, weathered soil. Common in tropical regions.",
-        "loamy": "Ideal garden soil – balanced sand, silt, and clay.",
-        "peat": "Dark, organic soil. High moisture and acidity. Great for acid-loving plants.",
-        "red": "Iron oxide-rich soil. Good drainage. Suitable for groundnuts and millet.",
-        "sandy": "Loose, well-draining soil. Warms quickly in spring.",
-        "sandy_loam": "Sand-rich but with some silt and clay. Good for most crops.",
-        "yellow": "Moderately fertile soil. Contains hydrated iron oxides."
-    }
-    return descriptions.get(soil_type, "")
-
-def _get_recommendation(soil_type):
-    recommendations = {
-        "alluvial": "Ideal for rice, wheat, sugarcane. Add organic compost for best results.",
-        "black": "Perfect for cotton, soybeans. Maintain moisture with mulching.",
-        "cinder": "Excellent for carrots, potatoes. Add compost to improve nutrient content.",
-        "clay": "Add gypsum and organic matter. Suitable for paddy rice.",
-        "laterite": "Add lime and organic matter. Suitable for cashew, tea, coffee.",
-        "loamy": "Great for most vegetables. Rotate crops to maintain fertility.",
-        "peat": "Excellent for blueberries, cranberries. Monitor pH regularly.",
-        "red": "Apply nitrogen-rich fertilizers. Ideal for groundnuts, millet, and pulses.",
-        "sandy": "Add compost frequently. Use drip irrigation. Good for melons and groundnuts.",
-        "sandy_loam": "Balanced soil for maize, beans, and vegetables.",
-        "yellow": "Add compost and iron supplements. Suitable for maize, beans, and vegetables."
-    }
-    return recommendations.get(soil_type, "Consult a local agronomist for specific advice.")

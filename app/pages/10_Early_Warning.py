@@ -240,7 +240,9 @@ def get_service_client():
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
 supabase = get_supabase()
-res = supabase.table("user_profiles").select("*").eq("user_id", user_id).execute()
+service_client = get_service_client()
+# Use service client to read profile (bypass RLS)
+res = service_client.table("user_profiles").select("*").eq("user_id", user_id).execute()
 profile = res.data[0] if res.data else {}
 
 # Farm settings form
@@ -310,51 +312,55 @@ if profile.get("farm_location"):
     if weather:
         risks = calculate_risk(weather, crop, growth_stage)
         
-        st.markdown("### 📊 7‑Day Disease Risk Forecast")
-        
-        for day_idx, day_risks in enumerate(risks):
-            if not day_risks:
-                continue
+        if risks and any(any(r["risk"] > 0 for r in day) for day in risks):
+            st.markdown("### 📊 7‑Day Disease Risk Forecast")
             
-            date_str = weather["daily"]["time"][day_idx]
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-            day_name = date_obj.strftime("%a %d %b")
-            
-            for risk_data in day_risks:
-                risk = risk_data["risk"]
-                if risk < 30:
-                    card_class = "risk-low"
-                    label_class = "low"
-                    badge = "🟢 LOW"
-                    action_text = "Monitor conditions"
-                    action_class = "green"
-                elif risk < 60:
-                    card_class = "risk-moderate"
-                    label_class = "moderate"
-                    badge = "🟡 MODERATE"
-                    action_text = "Prepare preventive spray"
-                    action_class = "orange"
-                else:
-                    card_class = "risk-high"
-                    label_class = "high"
-                    badge = "🔴 HIGH"
-                    action_text = "Apply treatment NOW"
-                    action_class = "red"
+            for day_idx, day_risks in enumerate(risks):
+                if not day_risks:
+                    continue
                 
-                st.markdown(f"""
-                <div class="risk-card {card_class}">
-                    <div>
-                        <strong>{risk_data['disease']}</strong> — {day_name}
-                        <p style="margin:0;color:#78909c;">Temp: {weather['daily']['temperature_2m_min'][day_idx]}°C – {weather['daily']['temperature_2m_max'][day_idx]}°C | Humidity: {max(weather['daily']['relative_humidity_2m_max'][day_idx], weather['daily']['relative_humidity_2m_min'][day_idx])}% | Rain: {weather['daily']['precipitation_sum'][day_idx]}mm</p>
+                date_str = weather["daily"]["time"][day_idx]
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                day_name = date_obj.strftime("%a %d %b")
+                
+                for risk_data in day_risks:
+                    risk = risk_data["risk"]
+                    if risk < 30:
+                        card_class = "risk-low"
+                        label_class = "low"
+                        badge = "🟢 LOW"
+                        action_text = "Monitor conditions"
+                        action_class = "green"
+                    elif risk < 60:
+                        card_class = "risk-moderate"
+                        label_class = "moderate"
+                        badge = "🟡 MODERATE"
+                        action_text = "Prepare preventive spray"
+                        action_class = "orange"
+                    else:
+                        card_class = "risk-high"
+                        label_class = "high"
+                        badge = "🔴 HIGH"
+                        action_text = "Apply treatment NOW"
+                        action_class = "red"
+                    
+                    st.markdown(f"""
+                    <div class="risk-card {card_class}">
+                        <div>
+                            <strong>{risk_data['disease']}</strong> — {day_name}
+                            <p style="margin:0;color:#78909c;">Temp: {weather['daily']['temperature_2m_min'][day_idx]}°C – {weather['daily']['temperature_2m_max'][day_idx]}°C | Humidity: {max(weather['daily']['relative_humidity_2m_max'][day_idx], weather['daily']['relative_humidity_2m_min'][day_idx])}% | Rain: {weather['daily']['precipitation_sum'][day_idx]}mm</p>
+                        </div>
+                        <div style="text-align:right;">
+                            <div class="risk-label {label_class}">{badge} — {risk}%</div>
+                            <span class="action-btn {action_class}">{action_text}</span>
+                        </div>
                     </div>
-                    <div style="text-align:right;">
-                        <div class="risk-label {label_class}">{badge} — {risk}%</div>
-                        <span class="action-btn {action_class}">{action_text}</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+        else:
+            st.info("No significant disease risk detected for the next 7 days based on current weather forecasts. Keep monitoring.")
     else:
         st.warning("Unable to fetch weather data. Please check your farm location and try again.")
+        st.markdown(f"Debug: lat={lat}, lon={lon}")
 else:
     st.info("👆 Set your farm location and crop above to see disease risk predictions.")
     st.markdown("""

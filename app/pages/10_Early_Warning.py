@@ -52,7 +52,8 @@ STATES = list(NIGERIA_DATA.keys())
 
 # ---------- Enhanced weather API ----------
 def fetch_precision_weather(lat, lon):
-    """Fetch 14-day forecast with leaf wetness, soil moisture, solar radiation."""
+    """Fetch 14-day forecast with leaf wetness, soil moisture, solar radiation.
+    Returns (data, error_message)."""
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat, "longitude": lon,
@@ -68,8 +69,7 @@ def fetch_precision_weather(lat, lon):
         "hourly": ["leaf_wetness_probability"],
         "forecast_days": 14,
         "past_days": 3,
-        "timezone": "auto",
-        "models": "best_match"
+        "timezone": "auto"
     }
     try:
         r = requests.get(url, params=params, timeout=15)
@@ -83,10 +83,11 @@ def fetch_precision_weather(lat, lon):
                     day_vals = lw[day_start:day_start+24]
                     wet_hours = sum(1 for v in day_vals if v and v > 50)
                     daily["leaf_wetness_hours"].append(wet_hours)
-            return data
-    except:
-        pass
-    return None
+            return data, None
+        else:
+            return None, f"HTTP {r.status_code}: {r.text[:200]}"
+    except Exception as e:
+        return None, str(e)
 
 # ---------- Complete crop-disease encyclopedia ----------
 CROP_DISEASE_MAP = {
@@ -228,10 +229,12 @@ with col2:
     planting_date = st.date_input("Planting Date", max_value=date.today())
 
 if st.button("🔍 Get Disease Risk Forecast"):
-    weather = fetch_precision_weather(lat, lon)
+    weather, weather_error = fetch_precision_weather(lat, lon)
     growth_stage = get_growth_stage(planting_date.strftime("%Y-%m-%d") if planting_date else "")
     
-    if weather:
+    if weather_error:
+        st.error(f"Weather API error: {weather_error}")
+    elif weather:
         risks = calculate_precision_risk(weather, crop, growth_stage)
         st.success(f"Forecast for coordinates ({lat:.4f}, {lon:.4f})")
         

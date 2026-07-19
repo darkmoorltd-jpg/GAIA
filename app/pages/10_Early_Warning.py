@@ -233,6 +233,12 @@ SUPABASE_KEY = st.secrets["supabase"]["key"]
 def get_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
+@st.cache_resource
+def get_service_client():
+    """Use service_role key to bypass RLS for profile operations."""
+    SERVICE_KEY = st.secrets["supabase"]["service_key"]
+    return create_client(SUPABASE_URL, SERVICE_KEY)
+
 supabase = get_supabase()
 res = supabase.table("user_profiles").select("*").eq("user_id", user_id).execute()
 profile = res.data[0] if res.data else {}
@@ -251,7 +257,7 @@ with st.expander("🌍 Farm Settings", expanded=not profile.get("farm_location")
                                       max_value=date.today())
         if st.form_submit_button("Save Settings"):
             try:
-                supabase.table("user_profiles").upsert({
+                get_service_client().table("user_profiles").upsert({
                     "user_id": user_id,
                     "farm_location": farm_location.strip(),
                     "planting_date": planting_date.strftime("%Y-%m-%d") if planting_date else None

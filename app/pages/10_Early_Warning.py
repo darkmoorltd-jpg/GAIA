@@ -6,7 +6,7 @@ import numpy as np
 
 st.set_page_config(page_title="GAIA – Early Warning", page_icon="🛰️", layout="wide", initial_sidebar_state="expanded")
 
-# ---------- Top Navigation Bar (always visible) ----------
+# ---------- Top Navigation Bar (only Dashboard link) ----------
 st.markdown("""
 <style>
     .top-nav {
@@ -14,13 +14,13 @@ st.markdown("""
         justify-content: center;
         gap: 2rem;
         padding: 0.8rem;
-        background: rgba(0,0,0,0.4);
+        background: rgba(0,0,0,0.1);
         backdrop-filter: blur(10px);
         border-radius: 15px;
         margin-bottom: 2rem;
     }
     .top-nav a {
-        color: #00c853;
+        color: #2e7d32;
         text-decoration: none;
         font-weight: 600;
         font-size: 1rem;
@@ -29,19 +29,22 @@ st.markdown("""
         transition: background 0.3s;
     }
     .top-nav a:hover {
-        background: rgba(0,200,83,0.2);
+        background: rgba(46,125,50,0.2);
+    }
+    /* Dark mode override */
+    @media (prefers-color-scheme: dark) {
+        .top-nav a { color: #00c853; }
+        .top-nav a:hover { background: rgba(0,200,83,0.2); }
     }
 </style>
 <div class="top-nav">
     <a href="/" target="_self">🏠 Dashboard</a>
-    <a href="/~/profile" target="_self">👤 Profile</a>
-    <a href="/~/buy-scans" target="_self">💳 Buy Scans</a>
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- Theme ----------
+# ---------- Theme (light mode by default) ----------
 if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
+    st.session_state.theme = "light"
 
 st.markdown("""
 <style>
@@ -56,7 +59,7 @@ dark_mode = st.toggle("", value=st.session_state.theme == "dark", key="ew_theme_
 st.session_state.theme = "dark" if dark_mode else "light"
 theme = st.session_state.theme
 
-# ---------- CSS ----------
+# ---------- CSS (light mode now the default) ----------
 if theme == "dark":
     st.markdown("""
     <style>

@@ -62,9 +62,7 @@ def fetch_precision_weather(lat, lon):
             "relative_humidity_2m_max", "relative_humidity_2m_min",
             "precipitation_sum", "precipitation_hours",
             "shortwave_radiation_sum",
-            "wind_speed_10m_max",
-            "soil_temperature_0cm",
-            "soil_moisture_0_to_10cm"
+            "wind_speed_10m_max"
         ],
         "hourly": ["leaf_wetness_probability"],
         "forecast_days": 14,

@@ -13,18 +13,80 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-# ---------- Page config & CSS ----------
+# ---------- Page config (light mode default) ----------
 st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌿", layout="wide", initial_sidebar_state="expanded")
+
+# ---------- Dashboard top nav ----------
 st.markdown("""
 <style>
-    .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #e4efe9 100%); }
-    .title { font-size: 2.8rem; font-weight: 800; background: linear-gradient(90deg, #2e7d32, #4caf50); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .subtitle { font-size: 1.2rem; color: #555; margin-bottom: 2rem; }
-    .pred-box { background: #f0fdf4; border-left: 5px solid #4caf50; padding: 1rem 1.5rem; border-radius: 10px; margin: 0.5rem 0; }
-    .pred-box-high { border-left-color: #2e7d32; background: #e8f5e9; }
-    .stProgress > div > div > div > div { background: linear-gradient(90deg, #4caf50, #81c784); }
+    .top-nav {
+        display: flex; justify-content: center; gap: 2rem;
+        padding: 0.8rem; background: rgba(255,255,255,0.9); backdrop-filter: blur(15px);
+        border-radius: 15px; margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .top-nav a {
+        color: #2e7d32; text-decoration: none; font-weight: 600;
+        font-size: 1rem; padding: 0.5rem 1.5rem; border-radius: 30px;
+        transition: all 0.3s ease;
+    }
+    .top-nav a:hover {
+        background: #e8f5e9; color: #1b5e20;
+    }
+</style>
+<div class="top-nav">
+    <a href="/" target="_self">🏠 Dashboard</a>
+</div>
+""", unsafe_allow_html=True)
+
+# ---------- Theme toggle (light default) ----------
+if "theme" not in st.session_state:
+    st.session_state.theme = "light"
+
+st.markdown("""
+<style>
+    .stToggle > label { display: none !important; }
+    .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
+    .stToggle > div { transform: scale(1.3); }
 </style>
 """, unsafe_allow_html=True)
+
+dark_mode = st.toggle("", value=(st.session_state.theme == "dark"), key="crops_theme_toggle")
+st.session_state.theme = "dark" if dark_mode else "light"
+theme = st.session_state.theme
+
+# ---------- CSS based on theme ----------
+if theme == "dark":
+    st.markdown("""
+    <style>
+        .stApp { background: linear-gradient(145deg, #0a0a0a 0%, #1a1a2e 50%, #0d0d0d 100%); color: #e0e0e0; }
+        header, footer {visibility: hidden;}
+        .title { font-size: 3.5rem; font-weight: 900; text-align: center; background: linear-gradient(90deg, #00c853, #69f0ae, #00c853); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 30px rgba(0,200,83,0.6); margin-bottom: 0.5rem; animation: glow 2s ease-in-out infinite alternate; }
+        @keyframes glow { from { text-shadow: 0 0 20px rgba(0,200,83,0.6); } to { text-shadow: 0 0 40px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.8); } }
+        .subtitle { text-align: center; font-size: 1.3rem; color: #90a4ae; margin-bottom: 2rem; }
+        .stFileUploader > div { background: rgba(0,200,83,0.03) !important; backdrop-filter: blur(15px) !important; border: 2px dashed rgba(0,200,83,0.3) !important; border-radius: 20px !important; padding: 2rem !important; transition: all 0.3s ease; }
+        .stFileUploader > div:hover { border-color: #00c853 !important; box-shadow: 0 0 30px rgba(0,200,83,0.2); }
+        .stImage img { border-radius: 20px; box-shadow: 0 0 40px rgba(0,200,83,0.3); border: 1px solid rgba(0,200,83,0.2); }
+        .pred-box { background: rgba(0,0,0,0.6); backdrop-filter: blur(25px); border: 1px solid rgba(0,200,83,0.2); border-radius: 15px; padding: 1.2rem; margin: 0.5rem 0; }
+        .pred-box-high { border-color: #00c853; box-shadow: 0 0 30px rgba(0,200,83,0.4); }
+        .stProgress > div > div > div > div { background: linear-gradient(90deg, #00c853, #69f0ae); border-radius: 10px; }
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <style>
+        .stApp { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); color: #1b5e20; }
+        header, footer {visibility: hidden;}
+        .title { font-size: 3.5rem; font-weight: 900; text-align: center; background: linear-gradient(90deg, #2e7d32, #66bb6a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 10px rgba(46,125,50,0.3); margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; font-size: 1.3rem; color: #33691e; margin-bottom: 2rem; }
+        .stFileUploader > div { background: rgba(255,255,255,0.8) !important; backdrop-filter: blur(10px) !important; border: 2px dashed rgba(46,125,50,0.3) !important; border-radius: 20px !important; padding: 2rem !important; }
+        .stFileUploader > div:hover { border-color: #2e7d32 !important; background: rgba(46,125,50,0.1) !important; }
+        .stImage img { border-radius: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.15); }
+        .pred-box { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.08); border-radius: 15px; padding: 1.2rem; margin: 0.5rem 0; }
+        .pred-box-high { border-color: #2e7d32; box-shadow: 0 0 15px rgba(46,125,50,0.15); }
+        .stProgress > div > div > div > div { background: linear-gradient(90deg, #4caf50, #81c784); border-radius: 10px; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ---------- Crop definitions ----------
 CROP_CLASSES = {
@@ -43,7 +105,7 @@ CROP_CLASSES = {
               "Gall Midge", "Healthy", "Powdery Mildew", "Sooty Mould"]
 }
 
-# Custom model classes for Apple and Mango (trained with deep heads)
+# ---------- Custom model classes for Apple and Mango ----------
 class AppleViT13(nn.Module):
     def __init__(self):
         super().__init__()
@@ -66,23 +128,18 @@ class MangoViT8(nn.Module):
         )
     def forward(self, x): return self.head(self.backbone(x))
 
-# ---------- Model loader (cached) ----------
+# ---------- Model loader ----------
 @st.cache_resource
 def load_crop_model(crop_name: str):
-    """Load the correct model for the given crop."""
     if crop_name in ["apple", "mango"]:
         checkpoint = f"checkpoints/{crop_name}_13class/best_model.pt" if crop_name == "apple" else f"checkpoints/{crop_name}_8class/best_model.pt"
         if not os.path.exists(checkpoint):
             raise FileNotFoundError(f"Model not found at {checkpoint}")
-        if crop_name == "apple":
-            model = AppleViT13()
-        else:
-            model = MangoViT8()
+        model = AppleViT13() if crop_name == "apple" else MangoViT8()
         state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
         model.load_state_dict(state_dict)
         model.eval()
         return model
-    # For older crops (rice, maize, etc.), use the existing checkpoint/config logic
     else:
         checkpoint = f"checkpoints/{crop_name}/best_model.pt"
         if not os.path.exists(checkpoint):
@@ -145,14 +202,12 @@ if uploaded_file is not None:
         )
         st.progress(float(probs[idx]))
 
-    # Action recommendation based on top prediction
     top_disease = class_names[sorted_idx[0]]
     if "healthy" in top_disease.lower():
         st.success("✅ Your crop looks healthy! Keep up the good work.")
     else:
         st.warning(f"⚠️ Possible **{top_disease}** detected. Consider appropriate treatment.")
 
-    # Scan deduction
     if st.session_state.get("user"):
         try:
             from app.utils.supabase_utils import decrement_scan

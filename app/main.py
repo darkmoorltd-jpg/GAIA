@@ -140,6 +140,52 @@ def get_user_scans(user_id: str):
         pass
     return {"scans_remaining": 30, "plan": "free"}
 
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def send_payment_email(user_email, amount, scans, plan, reference):
+    """Send payment confirmation to user and admin."""
+    # These should be in Streamlit secrets for security
+    SMTP_HOST = st.secrets.get("smtp", {}).get("host", "smtp.gmail.com")
+    SMTP_PORT = st.secrets.get("smtp", {}).get("port", 587)
+    SMTP_USER = st.secrets.get("smtp", {}).get("user", "darkmoorltd@gmail.com")
+    SMTP_PASS = st.secrets.get("smtp", {}).get("pass", "")
+
+    if not SMTP_PASS:
+        return  # Skip if not configured
+    
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_USER
+        msg['To'] = f"{user_email}, darkmoorltd@gmail.com"
+        msg['Subject'] = f"GAIA Payment Confirmed – {scans} scans added"
+        
+        body = f"""
+Hi,
+
+Your payment of ${amount:.2f} for {scans} scans ({plan} plan) has been confirmed.
+
+Reference: {reference}
+Scans Added: {scans}
+Total Paid: ${amount:.2f}
+
+Log in to your GAIA account to start diagnosing: https://gaiagpt.streamlit.app
+
+Thank you for choosing GAIA!
+Darkmoor Ltd
+        """
+        msg.attach(MIMEText(body, 'plain'))
+        
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.send_message(msg)
+    except:
+        pass  # Silently fail if email not configured
+
+
 def verify_paystack_transaction(reference: str):
     url = f"https://api.paystack.co/transaction/verify/{reference}"
     headers = {"Authorization": f"Bearer {PAYSTACK_SECRET}"}
@@ -207,6 +253,7 @@ if reference and plan and plan in PAYSTACK_PLANS:
                 "reference": reference
             }).execute()
             st.success(f"Payment successful! {scans_to_add} scans added to your account.")
+            send_payment_email(st.session_state.user.email, txn["amount"]/100, scans_to_add, plan, reference)
             st.session_state.pending_payment = None
             st.query_params.clear()
             st.rerun()
@@ -378,13 +425,14 @@ livestock_page = st.Page("pages/5_Livestock.py", title="Livestock Health", icon=
 payment_history_page = st.Page("pages/6_Payment_History.py", title="Payment History", icon="💳")
 admin_page = st.Page("pages/7_Admin.py", title="Admin Dashboard", icon="🔐")
 profile_page = st.Page("pages/8_Profile.py", title="My Profile", icon="👤")
+help_page = st.Page("pages/13_Help.py", title="Help & Support", icon="💬")
 buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 early_warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
 
 pg = st.navigation({
     "GAIA": [dashboard_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page, early_warning_page],
-    "Account": [payment_history_page, profile_page, buy_scans_page],
+    "Account": [payment_history_page, profile_page, buy_scans_page, help_page],
     "Admin": [admin_page],
 })
 pg.run()

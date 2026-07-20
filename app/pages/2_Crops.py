@@ -129,7 +129,9 @@ CROP_CLASSES = {
               "Brown Spot", "Cedar apple rust", "Frogeye Leaf Spot", "Grey Spot",
               "Healthy", "Leaf Blotch", "Mosaic", "Powdery Mildew", "Rust"],
     "mango": ["Anthracnose", "Bacterial Canker", "Cutting Weevil", "Die Back",
-              "Gall Midge", "Healthy", "Powdery Mildew", "Sooty Mould"]
+              "Gall Midge", "Healthy", "Powdery Mildew", "Sooty Mould"],
+        "orange": ["Citrus Canker", "Nutrient Deficiency (Yellow Leaf)",
+              "Healthy", "Multiple Diseases", "Young Healthy"],
 }
 
 # ---------- Custom model classes ----------
@@ -143,6 +145,19 @@ class AppleViT13(nn.Module):
             nn.Linear(512, len(CROP_CLASSES["apple"]))
         )
     def forward(self, x): return self.head(self.backbone(x))
+
+
+class OrangeViT5(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone = timm.create_model('vit_small_patch16_224', pretrained=False, num_classes=0)
+        self.head = nn.Sequential(
+            nn.Linear(self.backbone.embed_dim, 1024), nn.GELU(), nn.Dropout(0.3),
+            nn.Linear(1024, 512), nn.GELU(), nn.Dropout(0.2),
+            nn.Linear(512, len(CROP_CLASSES["orange"]))
+        )
+    def forward(self, x): return self.head(self.backbone(x))
+
 
 class MangoViT8(nn.Module):
     def __init__(self):

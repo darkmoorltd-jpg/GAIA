@@ -27,9 +27,18 @@ supabase = init_service_client()
 @st.cache_data(ttl=60)
 def get_all_users():
     """Fetch all users from auth.users + their profiles."""
-    # Get auth users via admin API
-    resp = supabase.auth.admin.list_users()
-    users = resp.users if resp else []
+    try:
+        # Get auth users via admin API – returns a list of User objects directly
+        resp = supabase.auth.admin.list_users()
+        # The response can be a list or have a 'users' attribute; handle both
+        if hasattr(resp, 'users'):
+            users = resp.users
+        else:
+            users = resp if isinstance(resp, list) else []
+    except Exception as e:
+        st.error(f"Failed to fetch users: {e}")
+        return []
+    
     # Get profiles
     profiles = supabase.table("user_profiles").select("*").execute()
     profile_map = {p["user_id"]: p for p in profiles.data} if profiles.data else {}

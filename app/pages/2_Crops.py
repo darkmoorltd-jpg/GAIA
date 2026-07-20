@@ -10,7 +10,7 @@ import os, sys, timm
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-# ---------- Page config (light mode default) ----------
+# ---------- Page config (light mode default, sidebar expanded) ----------
 st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌿", layout="wide", initial_sidebar_state="expanded")
 
 # ---------- Dashboard top nav ----------
@@ -27,9 +27,7 @@ st.markdown("""
         font-size: 1rem; padding: 0.5rem 1.5rem; border-radius: 30px;
         transition: all 0.3s ease;
     }
-    .top-nav a:hover {
-        background: #e8f5e9; color: #1b5e20;
-    }
+    .top-nav a:hover { background: #e8f5e9; color: #1b5e20; }
 </style>
 <div class="top-nav">
     <a href="/" target="_self">🏠 Dashboard</a>
@@ -64,10 +62,29 @@ if theme == "dark":
         .stFileUploader > div { background: rgba(0,200,83,0.03) !important; backdrop-filter: blur(15px) !important; border: 2px dashed rgba(0,200,83,0.3) !important; border-radius: 20px !important; padding: 2rem !important; transition: all 0.3s ease; }
         .stFileUploader > div:hover { border-color: #00c853 !important; box-shadow: 0 0 30px rgba(0,200,83,0.2); }
         .stImage img { border-radius: 20px; box-shadow: 0 0 40px rgba(0,200,83,0.3); border: 1px solid rgba(0,200,83,0.2); }
-        .pred-box { background: rgba(0,0,0,0.6); backdrop-filter: blur(25px); border: 1px solid rgba(0,200,83,0.2); border-radius: 15px; padding: 1.2rem; margin: 0.5rem 0; }
-        .pred-box-high { border-color: #00c853; box-shadow: 0 0 30px rgba(0,200,83,0.4); }
-        .stProgress > div > div > div > div { background: linear-gradient(90deg, #00c853, #69f0ae); border-radius: 10px; }
-        .scan-left { background: rgba(0,200,83,0.15); border: 1px solid #00c853; border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1.5rem; font-size: 1.2rem; }
+        
+        /* Diagnosis cards */
+        .result-card { background: rgba(0,0,0,0.6); backdrop-filter: blur(25px); border: 1px solid rgba(0,200,83,0.2); border-radius: 20px; padding: 1.5rem; margin: 0.8rem 0; position: relative; overflow: hidden; }
+        .result-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(transparent, rgba(0,200,83,0.1), transparent, transparent); animation: rotate 6s linear infinite; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .result-card > * { position: relative; z-index: 1; }
+        .top-result { border-color: #00c853; box-shadow: 0 0 50px rgba(0,200,83,0.4); }
+        .top-result h3 { font-size: 1.6rem; text-transform: uppercase; letter-spacing: 2px; background: linear-gradient(90deg, #00ff88, #66ff99); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* Progress bars */
+        .progress-container { margin: 0.6rem 0; }
+        .progress-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
+        .progress-label span { font-weight: 600; color: #ddd; }
+        .progress-label .percent { color: #00ff88; font-size: 1.1rem; font-weight: 700; }
+        .progress-bar { height: 8px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #00ff88, #00cc66, #00ff88); background-size: 200% 100%; animation: shimmer 2s ease infinite, grow 1.5s ease-out; box-shadow: 0 0 15px rgba(0,200,83,0.6); }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        @keyframes grow { from { width: 0% !important; } }
+        
+        .counter { font-size: 4rem; font-weight: 900; background: linear-gradient(90deg, #00ff88, #66ff99); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 40px rgba(0,200,83,0.8); animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        
+        .scan-left { background: rgba(0,200,83,0.15); border: 1px solid #00c853; border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1.5rem; font-size: 1.2rem; color: #00ff88; }
     </style>
     """, unsafe_allow_html=True)
 else:
@@ -80,10 +97,21 @@ else:
         .stFileUploader > div { background: rgba(255,255,255,0.8) !important; backdrop-filter: blur(10px) !important; border: 2px dashed rgba(46,125,50,0.3) !important; border-radius: 20px !important; padding: 2rem !important; }
         .stFileUploader > div:hover { border-color: #2e7d32 !important; background: rgba(46,125,50,0.1) !important; }
         .stImage img { border-radius: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.15); }
-        .pred-box { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.08); border-radius: 15px; padding: 1.2rem; margin: 0.5rem 0; }
-        .pred-box-high { border-color: #2e7d32; box-shadow: 0 0 15px rgba(46,125,50,0.15); }
-        .stProgress > div > div > div > div { background: linear-gradient(90deg, #4caf50, #81c784); border-radius: 10px; }
-        .scan-left { background: rgba(46,125,50,0.1); border: 1px solid #2e7d32; border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1.5rem; font-size: 1.2rem; }
+        
+        .result-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.08); border-radius: 20px; padding: 1.5rem; margin: 0.8rem 0; }
+        .top-result { border-color: #2e7d32; box-shadow: 0 0 15px rgba(46,125,50,0.15); }
+        .top-result h3 { font-size: 1.6rem; color: #1b5e20; }
+        
+        .progress-container { margin: 0.6rem 0; }
+        .progress-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
+        .progress-label span { font-weight: 600; color: #1b5e20; }
+        .progress-label .percent { color: #2e7d32; font-size: 1.1rem; font-weight: 700; }
+        .progress-bar { height: 8px; background: rgba(0,0,0,0.05); border-radius: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #4caf50, #81c784); animation: grow 1.5s ease-out; }
+        @keyframes grow { from { width: 0% !important; } }
+        
+        .counter { font-size: 4rem; font-weight: 900; color: #2e7d32; }
+        .scan-left { background: rgba(46,125,50,0.1); border: 1px solid #2e7d32; border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1.5rem; font-size: 1.2rem; color: #2e7d32; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -104,7 +132,7 @@ CROP_CLASSES = {
               "Gall Midge", "Healthy", "Powdery Mildew", "Sooty Mould"]
 }
 
-# ---------- Custom model classes for Apple and Mango ----------
+# ---------- Custom model classes ----------
 class AppleViT13(nn.Module):
     def __init__(self):
         super().__init__()
@@ -163,14 +191,13 @@ def predict_image(model, image: Image.Image):
         probs = F.softmax(logits, dim=1)[0].cpu().numpy()
     return probs
 
-# ---------- Scan deduction with display ----------
+# ---------- Scan deduction ----------
 def deduct_and_show(user_id):
     from supabase import create_client
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["key"]
     supabase = create_client(url, key)
     try:
-        # Ensure row exists
         supabase.table("user_scans").insert(
             {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
         ).execute()
@@ -182,10 +209,8 @@ def deduct_and_show(user_id):
         if res.data:
             remaining = res.data[0]["scans_remaining"]
             st.markdown(f'<div class="scan-left">🛰️ Scans remaining after this diagnosis: <b>{remaining}</b></div>', unsafe_allow_html=True)
-        else:
-            st.warning("Scan deducted, but could not retrieve remaining count.")
-    except Exception as e:
-        st.warning(f"Scan deduction unavailable: {e}")
+    except:
+        st.warning("Scan deduction unavailable.")
 
 # ---------- UI ----------
 st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
@@ -199,7 +224,6 @@ if uploaded_file is not None:
     st.image(image, caption="Your leaf", width=300)
 
     st.markdown("---")
-    st.subheader("📊 Diagnosis Results")
 
     try:
         model = load_crop_model(crop)
@@ -213,19 +237,45 @@ if uploaded_file is not None:
         st.stop()
 
     class_names = CROP_CLASSES[crop]
+    top_idx = np.argmax(probs)
+    top_prob = probs[top_idx] * 100
+
+    # ---------- RUTHLESS DIAGNOSIS SECTION ----------
+    st.markdown(f"""
+    <div class="result-card top-result">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <p style="color: #66ff99; margin: 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px;">Identified Disease</p>
+                <h3 style="margin: 0.5rem 0;">{class_names[top_idx]}</h3>
+            </div>
+            <div class="counter">{top_prob:.1f}%</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("### 🔬 PROBABILITY BREAKDOWN")
     sorted_idx = np.argsort(probs)[::-1]
 
-    for i, idx in enumerate(sorted_idx):
-        disease = class_names[idx]
-        percent = probs[idx] * 100
-        box_class = "pred-box-high" if i == 0 else "pred-box"
-        st.markdown(
-            f'<div class="{box_class}"><b>{disease}</b> – {percent:.1f}%</div>',
-            unsafe_allow_html=True
-        )
-        st.progress(float(probs[idx]))
+    for i in sorted_idx:
+        disease = class_names[i]
+        percent = probs[i] * 100
+        bar_class = " warning" if percent < 40 else (" danger" if percent < 20 else "")
 
-    top_disease = class_names[sorted_idx[0]]
+        st.markdown(f"""
+        <div class="result-card">
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>{disease.upper()}</span>
+                    <span class="percent">{percent:.1f}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill{bar_class}" style="width: {percent}%;"></div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    top_disease = class_names[top_idx]
     if "healthy" in top_disease.lower():
         st.success("✅ Your crop looks healthy! Keep up the good work.")
     else:

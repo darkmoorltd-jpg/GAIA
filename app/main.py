@@ -223,6 +223,10 @@ reference = query_params.get("reference", [None])[0]
 plan = query_params.get("plan", [None])[0]
 
 if reference and plan and plan in PAYSTACK_PLANS:
+    # Redirect to dedicated callback page
+    st.markdown(f'<meta http-equiv="refresh" content="0; url=/~/payment_callback?reference={reference}&plan={plan}">', unsafe_allow_html=True)
+    st.info("Processing payment...")
+    st.stop()
     # Store payment intent in session for later processing if user not logged in
     if "pending_payment" not in st.session_state:
         st.session_state.pending_payment = None

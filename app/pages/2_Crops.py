@@ -5,12 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import os
-import sys
-import timm
+import os, sys, timm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
 # ---------- Page config (light mode default) ----------
@@ -70,6 +67,7 @@ if theme == "dark":
         .pred-box { background: rgba(0,0,0,0.6); backdrop-filter: blur(25px); border: 1px solid rgba(0,200,83,0.2); border-radius: 15px; padding: 1.2rem; margin: 0.5rem 0; }
         .pred-box-high { border-color: #00c853; box-shadow: 0 0 30px rgba(0,200,83,0.4); }
         .stProgress > div > div > div > div { background: linear-gradient(90deg, #00c853, #69f0ae); border-radius: 10px; }
+        .scan-left { background: rgba(0,200,83,0.15); border: 1px solid #00c853; border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1.5rem; font-size: 1.2rem; }
     </style>
     """, unsafe_allow_html=True)
 else:
@@ -85,6 +83,7 @@ else:
         .pred-box { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.08); border-radius: 15px; padding: 1.2rem; margin: 0.5rem 0; }
         .pred-box-high { border-color: #2e7d32; box-shadow: 0 0 15px rgba(46,125,50,0.15); }
         .stProgress > div > div > div > div { background: linear-gradient(90deg, #4caf50, #81c784); border-radius: 10px; }
+        .scan-left { background: rgba(46,125,50,0.1); border: 1px solid #2e7d32; border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1.5rem; font-size: 1.2rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -164,6 +163,30 @@ def predict_image(model, image: Image.Image):
         probs = F.softmax(logits, dim=1)[0].cpu().numpy()
     return probs
 
+# ---------- Scan deduction with display ----------
+def deduct_and_show(user_id):
+    from supabase import create_client
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    supabase = create_client(url, key)
+    try:
+        # Ensure row exists
+        supabase.table("user_scans").insert(
+            {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
+        ).execute()
+    except:
+        pass
+    try:
+        supabase.rpc("decrement_scan", {"uid": user_id}).execute()
+        res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+        if res.data:
+            remaining = res.data[0]["scans_remaining"]
+            st.markdown(f'<div class="scan-left">🛰️ Scans remaining after this diagnosis: <b>{remaining}</b></div>', unsafe_allow_html=True)
+        else:
+            st.warning("Scan deducted, but could not retrieve remaining count.")
+    except Exception as e:
+        st.warning(f"Scan deduction unavailable: {e}")
+
 # ---------- UI ----------
 st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload a leaf photo and let AI detect any disease in seconds</div>', unsafe_allow_html=True)
@@ -208,10 +231,6 @@ if uploaded_file is not None:
     else:
         st.warning(f"⚠️ Possible **{top_disease}** detected. Consider appropriate treatment.")
 
+    # Scan deduction
     if st.session_state.get("user"):
-        try:
-            from app.utils.supabase_utils import decrement_scan
-            decrement_scan(st.session_state.user.id)
-            st.success("Scan deducted.")
-        except:
-            pass
+        deduct_and_show(st.session_state.user.id)

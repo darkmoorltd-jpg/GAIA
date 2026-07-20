@@ -39,7 +39,6 @@ with tab1:
                 attachment_type = None
                 
                 if uploaded_file:
-                    # Upload to Supabase Storage
                     file_ext = uploaded_file.name.split('.')[-1].lower()
                     if file_ext in ['jpg', 'jpeg', 'png']:
                         attachment_type = 'image'
@@ -52,12 +51,12 @@ with tab1:
                     
                     file_path = f"{user.id}/{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uploaded_file.name}"
                     try:
-                        supabase.storage.from_("message_attachments").upload(
+                        supabase.storage.from_("message_attachment").upload(
                             file_path, uploaded_file.getvalue()
                         )
-                        attachment_url = supabase.storage.from_("message_attachments").get_public_url(file_path)
+                        attachment_url = supabase.storage.from_("message_attachment").get_public_url(file_path)
                     except Exception as e:
-                        st.error(f"File upload failed: {e}")
+                        st.warning(f"Attachment upload skipped: {e}")
                         attachment_url = None
                 
                 # Insert message

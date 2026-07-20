@@ -6,10 +6,17 @@ from datetime import datetime
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
+SERVICE_KEY = st.secrets["supabase"]["service_key"]
 
 @st.cache_resource
 def init_supabase():
+    """Anon client for read-only operations."""
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+@st.cache_resource
+def init_service_client():
+    """Service client to bypass RLS for writes."""
+    return create_client(SUPABASE_URL, SERVICE_KEY)
 
 st.set_page_config(page_title="GAIA – Help & Support", page_icon="💬", layout="wide", initial_sidebar_state="expanded")
 
@@ -19,6 +26,7 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 supabase = init_supabase()
+service_client = init_service_client()
 
 st.title("💬 Help & Support")
 st.markdown("Send a message to the GAIA team. We'll reply as soon as possible.")
@@ -51,17 +59,17 @@ with tab1:
                     
                     file_path = f"{user.id}/{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uploaded_file.name}"
                     try:
-                        supabase.storage.from_("message_attachment").upload(
+                        service_client.storage.from_("message_attachment").upload(
                             file_path, uploaded_file.getvalue()
                         )
-                        attachment_url = supabase.storage.from_("message_attachment").get_public_url(file_path)
+                        attachment_url = service_client.storage.from_("message_attachment").get_public_url(file_path)
                     except Exception as e:
                         st.warning(f"Attachment upload skipped: {e}")
                         attachment_url = None
                 
                 # Insert message
                 try:
-                    supabase.table("messages").insert({
+                    service_client.table("messages").insert({
                         "user_id": user.id,
                         "message": message_text if message_text else "",
                         "attachment_url": attachment_url,

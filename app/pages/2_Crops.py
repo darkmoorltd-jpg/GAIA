@@ -62,16 +62,12 @@ if theme == "dark":
         .stFileUploader > div { background: rgba(0,200,83,0.03) !important; backdrop-filter: blur(15px) !important; border: 2px dashed rgba(0,200,83,0.3) !important; border-radius: 20px !important; padding: 2rem !important; transition: all 0.3s ease; }
         .stFileUploader > div:hover { border-color: #00c853 !important; box-shadow: 0 0 30px rgba(0,200,83,0.2); }
         .stImage img { border-radius: 20px; box-shadow: 0 0 40px rgba(0,200,83,0.3); border: 1px solid rgba(0,200,83,0.2); }
-        
-        /* Diagnosis cards */
         .result-card { background: rgba(0,0,0,0.6); backdrop-filter: blur(25px); border: 1px solid rgba(0,200,83,0.2); border-radius: 20px; padding: 1.5rem; margin: 0.8rem 0; position: relative; overflow: hidden; }
         .result-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(transparent, rgba(0,200,83,0.1), transparent, transparent); animation: rotate 6s linear infinite; }
         @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .result-card > * { position: relative; z-index: 1; }
         .top-result { border-color: #00c853; box-shadow: 0 0 50px rgba(0,200,83,0.4); }
         .top-result h3 { font-size: 1.6rem; text-transform: uppercase; letter-spacing: 2px; background: linear-gradient(90deg, #00ff88, #66ff99); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        
-        /* Progress bars */
         .progress-container { margin: 0.6rem 0; }
         .progress-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
         .progress-label span { font-weight: 600; color: #ddd; }
@@ -80,10 +76,8 @@ if theme == "dark":
         .progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #00ff88, #00cc66, #00ff88); background-size: 200% 100%; animation: shimmer 2s ease infinite, grow 1.5s ease-out; box-shadow: 0 0 15px rgba(0,200,83,0.6); }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         @keyframes grow { from { width: 0% !important; } }
-        
         .counter { font-size: 4rem; font-weight: 900; background: linear-gradient(90deg, #00ff88, #66ff99); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 40px rgba(0,200,83,0.8); animation: pulse 2s ease-in-out infinite; }
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-        
         .scan-left { background: rgba(0,200,83,0.15); border: 1px solid #00c853; border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1.5rem; font-size: 1.2rem; color: #00ff88; }
     </style>
     """, unsafe_allow_html=True)
@@ -97,11 +91,9 @@ else:
         .stFileUploader > div { background: rgba(255,255,255,0.8) !important; backdrop-filter: blur(10px) !important; border: 2px dashed rgba(46,125,50,0.3) !important; border-radius: 20px !important; padding: 2rem !important; }
         .stFileUploader > div:hover { border-color: #2e7d32 !important; background: rgba(46,125,50,0.1) !important; }
         .stImage img { border-radius: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.15); }
-        
         .result-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.08); border-radius: 20px; padding: 1.5rem; margin: 0.8rem 0; }
         .top-result { border-color: #2e7d32; box-shadow: 0 0 15px rgba(46,125,50,0.15); }
         .top-result h3 { font-size: 1.6rem; color: #1b5e20; }
-        
         .progress-container { margin: 0.6rem 0; }
         .progress-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
         .progress-label span { font-weight: 600; color: #1b5e20; }
@@ -109,13 +101,12 @@ else:
         .progress-bar { height: 8px; background: rgba(0,0,0,0.05); border-radius: 10px; overflow: hidden; }
         .progress-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #4caf50, #81c784); animation: grow 1.5s ease-out; }
         @keyframes grow { from { width: 0% !important; } }
-        
         .counter { font-size: 4rem; font-weight: 900; color: #2e7d32; }
         .scan-left { background: rgba(46,125,50,0.1); border: 1px solid #2e7d32; border-radius: 15px; padding: 1rem; text-align: center; margin-top: 1.5rem; font-size: 1.2rem; color: #2e7d32; }
     </style>
     """, unsafe_allow_html=True)
 
-# ---------- Crop definitions ----------
+# ---------- All crop definitions (original + new) ----------
 CROP_CLASSES = {
     "rice": ["Bacterial Blight", "Brown Spot", "Leaf Smut"],
     "maize": ["Northern Leaf Blight", "Healthy", "Southern Leaf Blight", "Common Rust"],
@@ -130,12 +121,16 @@ CROP_CLASSES = {
               "Healthy", "Leaf Blotch", "Mosaic", "Powdery Mildew", "Rust"],
     "mango": ["Anthracnose", "Bacterial Canker", "Cutting Weevil", "Die Back",
               "Gall Midge", "Healthy", "Powdery Mildew", "Sooty Mould"],
-        "orange": ["Citrus Canker", "Nutrient Deficiency (Yellow Leaf)",
+    "tomato": ["Bacterial_spot", "Early_blight", "Late_blight", "Leaf_Mold",
+              "Septoria_leaf_spot", "Spider_mites Two-spotted_spider_mite",
+              "Target_Spot", "Tomato_Yellow_Leaf_Curl_Virus", "Tomato_mosaic_virus",
+              "healthy", "powdery_mildew"],
+    "orange": ["Citrus Canker", "Nutrient Deficiency (Yellow Leaf)",
               "Healthy", "Multiple Diseases", "Young Healthy"],
-        "grape": ["Black Measles", "Black Rot", "Healthy", "Leaf Blight"],
+    "grape": ["Black Measles", "Black Rot", "Healthy", "Leaf Blight"]
 }
 
-# ---------- Custom model classes ----------
+# ---------- Custom model classes for new crops ----------
 class AppleViT13(nn.Module):
     def __init__(self):
         super().__init__()
@@ -146,32 +141,6 @@ class AppleViT13(nn.Module):
             nn.Linear(512, len(CROP_CLASSES["apple"]))
         )
     def forward(self, x): return self.head(self.backbone(x))
-
-
-
-class GrapeViT4(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.backbone = timm.create_model('vit_small_patch16_224', pretrained=False, num_classes=0)
-        self.head = nn.Sequential(
-            nn.Linear(self.backbone.embed_dim, 512), nn.GELU(), nn.Dropout(0.3),
-            nn.Linear(512, 256), nn.GELU(), nn.Dropout(0.2),
-            nn.Linear(256, len(CROP_CLASSES["grape"]))
-        )
-    def forward(self, x): return self.head(self.backbone(x))
-
-
-class OrangeViT5(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.backbone = timm.create_model('vit_small_patch16_224', pretrained=False, num_classes=0)
-        self.head = nn.Sequential(
-            nn.Linear(self.backbone.embed_dim, 1024), nn.GELU(), nn.Dropout(0.3),
-            nn.Linear(1024, 512), nn.GELU(), nn.Dropout(0.2),
-            nn.Linear(512, len(CROP_CLASSES["orange"]))
-        )
-    def forward(self, x): return self.head(self.backbone(x))
-
 
 class MangoViT8(nn.Module):
     def __init__(self):
@@ -184,29 +153,85 @@ class MangoViT8(nn.Module):
         )
     def forward(self, x): return self.head(self.backbone(x))
 
-# ---------- Model loader ----------
+class TomatoViT11(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone = timm.create_model('vit_small_patch16_224', pretrained=False, num_classes=0)
+        self.head = nn.Sequential(
+            nn.Linear(self.backbone.embed_dim, 1024), nn.GELU(), nn.Dropout(0.3),
+            nn.Linear(1024, 512), nn.GELU(), nn.Dropout(0.2),
+            nn.Linear(512, len(CROP_CLASSES["tomato"]))
+        )
+    def forward(self, x): return self.head(self.backbone(x))
+
+class GrapeViT4(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone = timm.create_model('vit_small_patch16_224', pretrained=False, num_classes=0)
+        self.head = nn.Sequential(
+            nn.Linear(self.backbone.embed_dim, 512), nn.GELU(), nn.Dropout(0.3),
+            nn.Linear(512, 256), nn.GELU(), nn.Dropout(0.2),
+            nn.Linear(256, len(CROP_CLASSES["grape"]))
+        )
+    def forward(self, x): return self.head(self.backbone(x))
+
+class OrangeViT5(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone = timm.create_model('vit_small_patch16_224', pretrained=False, num_classes=0)
+        self.head = nn.Sequential(
+            nn.Linear(self.backbone.embed_dim, 1024), nn.GELU(), nn.Dropout(0.3),
+            nn.Linear(1024, 512), nn.GELU(), nn.Dropout(0.2),
+            nn.Linear(512, len(CROP_CLASSES["orange"]))
+        )
+    def forward(self, x): return self.head(self.backbone(x))
+
+# ---------- Model loader with CORRECTED paths ----------
 @st.cache_resource
 def load_crop_model(crop_name: str):
-    if crop_name in ["apple", "mango"]:
-        checkpoint = f"checkpoints/{crop_name}_13class/best_model.pt" if crop_name == "apple" else f"checkpoints/{crop_name}_8class/best_model.pt"
-        if not os.path.exists(checkpoint):
-            raise FileNotFoundError(f"Model not found at {checkpoint}")
-        model = AppleViT13() if crop_name == "apple" else MangoViT8()
-        state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        model.load_state_dict(state_dict)
-        model.eval()
-        return model
+    """Load the correct model for the given crop."""
+    
+    # Define checkpoint path per crop
+    checkpoint_map = {
+        "rice": "checkpoints/rice/best_model.pt",
+        "maize": "checkpoints/maize/best_model.pt",
+        "beans": "checkpoints/beans/best_model.pt",
+        "potato": "checkpoints/potato/best_model.pt",
+        "wheat": "checkpoints/wheat/best_model.pt",
+        "banana": "checkpoints/banana/best_model.pt",
+        "apple": "checkpoints/apple_13class/best_model.pt",
+        "mango": "checkpoints/mango_8class/best_model.pt",
+        "tomato": "checkpoints/tomato_11class/best_model.pt",
+        "orange": "checkpoints/orange_5class/best_model.pt",
+        "grape": "checkpoints/grape_4class/best_model.pt"
+    }
+    
+    checkpoint = checkpoint_map.get(crop_name, f"checkpoints/{crop_name}/best_model.pt")
+    
+    if not os.path.exists(checkpoint):
+        raise FileNotFoundError(f"Model not found at {checkpoint}")
+    
+    num_classes = len(CROP_CLASSES[crop_name])
+    
+    # Choose the right model class
+    if crop_name == "apple":
+        model = AppleViT13()
+    elif crop_name == "mango":
+        model = MangoViT8()
+    elif crop_name == "tomato":
+        model = TomatoViT11()
+    elif crop_name == "grape":
+        model = GrapeViT4()
+    elif crop_name == "orange":
+        model = OrangeViT5()
     else:
-        checkpoint = f"checkpoints/{crop_name}/best_model.pt"
-        if not os.path.exists(checkpoint):
-            raise FileNotFoundError(f"Model not found at {checkpoint}")
-        num_classes = len(CROP_CLASSES[crop_name])
         from src.models.pretrained_vit import PretrainedViTClassifier
         model = PretrainedViTClassifier(num_classes=num_classes)
-        state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        model.load_state_dict(state_dict)
-        model.eval()
-        return model
+    
+    state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    model.load_state_dict(state_dict)
+    model.eval()
+    return model
 
 def predict_image(model, image: Image.Image):
     transform = Compose([
@@ -269,7 +294,7 @@ if uploaded_file is not None:
     top_idx = np.argmax(probs)
     top_prob = probs[top_idx] * 100
 
-    # ---------- RUTHLESS DIAGNOSIS SECTION ----------
+    # Top result card
     st.markdown(f"""
     <div class="result-card top-result">
         <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -310,6 +335,5 @@ if uploaded_file is not None:
     else:
         st.warning(f"⚠️ Possible **{top_disease}** detected. Consider appropriate treatment.")
 
-    # Scan deduction
     if st.session_state.get("user"):
         deduct_and_show(st.session_state.user.id)

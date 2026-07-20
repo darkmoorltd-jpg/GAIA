@@ -80,7 +80,7 @@ with tab1:
                     st.error(f"Failed to send message: {e}")
 
 with tab2:
-    resp = supabase.table("messages").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
+    resp = service_client.table("messages").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
     messages = resp.data if resp.data else []
     
     if not messages:

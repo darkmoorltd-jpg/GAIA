@@ -28,9 +28,7 @@ supabase = init_service_client()
 def get_all_users():
     """Fetch all users from auth.users + their profiles."""
     try:
-        # Get auth users via admin API – returns a list of User objects directly
         resp = supabase.auth.admin.list_users()
-        # The response can be a list or have a 'users' attribute; handle both
         if hasattr(resp, 'users'):
             users = resp.users
         else:
@@ -39,10 +37,8 @@ def get_all_users():
         st.error(f"Failed to fetch users: {e}")
         return []
     
-    # Get profiles
     profiles = supabase.table("user_profiles").select("*").execute()
     profile_map = {p["user_id"]: p for p in profiles.data} if profiles.data else {}
-    # Get scans
     scans = supabase.table("user_scans").select("*").execute()
     scan_map = {s["user_id"]: s for s in scans.data} if scans.data else {}
     
@@ -65,7 +61,6 @@ def get_all_users():
     return user_list
 
 def add_scans_to_user(user_id, amount):
-    """Add scans to a user's balance."""
     current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
     current_scans = current.data[0]["scans_remaining"] if current.data else 0
     supabase.table("user_scans").update({
@@ -73,8 +68,19 @@ def add_scans_to_user(user_id, amount):
     }).eq("user_id", user_id).execute()
     return True
 
-def reset_user_password(user_id):
-    """Generate a password reset link for the user."""
+def change_user_password(user_id, new_password):
+    """Directly update a user's password via Admin API."""
+    try:
+        resp = supabase.auth.admin.update_user(
+            user_id,
+            {"password": new_password}
+        )
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+def send_password_reset(user_id):
+    """Send a password reset link to the user's email."""
     resp = supabase.auth.admin.generate_link(user_id, type="recovery")
     return resp
 
@@ -89,7 +95,6 @@ col4.metric("Paid Users", sum(1 for u in users if u["plan"] != "free"))
 
 st.markdown("---")
 st.subheader("👥 All Users")
-
 df = pd.DataFrame(users)
 st.dataframe(df, use_container_width=True)
 
@@ -105,7 +110,8 @@ if selected_user:
     st.write(f"**{selected_user['email']}** – {selected_user.get('first_name','')} {selected_user.get('last_name','')}")
     st.write(f"Country: {selected_user.get('country','')} | Phone: {selected_user.get('phone','')}")
     st.metric("Scans Remaining", selected_user["scans_remaining"])
-    
+
+    # Add scans
     col1, col2 = st.columns(2)
     with col1:
         scans_to_add = st.number_input("Scans to add", min_value=1, max_value=9999, value=10)
@@ -114,10 +120,24 @@ if selected_user:
                 st.success(f"Added {scans_to_add} scans to {selected_email}")
                 st.cache_data.clear()
                 st.rerun()
+
+    # Change password
     with col2:
-        if st.button("🔑 Send Password Reset"):
+        st.markdown("**🔑 Password Management**")
+        new_password = st.text_input("New password", type="password", key="new_pw")
+        if st.button("Update Password"):
+            if len(new_password) < 6:
+                st.error("Password must be at least 6 characters.")
+            else:
+                success, err = change_user_password(uid, new_password)
+                if success:
+                    st.success(f"Password updated for {selected_email}")
+                else:
+                    st.error(f"Failed: {err}")
+        # Optional reset link
+        if st.button("Send Password Reset Link"):
             try:
-                result = reset_user_password(uid)
+                result = send_password_reset(uid)
                 st.success(f"Reset link sent to {selected_email}")
             except Exception as e:
                 st.error(f"Failed: {e}")

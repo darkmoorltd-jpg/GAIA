@@ -4,11 +4,11 @@ from supabase import create_client, Client
 import pandas as pd
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
-SUPABASE_KEY = st.secrets["supabase"]["key"]
+SERVICE_KEY = st.secrets["supabase"]["service_key"]
 
 @st.cache_resource
-def init_supabase():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+def init_service_client():
+    return create_client(SUPABASE_URL, SERVICE_KEY)
 
 st.set_page_config(page_title="GAIA – Admin", page_icon="🔐", layout="wide")
 
@@ -16,54 +16,99 @@ ADMIN_EMAIL = "darkmoorltd@gmail.com"
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("Please log in first.")
     st.stop()
-
 if st.session_state.user.email != ADMIN_EMAIL:
-    st.error("Access denied. Admin only.")
+    st.error("Access denied.")
     st.stop()
 
 st.title("🔐 GAIA Admin Dashboard")
-supabase = init_supabase()
+supabase = init_service_client()
+
+# ---------- Helper functions ----------
+@st.cache_data(ttl=60)
+def get_all_users():
+    """Fetch all users from auth.users + their profiles."""
+    # Get auth users via admin API
+    resp = supabase.auth.admin.list_users()
+    users = resp.users if resp else []
+    # Get profiles
+    profiles = supabase.table("user_profiles").select("*").execute()
+    profile_map = {p["user_id"]: p for p in profiles.data} if profiles.data else {}
+    # Get scans
+    scans = supabase.table("user_scans").select("*").execute()
+    scan_map = {s["user_id"]: s for s in scans.data} if scans.data else {}
+    
+    user_list = []
+    for u in users:
+        uid = u.id
+        profile = profile_map.get(uid, {})
+        scan = scan_map.get(uid, {})
+        user_list.append({
+            "user_id": uid,
+            "email": u.email,
+            "first_name": profile.get("first_name", ""),
+            "last_name": profile.get("last_name", ""),
+            "phone": profile.get("phone", ""),
+            "country": profile.get("country", ""),
+            "scans_remaining": scan.get("scans_remaining", 0),
+            "plan": scan.get("plan", "free"),
+            "created_at": u.created_at
+        })
+    return user_list
+
+def add_scans_to_user(user_id, amount):
+    """Add scans to a user's balance."""
+    current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+    current_scans = current.data[0]["scans_remaining"] if current.data else 0
+    supabase.table("user_scans").update({
+        "scans_remaining": current_scans + amount
+    }).eq("user_id", user_id).execute()
+    return True
+
+def reset_user_password(user_id):
+    """Generate a password reset link for the user."""
+    resp = supabase.auth.admin.generate_link(user_id, type="recovery")
+    return resp
+
+# ---------- Display users ----------
+users = get_all_users()
 
 col1, col2, col3, col4 = st.columns(4)
-
-try:
-    user_scans = supabase.table("user_scans").select("user_id, scans_remaining, plan").execute()
-    total_users = len(user_scans.data) if user_scans.data else 0
-    total_scans_used = sum(30 - row["scans_remaining"] for row in user_scans.data) if user_scans.data else 0
-    free_users = sum(1 for row in user_scans.data if row["plan"] == "free") if user_scans.data else 0
-    paid_users = sum(1 for row in user_scans.data if row["plan"] != "free") if user_scans.data else 0
-except Exception as e:
-    total_users = total_scans_used = free_users = paid_users = 0
-    st.error(f"Error fetching user data: {e}")
-
-col1.metric("Total Users", total_users)
-col2.metric("Total Scans Used", total_scans_used)
-col3.metric("Free Users", free_users)
-col4.metric("Paid Users", paid_users)
+col1.metric("Total Users", len(users))
+col2.metric("Total Scans Used", sum(30 - u["scans_remaining"] for u in users))
+col3.metric("Free Users", sum(1 for u in users if u["plan"] == "free"))
+col4.metric("Paid Users", sum(1 for u in users if u["plan"] != "free"))
 
 st.markdown("---")
-st.subheader("💳 Recent Payments")
-try:
-    payments = supabase.table("payment_history").select("*").order("paid_at", desc=True).limit(20).execute()
-    if payments.data:
-        df_payments = pd.DataFrame(payments.data)
-        df_payments["amount"] = df_payments["amount"].apply(lambda x: f"${x:.2f}")
-        df_payments["paid_at"] = pd.to_datetime(df_payments["paid_at"]).dt.strftime("%d %b %Y, %H:%M")
-        st.dataframe(df_payments, use_container_width=True)
-        total_revenue = sum(float(row["amount"]) for row in payments.data)
-        st.metric("Total Revenue", f"${total_revenue:.2f}")
-    else:
-        st.info("No payments yet.")
-except Exception as e:
-    st.error(f"Error fetching payments: {e}")
+st.subheader("👥 All Users")
 
+df = pd.DataFrame(users)
+st.dataframe(df, use_container_width=True)
+
+# ---------- User actions ----------
 st.markdown("---")
-st.subheader("📊 User Scans Overview")
-if user_scans and user_scans.data:
-    df_users = pd.DataFrame(user_scans.data)
-    df_users["scans_used"] = 30 - df_users["scans_remaining"]
-    st.bar_chart(df_users.set_index("user_id")["scans_used"])
-else:
-    st.info("No scan data available.")
+st.subheader("⚙️ User Actions")
+user_emails = [u["email"] for u in users]
+selected_email = st.selectbox("Select User", user_emails)
+selected_user = next((u for u in users if u["email"] == selected_email), None)
 
-st.caption("Data refreshes on page load.")
+if selected_user:
+    uid = selected_user["user_id"]
+    st.write(f"**{selected_user['email']}** – {selected_user.get('first_name','')} {selected_user.get('last_name','')}")
+    st.write(f"Country: {selected_user.get('country','')} | Phone: {selected_user.get('phone','')}")
+    st.metric("Scans Remaining", selected_user["scans_remaining"])
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        scans_to_add = st.number_input("Scans to add", min_value=1, max_value=9999, value=10)
+        if st.button("➕ Add Scans"):
+            if add_scans_to_user(uid, scans_to_add):
+                st.success(f"Added {scans_to_add} scans to {selected_email}")
+                st.cache_data.clear()
+                st.rerun()
+    with col2:
+        if st.button("🔑 Send Password Reset"):
+            try:
+                result = reset_user_password(uid)
+                st.success(f"Reset link sent to {selected_email}")
+            except Exception as e:
+                st.error(f"Failed: {e}")

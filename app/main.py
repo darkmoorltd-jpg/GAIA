@@ -177,10 +177,19 @@ reference = query_params.get("reference", [None])[0]
 plan = query_params.get("plan", [None])[0]
 
 if reference and plan and plan in PAYSTACK_PLANS:
+    # Store payment intent in session for later processing if user not logged in
+    if "pending_payment" not in st.session_state:
+        st.session_state.pending_payment = None
+    
+    if st.session_state.user is None:
+        st.session_state.pending_payment = {"reference": reference, "plan": plan}
+        st.warning("Please log in to complete your payment.")
+        st.stop()
+    
     txn = verify_paystack_transaction(reference)
     if txn:
         supabase = init_supabase()
-        user_id = st.session_state.user.id if st.session_state.user else None
+        user_id = st.session_state.user.id
         if user_id:
             scans_to_add = PAYSTACK_PLANS[plan]["scans"]
             current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
@@ -198,8 +207,13 @@ if reference and plan and plan in PAYSTACK_PLANS:
                 "reference": reference
             }).execute()
             st.success(f"Payment successful! {scans_to_add} scans added to your account.")
+            st.session_state.pending_payment = None
             st.query_params.clear()
             st.rerun()
+        else:
+            st.session_state.pending_payment = {"reference": reference, "plan": plan}
+            st.warning("Please log in to complete your payment.")
+            st.stop()
 
 # ----- Restore session -----
 if st.session_state.user is None:
@@ -210,6 +224,33 @@ if st.session_state.user is None:
             st.session_state.user = session.user
     except:
         pass
+
+# Process pending payment after login
+if st.session_state.user is not None and st.session_state.get("pending_payment"):
+    ref = st.session_state.pending_payment["reference"]
+    pl = st.session_state.pending_payment["plan"]
+    txn = verify_paystack_transaction(ref)
+    if txn:
+        user_id = st.session_state.user.id
+        scans_to_add = PAYSTACK_PLANS[pl]["scans"]
+        supabase = init_supabase()
+        current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+        current_scans = current.data[0]["scans_remaining"] if current.data else 0
+        new_total = current_scans + scans_to_add
+        supabase.table("user_scans").update({
+            "scans_remaining": new_total,
+            "plan": pl
+        }).eq("user_id", user_id).execute()
+        supabase.table("payment_history").insert({
+            "user_id": user_id,
+            "amount": txn["amount"] / 100,
+            "scans_added": scans_to_add,
+            "plan": pl,
+            "reference": ref
+        }).execute()
+        st.success(f"Payment processed! {scans_to_add} scans added.")
+        st.session_state.pending_payment = None
+        st.rerun()
 
 # ----- Login page -----
 if st.session_state.user is None:

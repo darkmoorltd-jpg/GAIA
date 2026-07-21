@@ -99,36 +99,6 @@ else:
 
 
 
-# ---------- Navigation Bar ----------
-st.markdown("""
-<style>
-    .nav-bar { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
-    .nav-bar a { text-decoration: none; color: inherit; }
-    .nav-button {
-        display: inline-block; padding: 10px 20px; border-radius: 12px;
-        background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s ease;
-        cursor: pointer; font-weight: 600; font-size: 0.95rem;
-    }
-    .nav-button:hover {
-        background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.5);
-        transform: translateY(-2px);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-cols = st.columns(5)
-pages = [
-    ("🏠 Dashboard", "pages/1_Dashboard.py"),
-    ("🌿 Crops", "pages/2_Crops.py"),
-    ("🐛 Pests", "pages/3_Pests.py"),
-    ("🏞️ Soil", "pages/4_Soil.py"),
-    ("🐄 Livestock", "pages/5_Livestock.py")
-]
-for col, (label, path) in zip(cols, pages):
-    with col:
-        st.page_link(path, label=label, help=f"Go to {label}")
-
 
 # ──────── UI ────────
 
@@ -218,3 +188,34 @@ if uploaded_file:
         st.success(f"✅ Your {animal} appears healthy! Keep up the good care.")
     else:
         st.warning(f"⚠️ Possible **{top_disease}** detected. Isolate and consult a veterinarian immediately.")
+
+# ---------- Navigation Bar (bottom) ----------
+st.markdown("""
+<style>
+    .nav-bar { display: flex; justify-content: center; gap: 1rem; margin: 2rem 0 1rem 0; flex-wrap: wrap; }
+    .nav-bar a { text-decoration: none; color: inherit; }
+    .nav-button {
+        display: inline-block; padding: 10px 20px; border-radius: 12px;
+        background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s ease;
+        cursor: pointer; font-weight: 600; font-size: 0.95rem;
+    }
+    .nav-button:hover {
+        background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.5);
+        transform: translateY(-2px);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+cols = st.columns(5)
+pages = [
+    ("🏠 Dashboard", "pages/1_Dashboard.py"),
+    ("🌿 Crops", "pages/2_Crops.py"),
+    ("🐛 Pests", "pages/3_Pests.py"),
+    ("🏞️ Soil", "pages/4_Soil.py"),
+    ("🐄 Livestock", "pages/5_Livestock.py")
+]
+for col, (label, path) in zip(cols, pages):
+    with col:
+        st.page_link(path, label=label, help=f"Go to {label}")
+

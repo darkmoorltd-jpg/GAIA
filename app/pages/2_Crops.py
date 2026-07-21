@@ -53,11 +53,10 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
-
-# ---------- Navigation Bar ----------
+# ---------- Navigation Bar (bottom) ----------
 st.markdown("""
 <style>
-    .nav-bar { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .nav-bar { display: flex; justify-content: center; gap: 1rem; margin: 2rem 0 1rem 0; flex-wrap: wrap; }
     .nav-bar a { text-decoration: none; color: inherit; }
     .nav-button {
         display: inline-block; padding: 10px 20px; border-radius: 12px;
@@ -85,60 +84,4 @@ for col, (label, path) in zip(cols, pages):
         st.page_link(path, label=label, help=f"Go to {label}")
 
 
-st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Upload a leaf photo and let AI detect any disease in seconds</div>', unsafe_allow_html=True)
 
-crop = st.selectbox("🌾 Choose your crop", list(CROP_CLASSES.keys()))
-uploaded_file = st.file_uploader("📤 Upload leaf image", type=["jpg", "jpeg", "png"])
-
-if uploaded_file is not None:
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Your leaf", width=300)
-
-    st.markdown("---")
-    st.subheader("📊 Diagnosis Results")
-
-    model, path = load_crop_model(crop)
-
-    if model is None:
-        st.warning(f"⚠️ No trained model found for '{crop}'. Using demo predictions.")
-        class_names = CROP_CLASSES[crop]
-        import hashlib
-        seed = int(hashlib.md5(uploaded_file.name.encode()).hexdigest()[:8], 16)
-        np.random.seed(seed)
-        probs = np.random.rand(len(class_names))
-        probs = probs / probs.sum()
-    else:
-        try:
-            probs = predict_image(model, image)
-        except Exception as e:
-            st.error(f"Error during inference: {e}")
-            st.stop()
-
-    class_names = CROP_CLASSES[crop]
-    sorted_idx = np.argsort(probs)[::-1]
-
-    for i, idx in enumerate(sorted_idx):
-        disease = class_names[idx]
-        percent = probs[idx] * 100
-        box_class = "pred-box-high" if i == 0 else "pred-box"
-        st.markdown(
-            f'<div class="{box_class}"><b>{disease}</b> – {percent:.1f}%</div>',
-            unsafe_allow_html=True
-        )
-        st.progress(float(probs[idx]))
-
-    top_disease = class_names[sorted_idx[0]]
-    if "healthy" in top_disease.lower():
-        st.success("✅ Your crop looks healthy! Keep up the good work.")
-    else:
-        st.warning(f"⚠️ Possible **{top_disease}** detected. Consider appropriate treatment.")
-
-    # Scan deduction
-    try:
-        if st.session_state.get("user"):
-            from app.utils.supabase_utils import decrement_scan
-            decrement_scan(st.session_state.user.id)
-            st.success("Scan deducted.")
-    except:
-        pass

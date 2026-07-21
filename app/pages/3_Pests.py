@@ -203,26 +203,28 @@ st.markdown('<div class="subtitle">Upload a photo. Instant neural scan. 102 spec
 
 uploaded_file = st.file_uploader("📤 DROP YOUR INSECT PHOTO HERE", type=["jpg", "jpeg", "png"])
 
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="", width=300)
-    st.markdown("---")
+if uploaded_files:
+        for uploaded_file in uploaded_files:
+        with st.expander(f"🐛 {uploaded_file.name}", expanded=(len(uploaded_files)==1)):
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="", width=300)
+        st.markdown("---")
 
-    try:
+        try:
         model = load_pest_model()
         probs = predict_image(model, image)
-    except FileNotFoundError as e:
+        except FileNotFoundError as e:
         st.error(f"🚫 {e}")
         st.stop()
-    except Exception as e:
+        except Exception as e:
         st.error(f"Scan failed: {e}")
         st.stop()
 
-    top_idx = np.argmax(probs)
-    top_prob = probs[top_idx] * 100
+        top_idx = np.argmax(probs)
+        top_prob = probs[top_idx] * 100
 
-    st.markdown(f"""
-    <div class="result-card top-result">
+        st.markdown(f"""
+        <div class="result-card top-result">
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
                 <p style="color: #66ff99; margin: 0; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;">Identified Pest</p>
@@ -230,12 +232,12 @@ if uploaded_file:
             </div>
             <div class="counter">{top_prob:.1f}%</div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.markdown("### 🧬 TOP 5 PROBABILITIES")
-    sorted_idx = np.argsort(probs)[::-1][:5]
-    for i in sorted_idx:
+        st.markdown("### 🧬 TOP 5 PROBABILITIES")
+        sorted_idx = np.argsort(probs)[::-1][:5]
+        for i in sorted_idx:
         pest_name = PEST_CLASSES[i]
         percent = probs[i] * 100
         bar_class = " warning" if percent < 40 else (" danger" if percent < 20 else "")
@@ -253,11 +255,11 @@ if uploaded_file:
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown(f"""
-    <div class="action-box">
+        st.markdown(f"""
+        <div class="action-box">
         <h3 style="color: #00ff88; margin: 0;">⚡ RECOMMENDATION</h3>
         <p style="margin-top: 0.5rem; color: #ddd;">{_get_recommendation(PEST_CLASSES[top_idx])}</p>
-    </div>
-    """, unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
-    deduct_and_show()
+        deduct_and_show()

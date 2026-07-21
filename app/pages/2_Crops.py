@@ -271,7 +271,7 @@ st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow
 st.markdown('<div class="subtitle">Upload a leaf photo and let AI detect any disease in seconds</div>', unsafe_allow_html=True)
 
 crop = st.selectbox("🌾 Choose your crop", list(CROP_CLASSES.keys()))
-uploaded_file = st.file_uploader("📤 Upload leaf image", type=["jpg", "jpeg", "png"])
+uploaded_files = st.file_uploader("📤 Upload leaf images", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")

@@ -296,13 +296,15 @@ def deduct_and_show():
 st.markdown('<div class="title">🏞️ Soil Type Analysis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload a close‑up photo of soil to identify its exact type</div>', unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("📤 Drop your soil photo here", type=["jpg", "jpeg", "png"])
+uploaded_files = st.file_uploader("📤 Drop your soil photos here", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
+if uploaded_files:
+        for uploaded_file in uploaded_files:
+        with st.expander(f"🏞️ {uploaded_file.name}", expanded=(len(uploaded_files)==1)):
+        image = Image.open(uploaded_file).convert("RGB")
     
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
         st.image(image, caption="", use_column_width=True)
         if theme == "dark":
             st.markdown("""
@@ -313,26 +315,26 @@ if uploaded_file:
             </div>
             """, unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.subheader("🧪 Analysis Results")
+        st.markdown("---")
+        st.subheader("🧪 Analysis Results")
 
-    # Real model prediction
-    try:
+        # Real model prediction
+        try:
         model = load_soil_model()
         probs = predict_image(model, image)
-    except FileNotFoundError:
+        except FileNotFoundError:
         st.error("Soil model not installed. Please contact support.")
         st.stop()
-    except Exception as e:
+        except Exception as e:
         st.error(f"Inference error: {e}")
         st.stop()
 
-    top_idx = np.argmax(probs)
-    top_soil = SOIL_CLASSES[top_idx]
-    top_color = SOIL_COLORS[top_soil]
+        top_idx = np.argmax(probs)
+        top_soil = SOIL_CLASSES[top_idx]
+        top_color = SOIL_COLORS[top_soil]
 
-    st.markdown(f"""
-    <div class="soil-result-card top-result" style="border-left: 5px solid {top_color};">
+        st.markdown(f"""
+        <div class="soil-result-card top-result" style="border-left: 5px solid {top_color};">
         <h2 style="margin:0; display: flex; align-items: center;">
             <span class="soil-swatch" style="background-color: {top_color};"></span>
             {top_soil.title()}
@@ -341,11 +343,11 @@ if uploaded_file:
         <p style="margin-top: 0.5rem; color: #8d7b6a;">
             {_get_soil_description(top_soil)}
         </p>
-    </div>
-    """, unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.markdown("### All Soil Types")
-    for i, (soil_type, color) in enumerate(SOIL_COLORS.items()):
+        st.markdown("### All Soil Types")
+        for i, (soil_type, color) in enumerate(SOIL_COLORS.items()):
         percent = probs[i] * 100
         st.markdown(f"""
         <div style="display: flex; align-items: center; margin: 0.5rem 0;">
@@ -356,18 +358,18 @@ if uploaded_file:
         """, unsafe_allow_html=True)
         st.progress(float(probs[i]))
 
-    deduct_and_show()
+        deduct_and_show()
 
-    st.markdown(f"""
-    <div class="action-box">
+        st.markdown(f"""
+        <div class="action-box">
         <h3 style="color: {top_color}; margin: 0;">💡 Recommendation</h3>
         <p style="margin-top: 0.5rem;">{_get_recommendation(top_soil)}</p>
-    </div>
-    """, unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
-else:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
+    else:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
         st.markdown(f"""
         <div style="height: 300px; display: flex; align-items: center; justify-content: center; 
                     background: rgba(255,255,255,{'0.03' if theme=='dark' else '0.8'}); border-radius: 20px; 
@@ -379,4 +381,4 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-# ---------- Helper functions ----------
+    # ---------- Helper functions ----------

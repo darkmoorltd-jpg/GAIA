@@ -183,29 +183,31 @@ def deduct_and_show():
 st.markdown('<div class="title">🐄 LIVESTOCK HEALTH</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Select animal, upload photo, get instant diagnosis.</div>', unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("📤 UPLOAD ANIMAL PHOTO", type=["jpg", "jpeg", "png"])
+uploaded_files = st.file_uploader("📤 UPLOAD ANIMAL PHOTOS", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="", width=300)
-    st.markdown("---")
+if uploaded_files:
+        for uploaded_file in uploaded_files:
+        with st.expander(f"🐄 {uploaded_file.name}", expanded=(len(uploaded_files)==1)):
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(image, caption="", width=300)
+        st.markdown("---")
 
-    try:
+        try:
         model = load_animal_model(animal)
         probs = predict_image(model, image)
-    except FileNotFoundError as e:
+        except FileNotFoundError as e:
         st.error(f"🚫 {e}")
         st.stop()
-    except Exception as e:
+        except Exception as e:
         st.error(f"Scan failed: {e}")
         st.stop()
 
-    class_names = ANIMAL_CLASSES[animal]
-    top_idx = np.argmax(probs)
-    top_prob = probs[top_idx] * 100
+        class_names = ANIMAL_CLASSES[animal]
+        top_idx = np.argmax(probs)
+        top_prob = probs[top_idx] * 100
 
-    st.markdown(f"""
-    <div class="result-card top-result">
+        st.markdown(f"""
+        <div class="result-card top-result">
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
                 <p style="color: {accent_color}; margin: 0; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;">Diagnosis</p>
@@ -213,12 +215,12 @@ if uploaded_file:
             </div>
             <div class="counter">{top_prob:.1f}%</div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.markdown("### 📊 PROBABILITY BREAKDOWN")
-    sorted_idx = np.argsort(probs)[::-1]
-    for i in sorted_idx:
+        st.markdown("### 📊 PROBABILITY BREAKDOWN")
+        sorted_idx = np.argsort(probs)[::-1]
+        for i in sorted_idx:
         disease = class_names[i]
         percent = probs[i] * 100
         bar_class = " warning" if percent < 40 else (" danger" if percent < 20 else "")
@@ -236,12 +238,12 @@ if uploaded_file:
         </div>
         """, unsafe_allow_html=True)
 
-    recommendation = _get_recommendation(class_names[top_idx], animal)
-    st.markdown(f"""
-    <div class="action-box">
+        recommendation = _get_recommendation(class_names[top_idx], animal)
+        st.markdown(f"""
+        <div class="action-box">
         <h3 style="color: {accent_color}; margin: 0;">⚡ RECOMMENDATION</h3>
         <p style="margin-top: 0.5rem;">{recommendation}</p>
-    </div>
-    """, unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
-    deduct_and_show()
+        deduct_and_show()

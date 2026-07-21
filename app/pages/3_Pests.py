@@ -36,6 +36,33 @@ def bottom_nav():
 
 
 st.set_page_config(page_title="GAIA – Pest Detection", page_icon="🐛", layout="wide", initial_sidebar_state="expanded")
+
+st.markdown("""
+<style>
+    .top-nav {
+        display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;
+        padding: 0.8rem; background: rgba(255,255,255,0.9); backdrop-filter: blur(15px);
+        border-radius: 15px; margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .top-nav a {
+        color: #2e7d32; text-decoration: none; font-weight: 600;
+        font-size: 0.95rem; padding: 0.5rem 1rem; border-radius: 30px;
+        transition: all 0.3s ease;
+    }
+    .top-nav a:hover { background: #e8f5e9; color: #1b5e20; }
+</style>
+<div class="top-nav">
+    <a href="/" target="_self">🏠 Dashboard</a>
+    <a href="/~/crop-disease" target="_self">🌿 Crops</a>
+    <a href="/~/pest-detection" target="_self">🐛 Pests</a>
+    <a href="/~/soil-analysis" target="_self">🏞️ Soil</a>
+    <a href="/~/livestock-health" target="_self">🐄 Livestock</a>
+    <a href="/~/early-warning" target="_self">🛰️ Early Warning</a>
+</div>
+""", unsafe_allow_html=True)
+
+
 st.markdown("""
 <style>
     .top-nav { display: flex; justify-content: center; gap: 2rem; padding: 0.8rem; background: rgba(255,255,255,0.9); backdrop-filter: blur(15px); border-radius: 15px; margin-bottom: 2rem; }

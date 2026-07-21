@@ -134,6 +134,7 @@ if theme == "dark":
             to { text-shadow: 0 0 50px rgba(255, 152, 0, 1), 0 0 80px rgba(255, 152, 0, 0.6); }
         }
         .subtitle { text-align: center; font-size: 1.2rem; color: #bcaaa4; margin-bottom: 2rem; position: relative; z-index: 1; }
+st.markdown('<a href="/" target="_self"><button style="padding:8px 16px; background: linear-gradient(90deg, #2e7d32, #4caf50); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🏠 Dashboard</button></a>', unsafe_allow_html=True)
         
         .stFileUploader { position: relative; z-index: 3; }
         .stFileUploader > div {

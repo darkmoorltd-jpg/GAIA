@@ -111,6 +111,7 @@ if theme == "dark":
         @keyframes soilGlow { from { text-shadow: 0 0 25px rgba(212, 163, 115, 0.7); }
                               to { text-shadow: 0 0 50px rgba(212, 163, 115, 1), 0 0 80px rgba(212, 163, 115, 0.6); } }
         .subtitle { text-align: center; font-size: 1.2rem; color: #bcaaa4; }
+st.markdown('<a href="/" target="_self"><button style="padding:8px 16px; background: linear-gradient(90deg, #2e7d32, #4caf50); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🏠 Dashboard</button></a>', unsafe_allow_html=True)
         .soil-swatch { display: inline-block; width: 20px; height: 20px; border-radius: 4px; margin-right: 8px; }
         .result-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px);
                        border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }

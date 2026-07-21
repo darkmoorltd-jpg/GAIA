@@ -94,6 +94,7 @@ if theme == "dark":
         @keyframes cropGlow { from { text-shadow: 0 0 25px rgba(0,200,83,0.7); }
                               to { text-shadow: 0 0 50px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.6); } }
         .subtitle { text-align: center; font-size: 1.2rem; color: #a5d6a7; }
+st.markdown('<a href="/" target="_self"><button style="padding:8px 16px; background: linear-gradient(90deg, #2e7d32, #4caf50); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🏠 Dashboard</button></a>', unsafe_allow_html=True)
         .result-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px);
                        border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
         .result-card.top-result { border: 1px solid #00c853; box-shadow: 0 0 30px rgba(0,200,83,0.3); }

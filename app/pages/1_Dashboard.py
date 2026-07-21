@@ -67,8 +67,7 @@ if st.session_state.theme == "dark":
             from { text-shadow: 0 0 20px rgba(0,200,83,0.6); }
             to { text-shadow: 0 0 40px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.8); }
         }
-        .subtitle { text-align: center; font-size: 1.5rem; color: #b0bec5; margin-bottom: 2rem; }
-        .stButton > button {
+        .subtitle { text-align: center; font-size: 1.5rem; color: #b0bec5; margin-bottom: 2rem; }        .stButton > button {
             background: rgba(255,255,255,0.08) !important;
             backdrop-filter: blur(12px) !important;
             border: 1px solid rgba(255,255,255,0.15) !important;

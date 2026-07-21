@@ -140,6 +140,15 @@ def load_crop_model(crop_name: str):
             model = create_model_from_checkpoint(checkpoint, num_classes)
             return model, checkpoint
     
+    # If not found locally, try downloading from Google Drive
+    from app.utils.download_models import ensure_crop_model
+    downloaded_path = ensure_crop_model(crop_name)
+    if downloaded_path and os.path.exists(downloaded_path):
+        from app.utils.model_loader import create_model_from_checkpoint
+        num_classes = len(CROP_CLASSES[crop_name])
+        model = create_model_from_checkpoint(downloaded_path, num_classes)
+        return model, downloaded_path
+    
     return None, None
 
 # ──────── UI ────────

@@ -9,9 +9,7 @@ PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
 st.set_page_config(page_title="Processing Payment", page_icon="⏳", layout="centered")
 
-PLANS = {
-    "10": 10, "25": 25, "60": 60, "250": 250, "unlimited": 9999
-}
+PLANS = {"10": 10, "25": 25, "60": 60, "250": 250, "unlimited": 9999}
 
 def verify_transaction(reference):
     url = f"https://api.paystack.co/transaction/verify/{reference}"
@@ -36,26 +34,32 @@ if not txn:
     st.error("Payment verification failed. Contact darkmoorltd@gmail.com")
     st.stop()
 
-# Extract customer email from Paystack
-email = txn.get("customer", {}).get("email", "")
+# Extract email correctly from Paystack response
+email = ""
+if "customer" in txn and txn["customer"]:
+    email = txn["customer"].get("email", "")
+if not email:
+    # fallback: try metadata
+    email = txn.get("metadata", {}).get("email", "")
+if not email:
+    # last resort: use reference to identify later
+    email = f"unknown_{reference[:10]}"
+
 scans = PLANS[plan]
 amount = txn.get("amount", 0) / 100
 
-if email:
-    # Store in pending_payments table using service key
-    service = create_client(SUPABASE_URL, SERVICE_KEY)
-    try:
-        service.table("pending_payments").insert({
-            "email": email,
-            "reference": reference,
-            "plan": plan,
-            "scans": scans,
-            "amount": amount,
-            "claimed": False
-        }).execute()
-    except Exception as e:
-        st.error(f"Failed to save payment: {e}")
-        st.stop()
-
-st.success("✅ Payment saved! Log in to GAIA to claim your scans.")
-st.markdown("[Go to GAIA](https://gaiagpt.streamlit.app)")
+# Store in pending_payments
+service = create_client(SUPABASE_URL, SERVICE_KEY)
+try:
+    service.table("pending_payments").insert({
+        "email": email,
+        "reference": reference,
+        "plan": plan,
+        "scans": scans,
+        "amount": amount,
+        "claimed": False
+    }).execute()
+    st.success(f"✅ Payment saved! {scans} scans will be added to your account after login.")
+    st.markdown("[Go to GAIA](https://gaiagpt.streamlit.app)")
+except Exception as e:
+    st.error(f"Failed to save payment: {e}")

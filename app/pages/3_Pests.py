@@ -194,3 +194,4 @@ for col, (label, path) in zip(cols, pages):
     with col:
         st.page_link(path, label=label, help=f"Go to {label}")
 
+

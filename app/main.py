@@ -276,10 +276,60 @@ if st.session_state.user is None:
     except:
         pass
 
-# ---------- Process pending payment from Paystack callback ----------
-query_params = st.query_params   # already defined earlier, but safe to reassign
+# ---------- Process pending payment (from Paystack callback) ----------
+# We store payment details in session_state so they survive reloads
+if "pending_payment" not in st.session_state:
+    st.session_state.pending_payment = None
+
+# Check URL for payment params
+query_params = st.query_params
 pending_ref = query_params.get("pending_reference", [None])[0]
 pending_plan = query_params.get("pending_plan", [None])[0]
+if pending_ref and pending_plan:
+    st.session_state.pending_payment = {"reference": pending_ref, "plan": pending_plan}
+    # Clear the URL so we don't reprocess on refresh
+    st.query_params.clear()
+    st.rerun()
+
+# If we have a stored payment and the user is logged in, process it now
+if st.session_state.pending_payment and st.session_state.user:
+    pp = st.session_state.pending_payment
+    try:
+        txn = verify_paystack_transaction(pp["reference"])
+        if txn:
+            scans_to_add = PAYSTACK_PLANS.get(pp["plan"], {}).get("scans", 0)
+            service_key = st.secrets["supabase"]["service_key"]
+            service_client = create_client(SUPABASE_URL, service_key)
+            user_id = st.session_state.user.id
+            
+            current = service_client.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+            current_scans = current.data[0]["scans_remaining"] if current.data else 0
+            new_total = current_scans + scans_to_add
+            
+            service_client.table("user_scans").update({
+                "scans_remaining": new_total,
+                "plan": pp["plan"]
+            }).eq("user_id", user_id).execute()
+            
+            service_client.table("payment_history").insert({
+                "user_id": user_id,
+                "amount": txn["amount"] / 100,
+                "scans_added": scans_to_add,
+                "plan": pp["plan"],
+                "reference": pp["reference"]
+            }).execute()
+            
+            st.success(f"✅ Payment processed! {scans_to_add} scans added to your account.")
+            st.session_state.pending_payment = None
+            st.rerun()
+        else:
+            st.error("Payment verification failed. Please contact support.")
+            st.session_state.pending_payment = None
+    except Exception as e:
+        st.error(f"Payment processing error: {e}")
+
+
+
 if pending_ref and pending_plan and st.session_state.user:
     try:
         txn = verify_paystack_transaction(pending_ref)

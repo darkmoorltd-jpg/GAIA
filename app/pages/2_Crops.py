@@ -284,7 +284,7 @@ st.markdown('<div class="subtitle">Upload a leaf photo and let AI detect any dis
 crop = st.selectbox("🌾 Choose your crop", list(CROP_CLASSES.keys()))
 uploaded_files = st.file_uploader("📤 Upload leaf images", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-if uploaded_file is not None:
+if uploaded_files:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Your leaf", width=300)
 

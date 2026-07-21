@@ -276,6 +276,42 @@ if st.session_state.user is None:
     except:
         pass
 
+# ---------- Process pending payment (from callback redirect) ----------
+pending_ref = query_params.get("pending_reference", [None])[0]
+pending_plan = query_params.get("pending_plan", [None])[0]
+if pending_ref and pending_plan and st.session_state.user:
+    # Verify and credit
+    txn = verify_paystack_transaction(pending_ref)
+    if txn:
+        scans_to_add = PAYSTACK_PLANS.get(pending_plan, {}).get("scans", 0)
+        # Use service client to bypass RLS
+        service_key = st.secrets["supabase"]["service_key"]
+        service_client = create_client(SUPABASE_URL, service_key)
+        user_id = st.session_state.user.id
+        
+        current = service_client.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+        current_scans = current.data[0]["scans_remaining"] if current.data else 0
+        new_total = current_scans + scans_to_add
+        
+        service_client.table("user_scans").update({
+            "scans_remaining": new_total,
+            "plan": pending_plan
+        }).eq("user_id", user_id).execute()
+        
+        service_client.table("payment_history").insert({
+            "user_id": user_id,
+            "amount": txn["amount"] / 100,
+            "scans_added": scans_to_add,
+            "plan": pending_plan,
+            "reference": pending_ref
+        }).execute()
+        
+        st.success(f"✅ Payment processed! {scans_to_add} scans added.")
+        # Clear params and rerun
+        st.query_params.clear()
+        st.rerun()
+
+
 # Process pending payment after login
 if st.session_state.user is not None and st.session_state.get("pending_payment"):
     ref = st.session_state.pending_payment["reference"]

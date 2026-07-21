@@ -10,7 +10,18 @@ SUPABASE_KEY = st.secrets["supabase"]["key"]
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-st.set_page_config(page_title="GAIA – Payment History", page_icon="💳", layout="wide")
+st.set_page_config(page_title="GAIA – Payment History", page_icon="💳", layout="wide", initial_sidebar_state="expanded")
+
+# Force sidebar visible on all pages
+st.markdown("""
+<style>
+    section[data-testid="stSidebar"] {
+        display: block !important;
+        visibility: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("💳 Payment History")
 
 if "user" not in st.session_state or st.session_state.user is None:

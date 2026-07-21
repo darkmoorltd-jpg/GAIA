@@ -11,7 +11,18 @@ SERVICE_KEY = st.secrets["supabase"]["service_key"]
 def get_service_client():
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
-st.set_page_config(page_title="GAIA – Buy Scans", page_icon="💳", layout="wide")
+st.set_page_config(page_title="GAIA – Buy Scans", page_icon="💳", layout="wide", initial_sidebar_state="expanded")
+
+# Force sidebar visible on all pages
+st.markdown("""
+<style>
+    section[data-testid="stSidebar"] {
+        display: block !important;
+        visibility: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 # ---------- Theme ----------
 if "theme" not in st.session_state:

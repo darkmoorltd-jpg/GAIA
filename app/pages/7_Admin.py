@@ -16,7 +16,18 @@ def init_service_client():
 def init_anon_client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-st.set_page_config(page_title="GAIA – Admin", page_icon="🔐", layout="wide")
+st.set_page_config(page_title="GAIA – Admin", page_icon="🔐", layout="wide", initial_sidebar_state="expanded")
+
+# Force sidebar visible on all pages
+st.markdown("""
+<style>
+    section[data-testid="stSidebar"] {
+        display: block !important;
+        visibility: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 ADMIN_EMAIL = "darkmoorltd@gmail.com"
 if "user" not in st.session_state or st.session_state.user is None:

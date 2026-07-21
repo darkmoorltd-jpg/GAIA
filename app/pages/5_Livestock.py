@@ -12,6 +12,17 @@ from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide", initial_sidebar_state="expanded")
 
+# Force sidebar visible on all pages
+st.markdown("""
+<style>
+    section[data-testid="stSidebar"] {
+        display: block !important;
+        visibility: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
 # ---------- Dashboard top nav ----------
 st.markdown("""
 <style>

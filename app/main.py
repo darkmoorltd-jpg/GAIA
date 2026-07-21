@@ -109,7 +109,7 @@ def verify_paystack_transaction(reference: str):
     return None
 
 # ---------- Streamlit page ----------
-st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
+st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide", initial_sidebar_state="expanded")
 
 if "user" not in st.session_state:
     st.session_state.user = None

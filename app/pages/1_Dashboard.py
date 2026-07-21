@@ -1,7 +1,18 @@
 
 import streamlit as st
 
-st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wide")
+st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wide", initial_sidebar_state="expanded")
+
+# Force sidebar visible on all pages
+st.markdown("""
+<style>
+    section[data-testid="stSidebar"] {
+        display: block !important;
+        visibility: visible !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 # ---------- Light / Dark mode toggle ----------
 if "theme" not in st.session_state:

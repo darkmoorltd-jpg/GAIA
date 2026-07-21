@@ -193,37 +193,40 @@ if st.session_state.user is None:
 if st.session_state.user:
     user_email = st.session_state.user.email
     if user_email:
-        service = get_service_client()
-        # Find unclaimed payments for this email
-        pending = service.table("pending_payments").select("*").eq("email", user_email).eq("claimed", False).execute()
-        if pending.data:
-            for pp in pending.data:
-                scans_to_add = pp["scans"]
-                user_id = st.session_state.user.id
-                
-                # Update user scans
-                current = service.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
-                current_scans = current.data[0]["scans_remaining"] if current.data else 0
-                new_total = current_scans + scans_to_add
-                service.table("user_scans").update({
-                    "scans_remaining": new_total,
-                    "plan": pp["plan"]
-                }).eq("user_id", user_id).execute()
-                
-                # Record in payment history
-                service.table("payment_history").insert({
-                    "user_id": user_id,
-                    "amount": pp["amount"],
-                    "scans_added": scans_to_add,
-                    "plan": pp["plan"],
-                    "reference": pp["reference"]
-                }).execute()
-                
-                # Mark as claimed
-                service.table("pending_payments").update({"claimed": True}).eq("id", pp["id"]).execute()
-                
-                st.success(f"✅ Payment claimed! {scans_to_add} scans added to your account.")
-                st.rerun()
+        try:
+            service = get_service_client()
+            # Find unclaimed payments for this email
+            pending = service.table("pending_payments").select("*").eq("email", user_email).eq("claimed", False).execute()
+            if pending.data:
+                for pp in pending.data:
+                    scans_to_add = pp["scans"]
+                    user_id = st.session_state.user.id
+                    
+                    # Update user scans
+                    current = service.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+                    current_scans = current.data[0]["scans_remaining"] if current.data else 0
+                    new_total = current_scans + scans_to_add
+                    service.table("user_scans").update({
+                        "scans_remaining": new_total,
+                        "plan": pp["plan"]
+                    }).eq("user_id", user_id).execute()
+                    
+                    # Record in payment history
+                    service.table("payment_history").insert({
+                        "user_id": user_id,
+                        "amount": pp["amount"],
+                        "scans_added": scans_to_add,
+                        "plan": pp["plan"],
+                        "reference": pp["reference"]
+                    }).execute()
+                    
+                    # Mark as claimed
+                    service.table("pending_payments").update({"claimed": True}).eq("id", pp["id"]).execute()
+                    
+                    st.success(f"✅ Payment claimed! {scans_to_add} scans added to your account.")
+                    st.rerun()
+        except Exception as e:
+            st.error(f"Error processing payment: {e}")
 
 
 # ----- Login page -----

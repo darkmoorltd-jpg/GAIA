@@ -303,3 +303,29 @@ if st.button("🔍 Get Disease Risk Forecast"):
             st.info("No significant disease risk detected for the next 7 days.")
     else:
         st.error("Unable to fetch weather data. Please check your coordinates.")
+
+
+# ---------- Universal Bottom Navigation ----------
+def show_bottom_nav():
+    st.markdown("---")
+    st.markdown("### 🔗 Quick Navigation")
+    cols = st.columns(9)
+    with cols[0]:
+        st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+    with cols[1]:
+        st.page_link("pages/2_Crops.py", label="🌿 Crops")
+    with cols[2]:
+        st.page_link("pages/3_Pests.py", label="🐛 Pests")
+    with cols[3]:
+        st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+    with cols[4]:
+        st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+    with cols[5]:
+        st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
+    with cols[6]:
+        st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+    with cols[7]:
+        st.page_link("pages/8_Profile.py", label="👤 Profile")
+    with cols[8]:
+        st.page_link("pages/6_Payment_History.py", label="📋 Payments")
+show_bottom_nav()

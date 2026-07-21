@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-# ──────── theme toggle (default LIGHT) ────────
+# ---------- Theme toggle ----------
 st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌿", layout="wide")
 
 st.markdown("""
@@ -22,10 +22,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-dark_mode = st.toggle("", value=False, key="crops_theme_toggle")   # default OFF = light
+dark_mode = st.toggle("", value=False, key="crops_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
-# ──────── scan deduction ────────
+# ---------- Scan deduction ----------
 def deduct_and_show():
     import streamlit as st
     from supabase import create_client
@@ -50,7 +50,7 @@ def deduct_and_show():
     except:
         pass
 
-# ──────── crop definitions ────────
+# ---------- Crop definitions ----------
 CROP_CLASSES = {
     "apple": [
         "Alternaria Leaf Spot", "Apple Scab", "Apple rot", "Block rot",
@@ -80,7 +80,7 @@ CROP_CLASSES = {
     "banana": ["Fusarium Wilt", "Healthy", "Natural Death Leaf", "Rhizome Root"]
 }
 
-# ──────── theme CSS ────────
+# ---------- Theme CSS ----------
 if theme == "dark":
     st.markdown("""
     <style>
@@ -120,7 +120,7 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
-# ──────── model loader ────────
+# ---------- Model loader ----------
 @st.cache_resource
 def load_crop_model(crop_name: str):
     """Try multiple possible paths for the model file, with detailed error logging."""
@@ -159,7 +159,7 @@ def load_crop_model(crop_name: str):
     
     return None, None, errors
 
-# ──────── UI ────────
+# ---------- UI ----------
 st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload a leaf photo and let AI detect any disease in seconds</div>', unsafe_allow_html=True)
 
@@ -178,8 +178,8 @@ if uploaded_file:
 
     if model is None:
         if load_errors:
-        st.error(f"🚫 Model loading errors: {load_errors}")
-    st.warning(f"⚠️ No trained model found for '{crop}'. Using demo predictions.")
+            st.error(f"🚫 Model loading errors: {load_errors}")
+        st.warning(f"⚠️ No trained model found for '{crop}'. Using demo predictions.")
         import hashlib
         seed = int(hashlib.md5(uploaded_file.name.encode()).hexdigest()[:8], 16)
         np.random.seed(seed)

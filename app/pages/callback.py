@@ -34,21 +34,19 @@ if not txn:
     st.error("Payment verification failed. Contact darkmoorltd@gmail.com")
     st.stop()
 
-# Extract email correctly from Paystack response
+# Extract customer email from Paystack response
 email = ""
-if "customer" in txn and txn["customer"]:
-    email = txn["customer"].get("email", "")
+try:
+    email = txn.get("customer", {}).get("email", "")
+except:
+    pass
 if not email:
-    # fallback: try metadata
-    email = txn.get("metadata", {}).get("email", "")
-if not email:
-    # last resort: use reference to identify later
-    email = f"unknown_{reference[:10]}"
+    email = f"unknown_{reference[:10]}@paystack.pay"
 
-scans = PLANS[plan]
+scans = PLANS.get(plan, 0)
 amount = txn.get("amount", 0) / 100
 
-# Store in pending_payments
+# Store in pending_payments (no NOT NULL columns now)
 service = create_client(SUPABASE_URL, SERVICE_KEY)
 try:
     service.table("pending_payments").insert({

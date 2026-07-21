@@ -199,6 +199,70 @@ def verify_paystack_transaction(reference: str):
 # ---------- Streamlit page ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
+
+# ========== PROCESS PENDING PAYMENT (runs immediately) ==========
+query_params = st.query_params
+pending_ref = query_params.get("pending_reference", [None])[0]
+pending_plan = query_params.get("pending_plan", [None])[0]
+
+if pending_ref and pending_plan:
+    # Store in session state so it survives reruns
+    st.session_state["pending_payment"] = {"reference": pending_ref, "plan": pending_plan}
+    # Clear the URL params immediately so we don't reprocess
+    st.query_params.clear()
+    st.rerun()
+
+# Process any stored pending payment if user is now logged in
+if st.session_state.get("pending_payment") and st.session_state.get("user"):
+    try:
+        pp = st.session_state["pending_payment"]
+        # Verify with Paystack
+        import requests
+        PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
+        url = f"https://api.paystack.co/transaction/verify/{pp['reference']}"
+        headers = {"Authorization": f"Bearer {PAYSTACK_SECRET}"}
+        r = requests.get(url, headers=headers)
+        if r.status_code == 200:
+            data = r.json()
+            if data["data"]["status"] == "success":
+                txn = data["data"]
+                scans_to_add = {"10":10, "25":25, "60":60, "250":250, "unlimited":9999}.get(pp["plan"], 0)
+                
+                # Use service client to write
+                from supabase import create_client, Client
+                SUPABASE_URL = st.secrets["supabase"]["url"]
+                SERVICE_KEY = st.secrets["supabase"]["service_key"]
+                service = create_client(SUPABASE_URL, SERVICE_KEY)
+                user_id = st.session_state.user.id
+                
+                # Get current scans
+                current = service.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+                current_scans = current.data[0]["scans_remaining"] if current.data else 0
+                new_total = current_scans + scans_to_add
+                
+                # Update scans
+                service.table("user_scans").update({
+                    "scans_remaining": new_total,
+                    "plan": pp["plan"]
+                }).eq("user_id", user_id).execute()
+                
+                # Record payment history
+                service.table("payment_history").insert({
+                    "user_id": user_id,
+                    "amount": txn["amount"] / 100,
+                    "scans_added": scans_to_add,
+                    "plan": pp["plan"],
+                    "reference": pp["reference"]
+                }).execute()
+                
+                st.success(f"✅ Payment processed! {scans_to_add} scans added.")
+                st.session_state["pending_payment"] = None
+                st.rerun()
+    except Exception as e:
+        st.error(f"Payment processing error: {e}")
+        st.session_state["pending_payment"] = None
+
+
 if "user" not in st.session_state:
     st.session_state.user = None
 
@@ -228,44 +292,7 @@ if reference and plan and plan in PAYSTACK_PLANS:
     st.info("Processing payment...")
     st.stop()
     # Store payment intent in session for later processing if user not logged in
-    if "pending_payment" not in st.session_state:
-        st.session_state.pending_payment = None
     
-    if st.session_state.user is None:
-        st.session_state.pending_payment = {"reference": reference, "plan": plan}
-        st.warning("Please log in to complete your payment.")
-        st.stop()
-    
-    txn = verify_paystack_transaction(reference)
-    if txn:
-        supabase = init_supabase()
-        user_id = st.session_state.user.id
-        if user_id:
-            scans_to_add = PAYSTACK_PLANS[plan]["scans"]
-            current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
-            current_scans = current.data[0]["scans_remaining"] if current.data else 0
-            new_total = current_scans + scans_to_add
-            supabase.table("user_scans").update({
-                "scans_remaining": new_total,
-                "plan": plan
-            }).eq("user_id", user_id).execute()
-            supabase.table("payment_history").insert({
-                "user_id": user_id,
-                "amount": txn["amount"] / 100,
-                "scans_added": scans_to_add,
-                "plan": plan,
-                "reference": reference
-            }).execute()
-            st.success(f"Payment successful! {scans_to_add} scans added to your account.")
-            send_payment_email(st.session_state.user.email, txn["amount"]/100, scans_to_add, plan, reference)
-            st.session_state.pending_payment = None
-            st.query_params.clear()
-            st.rerun()
-        else:
-            st.session_state.pending_payment = {"reference": reference, "plan": plan}
-            st.warning("Please log in to complete your payment.")
-            st.stop()
-
 # ----- Restore session -----
 if st.session_state.user is None:
     supabase = init_supabase()
@@ -276,15 +303,12 @@ if st.session_state.user is None:
     except:
         pass
 
-# ---------- Process pending payment (from Paystack callback) ----------
+
 # We store payment details in session_state so they survive reloads
-if "pending_payment" not in st.session_state:
-    st.session_state.pending_payment = None
 
 # Check URL for payment params
 query_params = st.query_params
-pending_ref = query_params.get("pending_reference", [None])[0]
-pending_plan = query_params.get("pending_plan", [None])[0]
+
 if pending_ref and pending_plan:
     st.session_state.pending_payment = {"reference": pending_ref, "plan": pending_plan}
     # Clear the URL so we don't reprocess on refresh

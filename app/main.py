@@ -198,6 +198,8 @@ def verify_paystack_transaction(reference: str):
 
 # ---------- Streamlit page ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
+if "pending_payment" not in st.session_state:
+    st.session_state.pending_payment = None
 
 
 # ========== PROCESS PENDING PAYMENT (runs immediately) ==========
@@ -316,7 +318,7 @@ if pending_ref and pending_plan:
     st.rerun()
 
 # If we have a stored payment and the user is logged in, process it now
-if st.session_state.pending_payment and st.session_state.user:
+if st.session_state.get('pending_payment') and st.session_state.get('user'):
     pp = st.session_state.pending_payment
     try:
         txn = verify_paystack_transaction(pp["reference"])

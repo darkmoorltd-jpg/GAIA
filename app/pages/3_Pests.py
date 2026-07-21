@@ -23,7 +23,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-dark_mode = st.toggle("", value=True, key="pest_theme_toggle")
+dark_mode = st.toggle("", value=False, key="pest_theme_toggle")
 
 if dark_mode:
     theme = "dark"

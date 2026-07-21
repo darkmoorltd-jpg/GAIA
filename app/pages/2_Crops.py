@@ -25,6 +25,24 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+# ---------- Theme toggle ----------
+st.markdown("""
+<style>
+    .stToggle > label { display: none !important; }
+    .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
+    .stToggle > div { transform: scale(1.3); }
+</style>
+""", unsafe_allow_html=True)
+
+dark_mode = st.toggle("", value=False, key="crops_theme_toggle")
+theme = "dark" if dark_mode else "light"
+
+if theme == 'dark':
+    st.markdown('''<style>.stApp { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); color: #fff; }</style>''', unsafe_allow_html=True)
+else:
+    st.markdown('''<style>.stApp { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); color: #1b5e20; }</style>''', unsafe_allow_html=True)
+
 st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload a leaf photo and let AI detect any disease in seconds</div>', unsafe_allow_html=True)
 

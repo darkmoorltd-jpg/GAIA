@@ -5,12 +5,7 @@ st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wi
 
 # Force sidebar visible on all pages
 st.markdown("""
-<style>
-    section[data-testid="stSidebar"] {
-        display: block !important;
-        visibility: visible !important;
-    }
-</style>
+
 """, unsafe_allow_html=True)
 
 
@@ -166,6 +161,23 @@ st.markdown("""
 # ---------- Hero Section ----------
 st.markdown('<div class="hero-title">GAIA</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Global Agricultural Intelligence Assistant</div>', unsafe_allow_html=True)
+
+# ---------- Sidebar Toggle (click if sidebar is hidden) ----------
+col1, col2 = st.columns([1, 5])
+with col1:
+    if st.button("☰ Menu", help="Show sidebar navigation"):
+        st.markdown("""
+        <script>
+            // Force sidebar to open via JavaScript
+            const sidebar = parent.document.querySelector('[data-testid="stSidebar"]');
+            if (sidebar) {
+                sidebar.style.display = 'block';
+                sidebar.style.visibility = 'visible';
+                sidebar.style.width = '280px';
+            }
+        </script>
+        """, unsafe_allow_html=True)
+
 
 # ---------- Lettuce image ----------
 col1, col2, col3 = st.columns([1, 2, 1])

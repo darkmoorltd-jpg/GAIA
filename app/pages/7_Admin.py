@@ -20,12 +20,7 @@ st.set_page_config(page_title="GAIA – Admin", page_icon="🔐", layout="wide",
 
 # Force sidebar visible on all pages
 st.markdown("""
-<style>
-    section[data-testid="stSidebar"] {
-        display: block !important;
-        visibility: visible !important;
-    }
-</style>
+
 """, unsafe_allow_html=True)
 
 

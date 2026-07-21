@@ -14,12 +14,7 @@ st.set_page_config(page_title="GAIA – Payment History", page_icon="💳", layo
 
 # Force sidebar visible on all pages
 st.markdown("""
-<style>
-    section[data-testid="stSidebar"] {
-        display: block !important;
-        visibility: visible !important;
-    }
-</style>
+
 """, unsafe_allow_html=True)
 
 st.title("💳 Payment History")

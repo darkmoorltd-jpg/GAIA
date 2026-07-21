@@ -19,12 +19,7 @@ st.set_page_config(page_title="GAIA – Early Warning", page_icon="🛰️", lay
 
 # Force sidebar visible on all pages
 st.markdown("""
-<style>
-    section[data-testid="stSidebar"] {
-        display: block !important;
-        visibility: visible !important;
-    }
-</style>
+
 """, unsafe_allow_html=True)
 
 
@@ -223,6 +218,23 @@ def calculate_precision_risk(weather_data, crop, growth_stage):
 # ---------- Main UI ----------
 st.markdown('<div class="title">🛰️ EARLY WARNING SYSTEM</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Precision disease alerts based on your exact farm location</div>', unsafe_allow_html=True)
+
+# ---------- Sidebar Toggle (click if sidebar is hidden) ----------
+col1, col2 = st.columns([1, 5])
+with col1:
+    if st.button("☰ Menu", help="Show sidebar navigation"):
+        st.markdown("""
+        <script>
+            // Force sidebar to open via JavaScript
+            const sidebar = parent.document.querySelector('[data-testid="stSidebar"]');
+            if (sidebar) {
+                sidebar.style.display = 'block';
+                sidebar.style.visibility = 'visible';
+                sidebar.style.width = '280px';
+            }
+        </script>
+        """, unsafe_allow_html=True)
+
 
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("Please log in to use the Early Warning System.")

@@ -14,24 +14,13 @@ st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", lay
 
 # FORCE SIDEBAR VISIBLE
 st.markdown("""
-<style>
-    section[data-testid="stSidebar"] {
-        display: block !important;
-        visibility: visible !important;
-        width: 280px !important;
-    }
-</style>
+
 """, unsafe_allow_html=True)
 
 
 # Force sidebar visible on all pages
 st.markdown("""
-<style>
-    section[data-testid="stSidebar"] {
-        display: block !important;
-        visibility: visible !important;
-    }
-</style>
+
 """, unsafe_allow_html=True)
 
 
@@ -163,6 +152,23 @@ else:
 
 st.markdown('<div class="title">🐄 Livestock Health</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Detect common diseases in cattle and poultry from photos</div>', unsafe_allow_html=True)
+
+# ---------- Sidebar Toggle (click if sidebar is hidden) ----------
+col1, col2 = st.columns([1, 5])
+with col1:
+    if st.button("☰ Menu", help="Show sidebar navigation"):
+        st.markdown("""
+        <script>
+            // Force sidebar to open via JavaScript
+            const sidebar = parent.document.querySelector('[data-testid="stSidebar"]');
+            if (sidebar) {
+                sidebar.style.display = 'block';
+                sidebar.style.visibility = 'visible';
+                sidebar.style.width = '280px';
+            }
+        </script>
+        """, unsafe_allow_html=True)
+
 
 animal = st.selectbox("🐾 Choose animal", list(ANIMAL_CLASSES.keys()))
 uploaded_files = st.file_uploader("📤 Upload animal photos", type=["jpg", "jpeg", "png"], accept_multiple_files=True)

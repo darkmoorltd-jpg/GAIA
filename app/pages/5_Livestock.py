@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-# ──────── theme toggle (default LIGHT) ────────
+# ──────── theme toggle ────────
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
 
 st.markdown("""
@@ -22,10 +22,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-dark_mode = st.toggle("", value=False, key="livestock_theme_toggle")   # default OFF = light
+dark_mode = st.toggle("", value=False, key="livestock_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
-# ──────── scan deduction ────────
 def deduct_and_show():
     import streamlit as st
     from supabase import create_client
@@ -50,13 +49,11 @@ def deduct_and_show():
     except:
         pass
 
-# ──────── animal definitions ────────
 ANIMAL_CLASSES = {
-    "cattle": ["Foot‑and‑Mouth Disease", "Healthy", "Lumpy Skin Disease"],
-    "poultry": ["Coccidiosis", "Healthy", "Newcastle Disease", "Salmonella"]
+    "cattle": ["Foot‑and‑Mouth Disease","Healthy","Lumpy Skin Disease"],
+    "poultry": ["Coccidiosis","Healthy","Newcastle Disease","Salmonella"]
 }
 
-# ──────── theme CSS ────────
 if theme == "dark":
     st.markdown("""
     <style>
@@ -70,9 +67,7 @@ if theme == "dark":
         @keyframes livestockGlow { from { text-shadow: 0 0 25px rgba(124, 77, 255, 0.7); }
                                    to { text-shadow: 0 0 50px rgba(124, 77, 255, 1), 0 0 80px rgba(124, 77, 255, 0.6); } }
         .subtitle { text-align: center; font-size: 1.2rem; color: #b39ddb; }
-st.markdown('<a href="/" target="_self"><button style="padding:8px 16px; background: linear-gradient(90deg, #2e7d32, #4caf50); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🏠 Dashboard</button></a>', unsafe_allow_html=True)
-        .result-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px);
-                       border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
+        .result-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
         .result-card.top-result { border: 1px solid #7c4dff; box-shadow: 0 0 30px rgba(124, 77, 255, 0.3); }
         .stProgress > div > div > div > div { background: linear-gradient(90deg, #7c4dff, #b388ff); }
     </style>
@@ -90,54 +85,27 @@ else:
         @keyframes livestockGlowLight { from { text-shadow: 0 0 10px rgba(74, 20, 140, 0.3); }
                                         to { text-shadow: 0 0 25px rgba(74, 20, 140, 0.8), 0 0 50px rgba(74, 20, 140, 0.5); } }
         .subtitle { text-align: center; font-size: 1.2rem; color: #4a148c; }
-        .result-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px);
-                       border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
+        .result-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
         .result-card.top-result { border: 1px solid #7c4dff; box-shadow: 0 0 20px rgba(74, 20, 140, 0.2); }
         .stProgress > div > div > div > div { background: linear-gradient(90deg, #7c4dff, #b388ff); }
     </style>
     """, unsafe_allow_html=True)
 
-
-
-
-# ──────── UI ────────
-
-# ---------- Sidebar navigation ----------
-with st.sidebar:
-    st.markdown("### 🌱 GAIA")
-    if st.button("🏠 Dashboard", use_container_width=True):
-        st.switch_page("app/pages/1_Dashboard.py")
-    if st.button("🌿 Crop Disease", use_container_width=True):
-        st.switch_page("app/pages/2_Crops.py")
-    if st.button("🐛 Pest Detection", use_container_width=True):
-        st.switch_page("app/pages/3_Pests.py")
-    if st.button("🏞️ Soil Analysis", use_container_width=True):
-        st.switch_page("app/pages/4_Soil.py")
-    if st.button("🐄 Livestock Health", use_container_width=True):
-        st.switch_page("app/pages/5_Livestock.py")
-    if st.button("💳 Payment History", use_container_width=True):
-        st.switch_page("app/pages/6_Payment_History.py")
-    st.markdown("---")
-    if st.session_state.get("user"):
-        st.write(f"👤 {st.session_state.user.email}")
-        st.metric("Scans", st.session_state.get("scans_left", 0))
-    st.markdown("*Powered by Darkmoor Ltd*")
-
 st.markdown('<div class="title">🐄 Livestock Health</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Detect common diseases in cattle and poultry from a photo</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Upload photos of your animals and detect diseases instantly</div>', unsafe_allow_html=True)
+
+cols = st.columns(5)
+for col, (label, path) in zip(cols, [
+    ("🏠 Dashboard","pages/1_Dashboard.py"), ("🌿 Crops","pages/2_Crops.py"),
+    ("🐛 Pests","pages/3_Pests.py"), ("🏞️ Soil","pages/4_Soil.py"), ("🐄 Livestock","pages/5_Livestock.py")
+]):
+    with col:
+        st.page_link(path, label=label)
 
 animal = st.selectbox("🐾 Choose animal", list(ANIMAL_CLASSES.keys()))
-uploaded_files = st.file_uploader("📤 Upload animal photo(s)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+uploaded_files = st.file_uploader("📤 Upload animal photos", type=["jpg","jpeg","png"], accept_multiple_files=True)
 
 if uploaded_files:
-    for idx, uploaded_file in enumerate(uploaded_files):
-        image = Image.open(uploaded_file).convert("RGB")
-        st.markdown(f"---")
-        st.markdown(f"### 📸 Image {idx+1} of {len(uploaded_files)} — {uploaded_file.name}")
-        st.image(image, caption=f"Your {animal}", width=300)
-
-        st.subheader("🩺 Health Check Result")
-
     class_names = ANIMAL_CLASSES[animal]
     num_classes = len(class_names)
 
@@ -150,74 +118,42 @@ if uploaded_files:
     except Exception as e:
         st.warning(f"Real model unavailable, using demo. ({e})")
 
-    if model:
-        transform = Compose([
-            Resize((224, 224)), ToTensor(),
-            Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
-        ])
-        img_tensor = transform(image).unsqueeze(0)
-        with torch.no_grad():
-            logits = model(img_tensor)
-            probs = F.softmax(logits, dim=1)[0].cpu().numpy()
-    else:
-        import hashlib
-        seed = int(hashlib.md5(uploaded_file.name.encode()).hexdigest()[:8], 16)
-        np.random.seed(seed)
-        probs = np.random.rand(num_classes)
-        probs = probs / probs.sum()
+    for file in uploaded_files:
+        image = Image.open(file).convert("RGB")
+        with st.expander(f"🐄 {file.name}", expanded=True):
+            col1, col2 = st.columns([1,2])
+            with col1:
+                st.image(image, caption=file.name, width=200)
+            with col2:
+                if model:
+                    transform = Compose([Resize((224,224)), ToTensor(), Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])])
+                    img_tensor = transform(image).unsqueeze(0)
+                    with torch.no_grad():
+                        logits = model(img_tensor)
+                        probs = F.softmax(logits, dim=1)[0].cpu().numpy()
+                else:
+                    import hashlib
+                    seed = int(hashlib.md5(file.name.encode()).hexdigest()[:8], 16)
+                    np.random.seed(seed)
+                    probs = np.random.rand(num_classes)
+                    probs = probs / probs.sum()
 
-    sorted_idx = np.argsort(probs)[::-1]
-    top_disease = class_names[sorted_idx[0]]
+                sorted_idx = np.argsort(probs)[::-1]
+                top_disease = class_names[sorted_idx[0]]
 
-    # Show top result card
-    st.markdown(f"""
-    <div class="result-card top-result" style="border-left: 5px solid #7c4dff;">
-        <h2 style="margin:0; display: flex; align-items: center;">
-            {top_disease}
-            <span style="margin-left: auto; font-size: 2rem; color: #7c4dff;">{probs[sorted_idx[0]]*100:.1f}%</span>
-        </h2>
-    </div>
-    """, unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="result-card top-result" style="border-left: 5px solid #7c4dff;">
+                    <h2 style="margin:0;">{top_disease} <span style="font-size: 1.5rem; color: #7c4dff;">{probs[sorted_idx[0]]*100:.1f}%</span></h2>
+                </div>
+                """, unsafe_allow_html=True)
 
-    st.markdown("### All Results")
-    for i in sorted_idx:
-        st.write(f"**{class_names[i]}**: {probs[i]*100:.1f}%")
-        st.progress(float(probs[i]))
+                for i in sorted_idx[1:]:
+                    st.write(f"**{class_names[i]}**: {probs[i]*100:.1f}%")
+                    st.progress(float(probs[i]))
 
-    deduct_and_show()
+                if "healthy" in top_disease.lower():
+                    st.success(f"✅ This {animal} appears healthy!")
+                else:
+                    st.warning(f"⚠️ Possible **{top_disease}** detected.")
 
-    if "healthy" in top_disease.lower():
-        st.success(f"✅ Your {animal} appears healthy! Keep up the good care.")
-    else:
-        st.warning(f"⚠️ Possible **{top_disease}** detected. Isolate and consult a veterinarian immediately.")
-
-# ---------- Navigation Bar (bottom) ----------
-st.markdown("""
-<style>
-    .nav-bar { display: flex; justify-content: center; gap: 1rem; margin: 2rem 0 1rem 0; flex-wrap: wrap; }
-    .nav-bar a { text-decoration: none; color: inherit; }
-    .nav-button {
-        display: inline-block; padding: 10px 20px; border-radius: 12px;
-        background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s ease;
-        cursor: pointer; font-weight: 600; font-size: 0.95rem;
-    }
-    .nav-button:hover {
-        background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.5);
-        transform: translateY(-2px);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-cols = st.columns(5)
-pages = [
-    ("🏠 Dashboard", "pages/1_Dashboard.py"),
-    ("🌿 Crops", "pages/2_Crops.py"),
-    ("🐛 Pests", "pages/3_Pests.py"),
-    ("🏞️ Soil", "pages/4_Soil.py"),
-    ("🐄 Livestock", "pages/5_Livestock.py")
-]
-for col, (label, path) in zip(cols, pages):
-    with col:
-        st.page_link(path, label=label, help=f"Go to {label}")
-
+            deduct_and_show()

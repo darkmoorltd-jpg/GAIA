@@ -47,7 +47,6 @@ def _get_recommendation(soil_type):
 # ──────── page config ────────
 st.set_page_config(page_title="GAIA – Soil Analysis", page_icon="🏞️", layout="wide")
 
-# Toggle
 st.markdown("""
 <style>
     .stToggle > label { display: none !important; }
@@ -59,7 +58,6 @@ st.markdown("""
 dark_mode = st.toggle("", value=False, key="soil_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
-# Scan deduction
 def deduct_and_show():
     import streamlit as st
     from supabase import create_client
@@ -84,20 +82,14 @@ def deduct_and_show():
     except:
         pass
 
-SOIL_CLASSES = [
-    "alluvial", "black", "cinder", "clay", "laterite",
-    "loamy", "peat", "red", "sandy", "sandy_loam", "yellow"
-]
+SOIL_CLASSES = ["alluvial","black","cinder","clay","laterite","loamy","peat","red","sandy","sandy_loam","yellow"]
 NUM_CLASSES = len(SOIL_CLASSES)
-
 SOIL_COLORS = {
-    "alluvial": "#8d6e63", "black": "#3e2723", "cinder": "#616161",
-    "clay": "#a1887f", "laterite": "#b7410e", "loamy": "#6d4c41",
-    "peat": "#4e342e", "red": "#c62828", "sandy": "#d4a373",
-    "sandy_loam": "#bcaaa4", "yellow": "#f9a825"
+    "alluvial":"#8d6e63","black":"#3e2723","cinder":"#616161","clay":"#a1887f",
+    "laterite":"#b7410e","loamy":"#6d4c41","peat":"#4e342e","red":"#c62828",
+    "sandy":"#d4a373","sandy_loam":"#bcaaa4","yellow":"#f9a825"
 }
 
-# Theme CSS
 if theme == "dark":
     st.markdown("""
     <style>
@@ -111,10 +103,8 @@ if theme == "dark":
         @keyframes soilGlow { from { text-shadow: 0 0 25px rgba(212, 163, 115, 0.7); }
                               to { text-shadow: 0 0 50px rgba(212, 163, 115, 1), 0 0 80px rgba(212, 163, 115, 0.6); } }
         .subtitle { text-align: center; font-size: 1.2rem; color: #bcaaa4; }
-st.markdown('<a href="/" target="_self"><button style="padding:8px 16px; background: linear-gradient(90deg, #2e7d32, #4caf50); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🏠 Dashboard</button></a>', unsafe_allow_html=True)
         .soil-swatch { display: inline-block; width: 20px; height: 20px; border-radius: 4px; margin-right: 8px; }
-        .result-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px);
-                       border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
+        .result-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
         .result-card.top-result { border: 1px solid #d4a373; box-shadow: 0 0 30px rgba(212, 163, 115, 0.3); }
         .stProgress > div > div > div > div { background: linear-gradient(90deg, #8d6e63, #d4a373); }
     </style>
@@ -133,53 +123,27 @@ else:
                                    to { text-shadow: 0 0 25px rgba(93,64,55,0.8), 0 0 50px rgba(93,64,55,0.5); } }
         .subtitle { text-align: center; font-size: 1.2rem; color: #4e342e; }
         .soil-swatch { display: inline-block; width: 20px; height: 20px; border-radius: 4px; margin-right: 8px; }
-        .result-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px);
-                       border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
+        .result-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
         .result-card.top-result { border: 1px solid #5d4037; box-shadow: 0 0 20px rgba(93,64,55,0.2); }
         .stProgress > div > div > div > div { background: linear-gradient(90deg, #8d6e63, #bcaaa4); }
     </style>
     """, unsafe_allow_html=True)
 
-
-
-
-# ──────── UI ────────
-
-# ---------- Sidebar navigation ----------
-with st.sidebar:
-    st.markdown("### 🌱 GAIA")
-    if st.button("🏠 Dashboard", use_container_width=True):
-        st.switch_page("app/pages/1_Dashboard.py")
-    if st.button("🌿 Crop Disease", use_container_width=True):
-        st.switch_page("app/pages/2_Crops.py")
-    if st.button("🐛 Pest Detection", use_container_width=True):
-        st.switch_page("app/pages/3_Pests.py")
-    if st.button("🏞️ Soil Analysis", use_container_width=True):
-        st.switch_page("app/pages/4_Soil.py")
-    if st.button("🐄 Livestock Health", use_container_width=True):
-        st.switch_page("app/pages/5_Livestock.py")
-    if st.button("💳 Payment History", use_container_width=True):
-        st.switch_page("app/pages/6_Payment_History.py")
-    st.markdown("---")
-    if st.session_state.get("user"):
-        st.write(f"👤 {st.session_state.user.email}")
-        st.metric("Scans", st.session_state.get("scans_left", 0))
-    st.markdown("*Powered by Darkmoor Ltd*")
-
+# Nav bar
 st.markdown('<div class="title">🏞️ Soil Type Analysis</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Uncover the secrets of your soil with a single photo</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Upload soil photos and uncover their secrets</div>', unsafe_allow_html=True)
 
-uploaded_files = st.file_uploader("📤 Drop your soil photo(s) here", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+cols = st.columns(5)
+for col, (label, path) in zip(cols, [
+    ("🏠 Dashboard","pages/1_Dashboard.py"), ("🌿 Crops","pages/2_Crops.py"),
+    ("🐛 Pests","pages/3_Pests.py"), ("🏞️ Soil","pages/4_Soil.py"), ("🐄 Livestock","pages/5_Livestock.py")
+]):
+    with col:
+        st.page_link(path, label=label)
+
+uploaded_files = st.file_uploader("📤 Drop soil photos here", type=["jpg","jpeg","png"], accept_multiple_files=True)
 
 if uploaded_files:
-    for idx, uploaded_file in enumerate(uploaded_files):
-        image = Image.open(uploaded_file).convert("RGB")
-        st.markdown(f"---")
-        st.markdown(f"### 📸 Image {idx+1} of {len(uploaded_files)} — {uploaded_file.name}")
-        st.image(image, caption="", width=300)
-
-        st.subheader("🧪 Analysis Results")
-
     model = None
     try:
         from app.utils.model_loader import create_model_from_checkpoint
@@ -189,81 +153,47 @@ if uploaded_files:
     except Exception as e:
         st.warning(f"Real model unavailable, using demo. ({e})")
 
-    if model:
-        transform = Compose([
-            Resize((224, 224)), ToTensor(),
-            Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
-        ])
-        img_tensor = transform(image).unsqueeze(0)
-        with torch.no_grad():
-            logits = model(img_tensor)
-            probs = F.softmax(logits, dim=1)[0].cpu().numpy()
-    else:
-        import hashlib
-        seed = int(hashlib.md5(uploaded_file.name.encode()).hexdigest()[:8], 16)
-        np.random.seed(seed)
-        probs = np.random.rand(NUM_CLASSES)
-        probs = probs / probs.sum()
+    for file in uploaded_files:
+        image = Image.open(file).convert("RGB")
+        with st.expander(f"🏞️ {file.name}", expanded=True):
+            col1, col2 = st.columns([1,2])
+            with col1:
+                st.image(image, caption=file.name, width=200)
+            with col2:
+                st.subheader("🧪 Analysis Results")
 
-    top_idx = np.argmax(probs)
-    top_soil = SOIL_CLASSES[top_idx]
-    top_color = SOIL_COLORS.get(top_soil, "#8d6e63")
+                if model:
+                    transform = Compose([Resize((224,224)), ToTensor(), Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])])
+                    img_tensor = transform(image).unsqueeze(0)
+                    with torch.no_grad():
+                        logits = model(img_tensor)
+                        probs = F.softmax(logits, dim=1)[0].cpu().numpy()
+                else:
+                    import hashlib
+                    seed = int(hashlib.md5(file.name.encode()).hexdigest()[:8], 16)
+                    np.random.seed(seed)
+                    probs = np.random.rand(NUM_CLASSES)
+                    probs = probs / probs.sum()
 
-    st.markdown(f"""
-    <div class="result-card top-result" style="border-left: 5px solid {top_color};">
-        <h2 style="margin:0; display: flex; align-items: center;">
-            <span class="soil-swatch" style="background-color: {top_color};"></span>
-            {top_soil}
-            <span style="margin-left: auto; font-size: 2rem; color: {top_color};">{probs[top_idx]*100:.1f}%</span>
-        </h2>
-        <p style="margin-top: 0.5rem; color: #8d7b6a;">{_get_soil_description(top_soil)}</p>
-    </div>
-    """, unsafe_allow_html=True)
+                top_idx = np.argmax(probs)
+                top_soil = SOIL_CLASSES[top_idx]
+                top_color = SOIL_COLORS.get(top_soil, "#8d6e63")
 
-    st.markdown("### All Soil Types")
-    for i, soil_type in enumerate(SOIL_CLASSES):
-        percent = probs[i] * 100
-        color = SOIL_COLORS.get(soil_type, "#8d6e63")
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; margin: 0.5rem 0;">
-            <span class="soil-swatch" style="background-color: {color};"></span>
-            <span style="width: 130px;">{soil_type}</span>
-            <span style="width: 60px; text-align: right;">{percent:.1f}%</span>
-        </div>
-        """, unsafe_allow_html=True)
-        st.progress(float(probs[i]))
+                st.markdown(f"""
+                <div class="result-card top-result" style="border-left: 5px solid {top_color};">
+                    <h2 style="margin:0; display: flex; align-items: center;">
+                        <span class="soil-swatch" style="background-color: {top_color};"></span>
+                        {top_soil}
+                        <span style="margin-left: auto; font-size: 2rem; color: {top_color};">{probs[top_idx]*100:.1f}%</span>
+                    </h2>
+                    <p>{_get_soil_description(top_soil)}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
-    deduct_and_show()
+                for i in np.argsort(probs)[::-1][1:5]:
+                    st.write(f"**{SOIL_CLASSES[i]}**: {probs[i]*100:.1f}%")
+                    st.progress(float(probs[i]))
 
-    st.info(f"💡 **Recommendation:** {_get_recommendation(top_soil)}")
+                st.info(f"💡 **Recommendation:** {_get_recommendation(top_soil)}")
 
-# ---------- Navigation Bar (bottom) ----------
-st.markdown("""
-<style>
-    .nav-bar { display: flex; justify-content: center; gap: 1rem; margin: 2rem 0 1rem 0; flex-wrap: wrap; }
-    .nav-bar a { text-decoration: none; color: inherit; }
-    .nav-button {
-        display: inline-block; padding: 10px 20px; border-radius: 12px;
-        background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s ease;
-        cursor: pointer; font-weight: 600; font-size: 0.95rem;
-    }
-    .nav-button:hover {
-        background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.5);
-        transform: translateY(-2px);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-cols = st.columns(5)
-pages = [
-    ("🏠 Dashboard", "pages/1_Dashboard.py"),
-    ("🌿 Crops", "pages/2_Crops.py"),
-    ("🐛 Pests", "pages/3_Pests.py"),
-    ("🏞️ Soil", "pages/4_Soil.py"),
-    ("🐄 Livestock", "pages/5_Livestock.py")
-]
-for col, (label, path) in zip(cols, pages):
-    with col:
-        st.page_link(path, label=label, help=f"Go to {label}")
-
+            deduct_and_show()

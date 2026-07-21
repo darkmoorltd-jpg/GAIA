@@ -164,24 +164,6 @@ else:
 st.markdown('<div class="title">🏞️ Soil Type Analysis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload close‑up photos of soil to identify the type</div>', unsafe_allow_html=True)
 
-# ---------- Sidebar Toggle (click if sidebar is hidden) ----------
-col1, col2 = st.columns([1, 5])
-with col1:
-    if st.button("☰ Menu", help="Show sidebar navigation"):
-        st.markdown("""
-        <script>
-            // Force sidebar to open via JavaScript
-            const sidebar = parent.document.querySelector('[data-testid="stSidebar"]');
-            if (sidebar) {
-                sidebar.style.display = 'block';
-                sidebar.style.visibility = 'visible';
-                sidebar.style.width = '280px';
-            }
-        </script>
-        """, unsafe_allow_html=True)
-
-
-uploaded_files = st.file_uploader("📤 Drop your soil photos here", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
 if uploaded_files:
     model = load_soil_model()

@@ -215,6 +215,28 @@ else:
     """, unsafe_allow_html=True)
 
 # ---------- Hero Section ----------
+
+# ---------- Sidebar navigation ----------
+with st.sidebar:
+    st.markdown("### 🌱 GAIA")
+    if st.button("🏠 Dashboard", use_container_width=True):
+        st.switch_page("app/pages/1_Dashboard.py")
+    if st.button("🌿 Crop Disease", use_container_width=True):
+        st.switch_page("app/pages/2_Crops.py")
+    if st.button("🐛 Pest Detection", use_container_width=True):
+        st.switch_page("app/pages/3_Pests.py")
+    if st.button("🏞️ Soil Analysis", use_container_width=True):
+        st.switch_page("app/pages/4_Soil.py")
+    if st.button("🐄 Livestock Health", use_container_width=True):
+        st.switch_page("app/pages/5_Livestock.py")
+    if st.button("💳 Payment History", use_container_width=True):
+        st.switch_page("app/pages/6_Payment_History.py")
+    st.markdown("---")
+    if st.session_state.get("user"):
+        st.write(f"👤 {st.session_state.user.email}")
+        st.metric("Scans", st.session_state.get("scans_left", 0))
+    st.markdown("*Powered by Darkmoor Ltd*")
+
 st.markdown('<div class="title">🐛 Pest Detection</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Snap a photo of any insect and we\'ll identify it from 102 common pests</div>', unsafe_allow_html=True)
 

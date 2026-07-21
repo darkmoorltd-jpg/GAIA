@@ -53,33 +53,20 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
+
 # ---------- Navigation Bar ----------
 st.markdown("""
 <style>
-    .nav-bar {
-        display: flex;
-        justify-content: center;
-        gap: 1rem;
-        margin-bottom: 2rem;
-        flex-wrap: wrap;
-    }
+    .nav-bar { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .nav-bar a { text-decoration: none; color: inherit; }
     .nav-button {
-        display: inline-block;
-        padding: 10px 20px;
-        border-radius: 12px;
-        background: rgba(255,255,255,0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255,255,255,0.2);
-        transition: all 0.3s ease;
-        cursor: pointer;
-        font-weight: 600;
-        font-size: 0.95rem;
-        color: inherit;
-        text-decoration: none;
+        display: inline-block; padding: 10px 20px; border-radius: 12px;
+        background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s ease;
+        cursor: pointer; font-weight: 600; font-size: 0.95rem;
     }
     .nav-button:hover {
-        background: rgba(255,255,255,0.2);
-        border-color: rgba(255,255,255,0.5);
+        background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.5);
         transform: translateY(-2px);
     }
 </style>
@@ -87,79 +74,17 @@ st.markdown("""
 
 cols = st.columns(5)
 pages = [
-    ("🏠 Dashboard", "app/pages/1_Dashboard.py"),
-    ("🌿 Crops", "app/pages/2_Crops.py"),
-    ("🐛 Pests", "app/pages/3_Pests.py"),
-    ("🏞️ Soil", "app/pages/4_Soil.py"),
-    ("🐄 Livestock", "app/pages/5_Livestock.py")
+    ("🏠 Dashboard", "pages/1_Dashboard.py"),
+    ("🌿 Crops", "pages/2_Crops.py"),
+    ("🐛 Pests", "pages/3_Pests.py"),
+    ("🏞️ Soil", "pages/4_Soil.py"),
+    ("🐄 Livestock", "pages/5_Livestock.py")
 ]
 for col, (label, path) in zip(cols, pages):
     with col:
         st.page_link(path, label=label, help=f"Go to {label}")
 
-# ---------- Crop definitions ----------
-CROP_CLASSES = {
-    "apple": [
-        "Alternaria Leaf Spot", "Apple Scab", "Apple rot", "Block rot",
-        "Brown Spot", "Cedar apple rust", "Frogeye Leaf Spot", "Grey Spot",
-        "Healthy", "Leaf Blotch", "Mosaic", "Powdery Mildew", "Rust"
-    ],
-    "mango": [
-        "Anthracnose", "Bacterial Canker", "Cutting Weevil", "Die Back",
-        "Gall Midge", "Healthy", "Powdery Mildew", "Sooty Mould"
-    ],
-    "orange": [
-        "Citrus Canker", "Nutrient Deficiency (Yellow Leaf)", "Healthy",
-        "Multiple Diseases", "Young Healthy"
-    ],
-    "grape": [
-        "Black Measles", "Black Rot", "Healthy", "Leaf Blight"
-    ],
-    "rice": ["Bacterial Blight", "Brown Spot", "Leaf Smut"],
-    "maize": ["Northern Leaf Blight", "Healthy", "Southern Leaf Blight", "Common Rust"],
-    "beans": ["Angular Leaf Spot", "Bean Rust", "Healthy"],
-    "potato": ["Bacteria", "Fungi", "Healthy", "Nematode", "Pest", "Phytophthora", "Virus"],
-    "wheat": [
-        "Aphid", "Black Rust", "Blast", "Brown Rust", "Common Root Rot",
-        "Fusarium Head Blight", "Healthy", "Leaf Blight", "Mildew", "Mite",
-        "Septoria", "Smut", "Stem Fly", "Tan Spot", "Yellow Rust"
-    ],
-    "banana": ["Fusarium Wilt", "Healthy", "Natural Death Leaf", "Rhizome Root"]
-}
 
-# ---------- Model loader ----------
-@st.cache_resource
-def load_crop_model(crop_name: str):
-    possible_paths = [
-        f"checkpoints/{crop_name}_13class/best_model.pt",
-        f"checkpoints/{crop_name}_8class/best_model.pt",
-        f"checkpoints/{crop_name}_5class/best_model.pt",
-        f"checkpoints/{crop_name}_11class/best_model.pt",
-        f"checkpoints/{crop_name}_4class/best_model.pt",
-        f"checkpoints/{crop_name}/best_model.pt",
-    ]
-    
-    for checkpoint in possible_paths:
-        if os.path.exists(checkpoint):
-            from app.utils.model_loader import create_model_from_checkpoint
-            num_classes = len(CROP_CLASSES[crop_name])
-            model = create_model_from_checkpoint(checkpoint, num_classes)
-            return model, checkpoint
-    return None, None
-
-def predict_image(model, image: Image.Image):
-    transform = Compose([
-        Resize((224, 224)),
-        ToTensor(),
-        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    img_tensor = transform(image).unsqueeze(0)
-    with torch.no_grad():
-        logits = model(img_tensor)
-        probs = F.softmax(logits, dim=1)[0].cpu().numpy()
-    return probs
-
-# ---------- UI ----------
 st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload a leaf photo and let AI detect any disease in seconds</div>', unsafe_allow_html=True)
 

@@ -13,6 +13,18 @@ from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 # ---------- Page config (light mode default, sidebar expanded) ----------
 st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌿", layout="wide", initial_sidebar_state="expanded")
 
+# FORCE SIDEBAR VISIBLE
+st.markdown("""
+<style>
+    section[data-testid="stSidebar"] {
+        display: block !important;
+        visibility: visible !important;
+        width: 280px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
 # Force sidebar visible on all pages
 st.markdown("""
 <style>

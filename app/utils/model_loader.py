@@ -1,54 +1,63 @@
 
 import torch
 import timm
+from timm.models.vision_transformer import VisionTransformer
 
 def create_model_from_checkpoint(checkpoint_path, num_classes):
-    """Load a model architecture that matches the checkpoint."""
+    """Build a ViT exactly matching the saved checkpoint."""
     state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
 
-    # Detect embedding dimension and image size from the state dict
-    if "backbone.cls_token" in state_dict:
-        embed_dim = state_dict["backbone.cls_token"].shape[-1]
-    elif "cls_token" in state_dict:
-        embed_dim = state_dict["cls_token"].shape[-1]
-    else:
-        embed_dim = 192  # fallback
+    # ── 1. Figure out architecture from state dict keys ──
+    # Keys start with "backbone." or directly with model attributes
+    prefix = "backbone." if "backbone.cls_token" in state_dict else ""
 
-    # Detect image size from pos_embed
-    if "backbone.pos_embed" in state_dict:
-        num_patches = state_dict["backbone.pos_embed"].shape[1] - 1  # exclude CLS
-    elif "pos_embed" in state_dict:
-        num_patches = state_dict["pos_embed"].shape[1] - 1
-    else:
-        num_patches = 196  # fallback for 224×224
+    def get_shape(key):
+        return state_dict.get(f"{prefix}{key}", state_dict.get(key)).shape
 
-    # Determine patch size and image size
-    # timm ViTs use 16×16 patches by default
+    embed_dim = get_shape("cls_token")[2]  # [1, 1, D]
+    pos_embed_shape = get_shape("pos_embed")  # [1, N+1, D]
+    num_patches = pos_embed_shape[1] - 1
     grid_size = int(num_patches ** 0.5)
-    img_size = grid_size * 16  # 14 → 224, 24 → 384
+    img_size = grid_size * 16  # timm uses patch_size=16 by default
 
-    # Choose backbone based on image size and embedding dimension
-    if img_size == 384 and embed_dim == 384:
-        backbone = timm.create_model("vit_small_patch16_384", pretrained=False, num_classes=0)
-    elif img_size == 224 and embed_dim == 384:
-        backbone = timm.create_model("vit_small_patch16_224", pretrained=False, num_classes=0)
-    elif img_size == 224 and embed_dim == 192:
-        backbone = timm.create_model("vit_tiny_patch16_224", pretrained=False, num_classes=0)
-    else:
-        # Generic fallback: try to create a ViT with the detected parameters
-        backbone = timm.create_model(
-            f"vit_patch16_{img_size}",
-            pretrained=False,
-            num_classes=0,
-            embed_dim=embed_dim
-        )
+    # Depth = number of transformer blocks (count norm layers)
+    depth = len([k for k in state_dict if k.endswith(".norm1.weight")])
 
-    # Determine head structure from state dict keys
-    # If there are keys like "head.0.weight", "head.3.weight", etc., it's a deep head
-    head_keys = [k for k in state_dict.keys() if k.startswith("head.")]
-    has_deep_head = any(".0.weight" in k for k in head_keys)
+    # Number of heads (from qkv weight shape)
+    qkv_weight = state_dict[f"{prefix}blocks.0.attn.qkv.weight"]
+    d = embed_dim
+    qkv_dim = qkv_weight.shape[0]
+    # In timm ViT, qkv_dim = 3 * num_heads * (d // num_heads) = 3 * d
+    # So num_heads = qkv_dim // (3 * (d // num_heads)) … simpler: check head count from config
+    # Typically ViT-Tiny uses 3 heads, Small uses 6
+    num_heads = 6 if embed_dim == 384 else 3  # good enough heuristic
 
-    if has_deep_head:
+    # ── 2. Create backbone with exact parameters ──
+    backbone = VisionTransformer(
+        img_size=img_size,
+        patch_size=16,
+        embed_dim=embed_dim,
+        depth=depth,
+        num_heads=num_heads,
+        num_classes=0,          # discard classification head
+        global_pool='token'     # return CLS token
+    )
+
+    # Strip prefix to load backbone weights
+    backbone_state = {}
+    for k, v in state_dict.items():
+        if k.startswith("head."):
+            continue
+        new_key = k.replace("backbone.", "", 1) if prefix else k
+        backbone_state[new_key] = v
+    backbone.load_state_dict(backbone_state, strict=False)
+
+    # ── 3. Build matching head ──
+    head_keys = [k for k in state_dict if k.startswith("head.")]
+    # Determine if deep head (contains keys like head.0.weight)
+    has_deep = any(".0.weight" in k for k in head_keys)
+
+    if has_deep:
         # Deep head: 2048 → 1024 → num_classes
         head = torch.nn.Sequential(
             torch.nn.Linear(embed_dim, 2048),
@@ -60,9 +69,13 @@ def create_model_from_checkpoint(checkpoint_path, num_classes):
             torch.nn.Linear(1024, num_classes)
         )
     else:
-        # Simple linear head
         head = torch.nn.Linear(embed_dim, num_classes)
 
+    # Load head weights (strip "head." prefix if needed)
+    head_state = {k.replace("head.", "", 1): v for k, v in state_dict.items() if k.startswith("head.")}
+    head.load_state_dict(head_state)
+
+    # ── 4. Combine into FlexibleViT ──
     class FlexibleViT(torch.nn.Module):
         def __init__(self, backbone, head):
             super().__init__()
@@ -72,6 +85,5 @@ def create_model_from_checkpoint(checkpoint_path, num_classes):
             return self.head(self.backbone(x))
 
     model = FlexibleViT(backbone, head)
-    model.load_state_dict(state_dict)
     model.eval()
     return model

@@ -1,7 +1,7 @@
 
 import streamlit as st
 from PIL import Image
-import torch, torch.nn.functional as F, numpy as np, os, sys, timm
+import torch, torch.nn as nn, torch.nn.functional as F, numpy as np, os, sys, timm
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize

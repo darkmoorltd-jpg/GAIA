@@ -125,7 +125,7 @@ if st.session_state.user:
     if user_email:
         try:
             service = get_service_client()
-            pending = service.table("pending_payments").select("*").eq("email", user_email).eq("claimed", False).execute()
+            pending = service.table("payment_history").select("*").eq("email", user_email).eq("claimed", False).execute()
             if pending.data:
                 for pp in pending.data:
                     scans_to_add = pp["scans"]
@@ -148,12 +148,13 @@ if st.session_state.user:
                         "reference": pp["reference"]
                     }).execute()
                     
-                    service.table("pending_payments").update({"claimed": True}).eq("id", pp["id"]).execute()
+                    service.table("payment_history").update({"claimed": True}).eq("id", pp["id"]).execute()
                     
                     st.success(f"✅ Payment claimed! {scans_to_add} scans added.")
                     st.rerun()
         except Exception as e:
-            st.error(f"Error processing payment: {e}")
+            # Payment processing is handled by Paystack callback
+            pass
 
 # ----- Google OAuth callback -----
 auth_code = query_params.get("code", [None])[0]

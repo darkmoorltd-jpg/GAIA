@@ -15,6 +15,30 @@ from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
 # ---------- Page config & CSS ----------
 st.set_page_config(page_title="GAIA – Pest Detection", page_icon="🐛", layout="wide", initial_sidebar_state="expanded")
+
+# ---------- Dashboard top nav ----------
+st.markdown("""
+<style>
+    .top-nav {
+        display: flex; justify-content: center; gap: 2rem;
+        padding: 0.8rem; background: rgba(255,255,255,0.9); backdrop-filter: blur(15px);
+        border-radius: 15px; margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .top-nav a {
+        color: #2e7d32; text-decoration: none; font-weight: 600;
+        font-size: 1rem; padding: 0.5rem 1.5rem; border-radius: 30px;
+        transition: all 0.3s ease;
+    }
+    .top-nav a:hover {
+        background: #e8f5e9; color: #1b5e20;
+    }
+</style>
+<div class="top-nav">
+    <a href="/" target="_self">🏠 Dashboard</a>
+</div>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(135deg, #f5f7fa 0%, #fff3e0 100%); }

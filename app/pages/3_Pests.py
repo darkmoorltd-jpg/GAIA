@@ -218,8 +218,6 @@ for col, (label, path) in zip(cols, pages):
     with col:
         st.page_link(path, label=label, help=f"Go to {label}")
 
-
-# ---------- Navigation ----------
 st.markdown("""
 <style>
     .nav-bar { display: flex; justify-content: center; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; }

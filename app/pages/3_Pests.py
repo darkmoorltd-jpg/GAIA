@@ -215,6 +215,52 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
+
+# ---------- Navigation Bar ----------
+st.markdown("""
+<style>
+    .nav-bar {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    .nav-button {
+        display: inline-block;
+        padding: 10px 20px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: inherit;
+        text-decoration: none;
+    }
+    .nav-button:hover {
+        background: rgba(255,255,255,0.2);
+        border-color: rgba(255,255,255,0.5);
+        transform: translateY(-2px);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+cols = st.columns(5)
+pages = [
+    ("🏠 Dashboard", "app/pages/1_Dashboard.py"),
+    ("🌿 Crops", "app/pages/2_Crops.py"),
+    ("🐛 Pests", "app/pages/3_Pests.py"),
+    ("🏞️ Soil", "app/pages/4_Soil.py"),
+    ("🐄 Livestock", "app/pages/5_Livestock.py")
+]
+for col, (label, path) in zip(cols, pages):
+    with col:
+        st.page_link(path, label=label, help=f"Go to {label}")
+
+
 # ---------- Hero Section ----------
 
 # ---------- Sidebar navigation ----------

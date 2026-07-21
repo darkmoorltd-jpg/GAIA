@@ -9,11 +9,13 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
+from src.models.pretrained_vit import PretrainedViTClassifier
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-# ---------- Theme toggle ----------
+# ---------- Page config ----------
 st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌿", layout="wide")
 
+# ---------- Theme toggle ----------
 st.markdown("""
 <style>
     .stToggle > label { display: none !important; }
@@ -25,30 +27,75 @@ st.markdown("""
 dark_mode = st.toggle("", value=False, key="crops_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
-# ---------- Scan deduction ----------
-def deduct_and_show():
-    import streamlit as st
-    from supabase import create_client
-    if "user" not in st.session_state or st.session_state.user is None:
-        return
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    supabase = create_client(url, key)
-    user_id = st.session_state.user.id
-    try:
-        supabase.table("user_scans").insert(
-            {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
-        ).execute()
-    except:
-        pass
-    try:
-        supabase.rpc("decrement_scan", {"uid": user_id}).execute()
-        res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
-        if res.data:
-            remaining = res.data[0]["scans_remaining"]
-            st.success(f"Scan deducted. Remaining scans: {remaining}")
-    except:
-        pass
+# ---------- Theme CSS ----------
+if theme == "dark":
+    st.markdown("""
+    <style>
+        .stApp { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); color: #ffffff; }
+        .title { font-size: 2.8rem; font-weight: 800; background: linear-gradient(90deg, #2e7d32, #4caf50); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { font-size: 1.2rem; color: #b0bec5; margin-bottom: 2rem; }
+        .pred-box { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border-left: 5px solid #4caf50; padding: 1rem 1.5rem; border-radius: 10px; margin: 0.5rem 0; }
+        .pred-box-high { border-left-color: #2e7d32; background: rgba(255,255,255,0.1); }
+        .stProgress > div > div > div > div { background: linear-gradient(90deg, #4caf50, #81c784); }
+        header, footer {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <style>
+        .stApp { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); color: #1b5e20; }
+        .title { font-size: 2.8rem; font-weight: 800; background: linear-gradient(90deg, #2e7d32, #4caf50); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { font-size: 1.2rem; color: #33691e; margin-bottom: 2rem; }
+        .pred-box { background: rgba(255,255,255,0.9); border-left: 5px solid #4caf50; padding: 1rem 1.5rem; border-radius: 10px; margin: 0.5rem 0; }
+        .pred-box-high { border-left-color: #2e7d32; background: rgba(255,255,255,1); }
+        .stProgress > div > div > div > div { background: linear-gradient(90deg, #4caf50, #81c784); }
+        header, footer {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
+
+# ---------- Navigation Bar ----------
+st.markdown("""
+<style>
+    .nav-bar {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    .nav-button {
+        display: inline-block;
+        padding: 10px 20px;
+        border-radius: 12px;
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: inherit;
+        text-decoration: none;
+    }
+    .nav-button:hover {
+        background: rgba(255,255,255,0.2);
+        border-color: rgba(255,255,255,0.5);
+        transform: translateY(-2px);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+cols = st.columns(5)
+pages = [
+    ("🏠 Dashboard", "app/pages/1_Dashboard.py"),
+    ("🌿 Crops", "app/pages/2_Crops.py"),
+    ("🐛 Pests", "app/pages/3_Pests.py"),
+    ("🏞️ Soil", "app/pages/4_Soil.py"),
+    ("🐄 Livestock", "app/pages/5_Livestock.py")
+]
+for col, (label, path) in zip(cols, pages):
+    with col:
+        st.page_link(path, label=label, help=f"Go to {label}")
 
 # ---------- Crop definitions ----------
 CROP_CLASSES = {
@@ -80,51 +127,9 @@ CROP_CLASSES = {
     "banana": ["Fusarium Wilt", "Healthy", "Natural Death Leaf", "Rhizome Root"]
 }
 
-# ---------- Theme CSS ----------
-if theme == "dark":
-    st.markdown("""
-    <style>
-        .stApp { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); color: #e8f5e9; }
-        header, footer {visibility: hidden;}
-        .title { font-size: 3.5rem; font-weight: 900; text-align: center;
-                 background: linear-gradient(90deg, #00c853, #69f0ae, #00c853);
-                 -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-                 text-shadow: 0 0 25px rgba(0,200,83,0.7);
-                 animation: cropGlow 2s ease-in-out infinite alternate; }
-        @keyframes cropGlow { from { text-shadow: 0 0 25px rgba(0,200,83,0.7); }
-                              to { text-shadow: 0 0 50px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.6); } }
-        .subtitle { text-align: center; font-size: 1.2rem; color: #a5d6a7; }
-st.markdown('<a href="/" target="_self"><button style="padding:8px 16px; background: linear-gradient(90deg, #2e7d32, #4caf50); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">🏠 Dashboard</button></a>', unsafe_allow_html=True)
-        .result-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px);
-                       border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
-        .result-card.top-result { border: 1px solid #00c853; box-shadow: 0 0 30px rgba(0,200,83,0.3); }
-        .stProgress > div > div > div > div { background: linear-gradient(90deg, #00c853, #69f0ae); }
-    </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <style>
-        .stApp { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); color: #1b5e20; }
-        header, footer {visibility: hidden;}
-        .title { font-size: 3.5rem; font-weight: 900; text-align: center;
-                 background: linear-gradient(90deg, #2e7d32, #66bb6a, #2e7d32);
-                 -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-                 text-shadow: 0 0 10px rgba(46,125,50,0.3);
-                 animation: cropGlowLight 2s ease-in-out infinite alternate; }
-        @keyframes cropGlowLight { from { text-shadow: 0 0 10px rgba(46,125,50,0.3); }
-                                   to { text-shadow: 0 0 25px rgba(46,125,50,0.8), 0 0 50px rgba(46,125,50,0.5); } }
-        .subtitle { text-align: center; font-size: 1.2rem; color: #33691e; }
-        .result-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(10px);
-                       border-radius: 20px; padding: 1.5rem; margin: 0.5rem 0; }
-        .result-card.top-result { border: 1px solid #2e7d32; box-shadow: 0 0 20px rgba(46,125,50,0.2); }
-        .stProgress > div > div > div > div { background: linear-gradient(90deg, #2e7d32, #66bb6a); }
-    </style>
-    """, unsafe_allow_html=True)
-
 # ---------- Model loader ----------
 @st.cache_resource
 def load_crop_model(crop_name: str):
-    """Try multiple possible paths for the model file, with detailed error logging."""
     possible_paths = [
         f"checkpoints/{crop_name}_13class/best_model.pt",
         f"checkpoints/{crop_name}_8class/best_model.pt",
@@ -134,111 +139,81 @@ def load_crop_model(crop_name: str):
         f"checkpoints/{crop_name}/best_model.pt",
     ]
     
-    errors = []
     for checkpoint in possible_paths:
         if os.path.exists(checkpoint):
-            try:
-                from app.utils.model_loader import create_model_from_checkpoint
-                num_classes = len(CROP_CLASSES[crop_name])
-                model = create_model_from_checkpoint(checkpoint, num_classes)
-                return model, checkpoint, None
-            except Exception as e:
-                errors.append(f"{checkpoint}: {str(e)[:200]}")
-                continue
-    
-    # Try downloading from Google Drive
-    try:
-        from app.utils.download_models import ensure_crop_model
-        downloaded_path = ensure_crop_model(crop_name)
-        if downloaded_path and os.path.exists(downloaded_path):
             from app.utils.model_loader import create_model_from_checkpoint
             num_classes = len(CROP_CLASSES[crop_name])
-            model = create_model_from_checkpoint(downloaded_path, num_classes)
-            return model, downloaded_path, None
-    except Exception as e:
-        errors.append(f"download: {str(e)[:200]}")
-    
-    return None, None, errors
+            model = create_model_from_checkpoint(checkpoint, num_classes)
+            return model, checkpoint
+    return None, None
+
+def predict_image(model, image: Image.Image):
+    transform = Compose([
+        Resize((224, 224)),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    img_tensor = transform(image).unsqueeze(0)
+    with torch.no_grad():
+        logits = model(img_tensor)
+        probs = F.softmax(logits, dim=1)[0].cpu().numpy()
+    return probs
 
 # ---------- UI ----------
-
-# ---------- Sidebar navigation ----------
-with st.sidebar:
-    st.markdown("### 🌱 GAIA")
-    if st.button("🏠 Dashboard", use_container_width=True):
-        st.switch_page("app/pages/1_Dashboard.py")
-    if st.button("🌿 Crop Disease", use_container_width=True):
-        st.switch_page("app/pages/2_Crops.py")
-    if st.button("🐛 Pest Detection", use_container_width=True):
-        st.switch_page("app/pages/3_Pests.py")
-    if st.button("🏞️ Soil Analysis", use_container_width=True):
-        st.switch_page("app/pages/4_Soil.py")
-    if st.button("🐄 Livestock Health", use_container_width=True):
-        st.switch_page("app/pages/5_Livestock.py")
-    if st.button("💳 Payment History", use_container_width=True):
-        st.switch_page("app/pages/6_Payment_History.py")
-    st.markdown("---")
-    if st.session_state.get("user"):
-        st.write(f"👤 {st.session_state.user.email}")
-        st.metric("Scans", st.session_state.get("scans_left", 0))
-    st.markdown("*Powered by Darkmoor Ltd*")
-
 st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload a leaf photo and let AI detect any disease in seconds</div>', unsafe_allow_html=True)
 
 crop = st.selectbox("🌾 Choose your crop", list(CROP_CLASSES.keys()))
 uploaded_file = st.file_uploader("📤 Upload leaf image", type=["jpg", "jpeg", "png"])
 
-if uploaded_file:
+if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Your leaf", width=300)
 
     st.markdown("---")
     st.subheader("📊 Diagnosis Results")
 
-    model, path, load_errors = load_crop_model(crop)
-    class_names = CROP_CLASSES[crop]
+    model, path = load_crop_model(crop)
 
     if model is None:
-        if load_errors:
-            st.error(f"🚫 Model loading errors: {load_errors}")
         st.warning(f"⚠️ No trained model found for '{crop}'. Using demo predictions.")
+        class_names = CROP_CLASSES[crop]
         import hashlib
         seed = int(hashlib.md5(uploaded_file.name.encode()).hexdigest()[:8], 16)
         np.random.seed(seed)
         probs = np.random.rand(len(class_names))
         probs = probs / probs.sum()
     else:
-        transform = Compose([
-            Resize((224, 224)), ToTensor(),
-            Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
-        ])
-        img_tensor = transform(image).unsqueeze(0)
-        with torch.no_grad():
-            logits = model(img_tensor)
-            probs = F.softmax(logits, dim=1)[0].cpu().numpy()
+        try:
+            probs = predict_image(model, image)
+        except Exception as e:
+            st.error(f"Error during inference: {e}")
+            st.stop()
 
+    class_names = CROP_CLASSES[crop]
     sorted_idx = np.argsort(probs)[::-1]
+
+    for i, idx in enumerate(sorted_idx):
+        disease = class_names[idx]
+        percent = probs[idx] * 100
+        box_class = "pred-box-high" if i == 0 else "pred-box"
+        st.markdown(
+            f'<div class="{box_class}"><b>{disease}</b> – {percent:.1f}%</div>',
+            unsafe_allow_html=True
+        )
+        st.progress(float(probs[idx]))
+
     top_disease = class_names[sorted_idx[0]]
-
-    # Top result card
-    st.markdown(f"""
-    <div class="result-card top-result" style="border-left: 5px solid {'#00c853' if theme=='dark' else '#2e7d32'};">
-        <h2 style="margin:0; display: flex; align-items: center;">
-            {top_disease}
-            <span style="margin-left: auto; font-size: 2rem; color: {'#00c853' if theme=='dark' else '#2e7d32'};">{probs[sorted_idx[0]]*100:.1f}%</span>
-        </h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("### All Results")
-    for i in sorted_idx:
-        st.write(f"**{class_names[i]}**: {probs[i]*100:.1f}%")
-        st.progress(float(probs[i]))
-
-    deduct_and_show()
-
     if "healthy" in top_disease.lower():
         st.success("✅ Your crop looks healthy! Keep up the good work.")
     else:
         st.warning(f"⚠️ Possible **{top_disease}** detected. Consider appropriate treatment.")
+
+    # Scan deduction
+    try:
+        if st.session_state.get("user"):
+            from app.utils.supabase_utils import decrement_scan
+            decrement_scan(st.session_state.user.id)
+            st.success("Scan deducted.")
+    except:
+        pass

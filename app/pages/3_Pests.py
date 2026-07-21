@@ -242,14 +242,12 @@ if uploaded_file:
     # Try to load the 102‑class model
     model = None
     try:
-        from src.models.pretrained_vit import PretrainedViTClassifier
+        from app.utils.model_loader import create_model_from_checkpoint
         checkpoint = "checkpoints/pests_102class/best_model.pt"
         if os.path.exists(checkpoint):
-            model = PretrainedViTClassifier(num_classes=NUM_CLASSES)
-            state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
-            model.load_state_dict(state_dict)
-            model.eval()
+            model = create_model_from_checkpoint(checkpoint, NUM_CLASSES)
     except Exception as e:
+        model = None
         st.warning(f"Real model unavailable, using demo. ({e})")
 
     if model is not None:

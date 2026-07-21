@@ -76,11 +76,9 @@ def load_crop_model(crop_name: str):
     
     for checkpoint in possible_paths:
         if os.path.exists(checkpoint):
+            from app.utils.model_loader import create_model_from_checkpoint
             num_classes = len(CROP_CLASSES[crop_name])
-            model = PretrainedViTClassifier(num_classes=num_classes)
-            state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
-            model.load_state_dict(state_dict)
-            model.eval()
+            model = create_model_from_checkpoint(checkpoint, num_classes)
             return model, checkpoint
     
     # No model found – return None

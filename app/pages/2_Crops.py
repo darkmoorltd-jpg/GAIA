@@ -53,10 +53,10 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
-# ---------- Navigation Bar (bottom) ----------
+# ---------- Navigation Bar ----------
 st.markdown("""
 <style>
-    .nav-bar { display: flex; justify-content: center; gap: 1rem; margin: 2rem 0 1rem 0; flex-wrap: wrap; }
+    .nav-bar { display: flex; justify-content: center; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
     .nav-bar a { text-decoration: none; color: inherit; }
     .nav-button {
         display: inline-block; padding: 10px 20px; border-radius: 12px;
@@ -83,5 +83,126 @@ for col, (label, path) in zip(cols, pages):
     with col:
         st.page_link(path, label=label, help=f"Go to {label}")
 
+# ---------- Crop definitions ----------
+CROP_CLASSES = {
+    "apple": [
+        "Alternaria Leaf Spot", "Apple Scab", "Apple rot", "Block rot",
+        "Brown Spot", "Cedar apple rust", "Frogeye Leaf Spot", "Grey Spot",
+        "Healthy", "Leaf Blotch", "Mosaic", "Powdery Mildew", "Rust"
+    ],
+    "mango": [
+        "Anthracnose", "Bacterial Canker", "Cutting Weevil", "Die Back",
+        "Gall Midge", "Healthy", "Powdery Mildew", "Sooty Mould"
+    ],
+    "orange": [
+        "Citrus Canker", "Nutrient Deficiency (Yellow Leaf)", "Healthy",
+        "Multiple Diseases", "Young Healthy"
+    ],
+    "grape": [
+        "Black Measles", "Black Rot", "Healthy", "Leaf Blight"
+    ],
+    "rice": ["Bacterial Blight", "Brown Spot", "Leaf Smut"],
+    "maize": ["Northern Leaf Blight", "Healthy", "Southern Leaf Blight", "Common Rust"],
+    "beans": ["Angular Leaf Spot", "Bean Rust", "Healthy"],
+    "potato": ["Bacteria", "Fungi", "Healthy", "Nematode", "Pest", "Phytophthora", "Virus"],
+    "wheat": [
+        "Aphid", "Black Rust", "Blast", "Brown Rust", "Common Root Rot",
+        "Fusarium Head Blight", "Healthy", "Leaf Blight", "Mildew", "Mite",
+        "Septoria", "Smut", "Stem Fly", "Tan Spot", "Yellow Rust"
+    ],
+    "banana": ["Fusarium Wilt", "Healthy", "Natural Death Leaf", "Rhizome Root"]
+}
 
+# ---------- Model loader ----------
+@st.cache_resource
+def load_crop_model(crop_name: str):
+    possible_paths = [
+        f"checkpoints/{crop_name}_13class/best_model.pt",
+        f"checkpoints/{crop_name}_8class/best_model.pt",
+        f"checkpoints/{crop_name}_5class/best_model.pt",
+        f"checkpoints/{crop_name}_11class/best_model.pt",
+        f"checkpoints/{crop_name}_4class/best_model.pt",
+        f"checkpoints/{crop_name}/best_model.pt",
+    ]
+    
+    for checkpoint in possible_paths:
+        if os.path.exists(checkpoint):
+            from app.utils.model_loader import create_model_from_checkpoint
+            num_classes = len(CROP_CLASSES[crop_name])
+            model = create_model_from_checkpoint(checkpoint, num_classes)
+            return model, checkpoint
+    return None, None
 
+def predict_image(model, image: Image.Image):
+    transform = Compose([
+        Resize((224, 224)),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    img_tensor = transform(image).unsqueeze(0)
+    with torch.no_grad():
+        logits = model(img_tensor)
+        probs = F.softmax(logits, dim=1)[0].cpu().numpy()
+    return probs
+
+# ---------- UI ----------
+st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Upload one or more leaf photos for instant AI diagnosis</div>', unsafe_allow_html=True)
+
+crop = st.selectbox("🌾 Choose your crop", list(CROP_CLASSES.keys()))
+uploaded_files = st.file_uploader("📤 Upload leaf image(s)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+
+if uploaded_files:
+    model, path = load_crop_model(crop)
+    if model is None:
+        st.warning(f"⚠️ No trained model found for '{crop}'. Using demo predictions.")
+
+    for idx, uploaded_file in enumerate(uploaded_files):
+        image = Image.open(uploaded_file).convert("RGB")
+        st.markdown(f"---")
+        st.markdown(f"### 📸 Image {idx+1} of {len(uploaded_files)} — {uploaded_file.name}")
+        st.image(image, caption="", width=300)
+
+        st.subheader("📊 Diagnosis Results")
+
+        if model is not None:
+            try:
+                probs = predict_image(model, image)
+            except Exception as e:
+                st.error(f"Error during inference: {e}")
+                continue
+        else:
+            class_names = CROP_CLASSES[crop]
+            import hashlib
+            seed = int(hashlib.md5(uploaded_file.name.encode()).hexdigest()[:8], 16)
+            np.random.seed(seed)
+            probs = np.random.rand(len(class_names))
+            probs = probs / probs.sum()
+
+        class_names = CROP_CLASSES[crop]
+        sorted_idx = np.argsort(probs)[::-1]
+
+        for i, index in enumerate(sorted_idx):
+            disease = class_names[index]
+            percent = probs[index] * 100
+            box_class = "pred-box-high" if i == 0 else "pred-box"
+            st.markdown(
+                f'<div class="{box_class}"><b>{disease}</b> – {percent:.1f}%</div>',
+                unsafe_allow_html=True
+            )
+            st.progress(float(probs[index]))
+
+        top_disease = class_names[sorted_idx[0]]
+        if "healthy" in top_disease.lower():
+            st.success("✅ This plant looks healthy!")
+        else:
+            st.warning(f"⚠️ Possible **{top_disease}** detected.")
+
+        # Scan deduction
+        try:
+            if st.session_state.get("user"):
+                from app.utils.supabase_utils import decrement_scan
+                decrement_scan(st.session_state.user.id)
+                st.success("Scan deducted.")
+        except:
+            pass

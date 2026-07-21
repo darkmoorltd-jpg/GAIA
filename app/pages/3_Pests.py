@@ -245,25 +245,27 @@ st.markdown('<div class="title">🐛 Pest Detection</div>', unsafe_allow_html=Tr
 st.markdown('<div class="subtitle">Snap a photo of any insect and we\'ll identify it from 102 common pests</div>', unsafe_allow_html=True)
 
 # ---------- Upload Section ----------
-uploaded_file = st.file_uploader("📤 Upload insect photo", type=["jpg", "jpeg", "png"])
+uploaded_files = st.file_uploader("📤 Upload insect photo(s)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image(image, caption="", use_column_width=True)
-        if theme == "dark":
-            st.markdown("""
-            <div style="position:relative; height:0;">
-                <div class="scan-ring"></div>
-                <div class="scan-ring"></div>
-                <div class="scan-ring"></div>
-            </div>
-            """, unsafe_allow_html=True)
+if uploaded_files:
+    for idx, uploaded_file in enumerate(uploaded_files):
+        image = Image.open(uploaded_file).convert("RGB")
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown(f"### 📸 Image {idx+1} of {len(uploaded_files)} — {uploaded_file.name}")
+            st.image(image, caption="", use_column_width=True)
+            if theme == "dark":
+                st.markdown("""
+                <div style="position:relative; height:0;">
+                    <div class="scan-ring"></div>
+                    <div class="scan-ring"></div>
+                    <div class="scan-ring"></div>
+                </div>
+                """, unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.subheader("🔍 Identification Result")
+        st.markdown("---")
+        st.subheader("🔍 Identification Result")
 
     # Try to load the 102‑class model
     model = None

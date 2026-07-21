@@ -127,14 +127,16 @@ st.markdown('<div class="title">🐄 Livestock Health</div>', unsafe_allow_html=
 st.markdown('<div class="subtitle">Detect common diseases in cattle and poultry from a photo</div>', unsafe_allow_html=True)
 
 animal = st.selectbox("🐾 Choose animal", list(ANIMAL_CLASSES.keys()))
-uploaded_file = st.file_uploader("📤 Upload animal photo", type=["jpg", "jpeg", "png"])
+uploaded_files = st.file_uploader("📤 Upload animal photo(s)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption=f"Your {animal}", width=300)
+if uploaded_files:
+    for idx, uploaded_file in enumerate(uploaded_files):
+        image = Image.open(uploaded_file).convert("RGB")
+        st.markdown(f"---")
+        st.markdown(f"### 📸 Image {idx+1} of {len(uploaded_files)} — {uploaded_file.name}")
+        st.image(image, caption=f"Your {animal}", width=300)
 
-    st.markdown("---")
-    st.subheader("🩺 Health Check Result")
+        st.subheader("🩺 Health Check Result")
 
     class_names = ANIMAL_CLASSES[animal]
     num_classes = len(class_names)

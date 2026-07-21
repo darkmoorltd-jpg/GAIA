@@ -169,14 +169,16 @@ with st.sidebar:
 st.markdown('<div class="title">🏞️ Soil Type Analysis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Uncover the secrets of your soil with a single photo</div>', unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("📤 Drop your soil photo here", type=["jpg", "jpeg", "png"])
+uploaded_files = st.file_uploader("📤 Drop your soil photo(s) here", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="", width=300)
+if uploaded_files:
+    for idx, uploaded_file in enumerate(uploaded_files):
+        image = Image.open(uploaded_file).convert("RGB")
+        st.markdown(f"---")
+        st.markdown(f"### 📸 Image {idx+1} of {len(uploaded_files)} — {uploaded_file.name}")
+        st.image(image, caption="", width=300)
 
-    st.markdown("---")
-    st.subheader("🧪 Analysis Results")
+        st.subheader("🧪 Analysis Results")
 
     model = None
     try:

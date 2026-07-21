@@ -123,7 +123,7 @@ else:
 # ──────── model loader ────────
 @st.cache_resource
 def load_crop_model(crop_name: str):
-    """Try multiple possible paths for the model file."""
+    """Try multiple possible paths for the model file, with detailed error logging."""
     possible_paths = [
         f"checkpoints/{crop_name}_13class/best_model.pt",
         f"checkpoints/{crop_name}_8class/best_model.pt",
@@ -133,23 +133,31 @@ def load_crop_model(crop_name: str):
         f"checkpoints/{crop_name}/best_model.pt",
     ]
     
+    errors = []
     for checkpoint in possible_paths:
         if os.path.exists(checkpoint):
+            try:
+                from app.utils.model_loader import create_model_from_checkpoint
+                num_classes = len(CROP_CLASSES[crop_name])
+                model = create_model_from_checkpoint(checkpoint, num_classes)
+                return model, checkpoint, None
+            except Exception as e:
+                errors.append(f"{checkpoint}: {str(e)[:200]}")
+                continue
+    
+    # Try downloading from Google Drive
+    try:
+        from app.utils.download_models import ensure_crop_model
+        downloaded_path = ensure_crop_model(crop_name)
+        if downloaded_path and os.path.exists(downloaded_path):
             from app.utils.model_loader import create_model_from_checkpoint
             num_classes = len(CROP_CLASSES[crop_name])
-            model = create_model_from_checkpoint(checkpoint, num_classes)
-            return model, checkpoint
+            model = create_model_from_checkpoint(downloaded_path, num_classes)
+            return model, downloaded_path, None
+    except Exception as e:
+        errors.append(f"download: {str(e)[:200]}")
     
-    # If not found locally, try downloading from Google Drive
-    from app.utils.download_models import ensure_crop_model
-    downloaded_path = ensure_crop_model(crop_name)
-    if downloaded_path and os.path.exists(downloaded_path):
-        from app.utils.model_loader import create_model_from_checkpoint
-        num_classes = len(CROP_CLASSES[crop_name])
-        model = create_model_from_checkpoint(downloaded_path, num_classes)
-        return model, downloaded_path
-    
-    return None, None
+    return None, None, errors
 
 # ──────── UI ────────
 st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
@@ -165,11 +173,13 @@ if uploaded_file:
     st.markdown("---")
     st.subheader("📊 Diagnosis Results")
 
-    model, path = load_crop_model(crop)
+    model, path, load_errors = load_crop_model(crop)
     class_names = CROP_CLASSES[crop]
 
     if model is None:
-        st.warning(f"⚠️ No trained model found for '{crop}'. Using demo predictions.")
+        if load_errors:
+        st.error(f"🚫 Model loading errors: {load_errors}")
+    st.warning(f"⚠️ No trained model found for '{crop}'. Using demo predictions.")
         import hashlib
         seed = int(hashlib.md5(uploaded_file.name.encode()).hexdigest()[:8], 16)
         np.random.seed(seed)

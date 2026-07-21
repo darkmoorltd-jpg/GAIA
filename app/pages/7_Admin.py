@@ -4,6 +4,35 @@ from supabase import create_client, Client
 import pandas as pd
 from datetime import datetime
 
+def bottom_nav():
+    st.markdown("---")
+    st.markdown("### 🚀 Quick Navigation")
+    cols = st.columns(8)
+    with cols[0]:
+        if st.button("🌿 Crops", key="bn_crops"): st.switch_page("pages/2_Crops.py")
+    with cols[1]:
+        if st.button("🐛 Pests", key="bn_pests"): st.switch_page("pages/3_Pests.py")
+    with cols[2]:
+        if st.button("🏞️ Soil", key="bn_soil"): st.switch_page("pages/4_Soil.py")
+    with cols[3]:
+        if st.button("🐄 Livestock", key="bn_livestock"): st.switch_page("pages/5_Livestock.py")
+    with cols[4]:
+        if st.button("💳 Buy Scans", key="bn_buy"): st.switch_page("pages/9_Buy_Scans.py")
+    with cols[5]:
+        if st.button("📋 Payments", key="bn_payments"): st.switch_page("pages/6_Payment_History.py")
+    with cols[6]:
+        if st.button("🔐 Admin", key="bn_admin"): st.switch_page("pages/7_Admin.py")
+    with cols[7]:
+        if st.button("🚪 Logout", key="bn_logout"):
+            from supabase import create_client
+            url = st.secrets["supabase"]["url"]
+            key = st.secrets["supabase"]["key"]
+            supabase = create_client(url, key)
+            supabase.auth.sign_out()
+            st.session_state.user = None
+            st.rerun()
+
+
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]  # anon key for storage uploads

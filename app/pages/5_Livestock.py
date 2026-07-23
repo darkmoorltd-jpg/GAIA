@@ -1,9 +1,12 @@
 
 import streamlit as st
 from PIL import Image
-import torch, torch.nn.functional as F, numpy as np, os, sys
+import torch, torch.nn as nn, torch.nn.functional as F
+import numpy as np, os, sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+from timm.models.vision_transformer import VisionTransformer
+import timm
 
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
 st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
@@ -15,19 +18,86 @@ ANIMALS = {
     "poultry": ["Coccidiosis", "Healthy", "Newcastle Disease", "Salmonella"]
 }
 
+# ---------- Safe model loader for livestock ----------
+def load_animal_model(animal, num_classes):
+    checkpoint = f"checkpoints/{animal}/best_model.pt"
+    if not os.path.exists(checkpoint):
+        return None, None
 
-def get_model_input_size(model):
-    try:
-        if hasattr(model.backbone, 'patch_embed') and hasattr(model.backbone.patch_embed, 'img_size'):
-            sz = model.backbone.patch_embed.img_size
-            if isinstance(sz, (list, tuple)): return sz[0]
-            return sz
-        pos_embed = model.backbone.pos_embed
+    state_dict = torch.load(checkpoint, map_location="cpu", weights_only=False)
+
+    # Determine architecture from state dict
+    # If keys start with "backbone.", it's a pretrained ViT
+    if any(k.startswith("backbone.") for k in state_dict.keys()):
+        # It's a ViT-Small-384 or similar
+        embed_dim = state_dict["backbone.cls_token"].shape[-1]
+        pos_embed = state_dict["backbone.pos_embed"]
         num_patches = pos_embed.shape[1] - 1
-        return int(num_patches ** 0.5) * 16
-    except: pass
-    return 224
+        grid = int(num_patches ** 0.5)
+        img_size = grid * 16
+        depth = len([k for k in state_dict if k.startswith("backbone.blocks") and k.endswith(".norm1.weight")])
+        num_heads = 6 if embed_dim == 384 else 3
 
+        backbone = VisionTransformer(
+            img_size=img_size, patch_size=16,
+            embed_dim=embed_dim, depth=depth, num_heads=num_heads,
+            num_classes=0, global_pool='token'
+        )
+        # Load backbone weights
+        backbone_state = {k.replace("backbone.", ""): v for k, v in state_dict.items() if k.startswith("backbone.")}
+        backbone.load_state_dict(backbone_state, strict=False)
+
+        # Build head – check if deep head
+        head_keys = [k for k in state_dict if k.startswith("head.")]
+        if any(".0.weight" in k for k in head_keys):
+            # Deep head: 3 linear layers
+            head = nn.Sequential(
+                nn.Linear(embed_dim, 2048), nn.GELU(), nn.Dropout(0.3),
+                nn.Linear(2048, 1024), nn.GELU(), nn.Dropout(0.2),
+                nn.Linear(1024, num_classes)
+            )
+        else:
+            head = nn.Linear(embed_dim, num_classes)
+
+        # Load head weights
+        head_state = {k.replace("head.", ""): v for k, v in state_dict.items() if k.startswith("head.")}
+        try:
+            head.load_state_dict(head_state, strict=False)
+        except:
+            pass
+
+    else:
+        # It's a TinyViT or original GAIAModel
+        embed_dim = state_dict["encoder.cls_token"].shape[-1]
+        pos_embed = state_dict["encoder.pos_embed"]
+        num_patches = pos_embed.shape[1] - 1
+        grid = int(num_patches ** 0.5)
+        img_size = grid * 16
+        depth = len([k for k in state_dict if k.startswith("encoder.blocks") and k.endswith(".norm1.weight")])
+        num_heads = 3
+
+        backbone = VisionTransformer(
+            img_size=img_size, patch_size=16,
+            embed_dim=embed_dim, depth=depth, num_heads=num_heads,
+            num_classes=0, global_pool='token'
+        )
+        backbone_state = {k.replace("encoder.", ""): v for k, v in state_dict.items() if k.startswith("encoder.")}
+        backbone.load_state_dict(backbone_state, strict=False)
+
+        head = nn.Linear(embed_dim, num_classes)
+        head.load_state_dict({"weight": state_dict["head.weight"], "bias": state_dict.get("head.bias", torch.zeros(num_classes))}, strict=False)
+
+    class AnimalViT(torch.nn.Module):
+        def __init__(self, backbone, head):
+            super().__init__()
+            self.backbone = backbone
+            self.head = head
+        def forward(self, x):
+            return self.head(self.backbone(x))
+
+    model = AnimalViT(backbone, head)
+    model.eval()
+    return model, img_size
 
 def deduct_one_scan():
     if "user" not in st.session_state or st.session_state.user is None:
@@ -47,6 +117,7 @@ def deduct_one_scan():
     if res.data:
         st.success(f"✅ Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
 
+# Theme CSS
 if theme == "dark":
     st.markdown("""
     <style>
@@ -94,15 +165,7 @@ if files:
     names = ANIMALS[animal]
     n_classes = len(names)
 
-    # Load model
-    model = None
-    checkpoint = f"checkpoints/{animal}/best_model.pt"
-    if os.path.exists(checkpoint):
-        try:
-            from app.utils.model_loader import create_model_from_checkpoint
-            model = create_model_from_checkpoint(checkpoint, n_classes)
-        except Exception as e:
-            st.warning(f"Real model unavailable, using demo. ({e})")
+    model, img_size = load_animal_model(animal, n_classes)
 
     for f in files:
         img = Image.open(f).convert("RGB")
@@ -110,22 +173,22 @@ if files:
             c1, c2 = st.columns([1, 2])
             c1.image(img, caption=f.name, width=200)
 
-            if model:
-                size = get_model_input_size(model)
-                t = Compose([Resize((size, size)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
+            if model and img_size:
+                t = Compose([Resize((img_size, img_size)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
                 with torch.no_grad():
                     logits = model(t(img).unsqueeze(0))
                     probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()
             else:
+                # Demo fallback
                 import hashlib
                 seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8], 16)
                 np.random.seed(seed)
                 probs = np.random.rand(n_classes)
                 probs /= probs.sum()
+                st.warning("Real model unavailable – using demo predictions.")
 
-            # Ensure probs length matches class names
             if len(probs) != n_classes:
-                st.error(f"Model output size mismatch. Expected {n_classes}, got {len(probs)}. Using demo.")
+                st.error("Model output mismatch. Falling back to demo.")
                 import hashlib
                 seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8], 16)
                 np.random.seed(seed)

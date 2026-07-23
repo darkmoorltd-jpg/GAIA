@@ -46,7 +46,7 @@ def load_crop_model(crop_name):
 
 def predict(model, img):
     t = Compose([Resize((224,224)),ToTensor(),Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
-    return F.softmax(model(t(img).unsqueeze(0)),dim=1)[0].cpu().numpy()
+    return F.softmax(model(t(img).unsqueeze(0)),dim=1)[0].detach().cpu().numpy()
 
 st.markdown('<div class="title">🌿 Crop Disease Diagnosis</div>',unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload leaf photos and let AI detect any disease in seconds</div>',unsafe_allow_html=True)

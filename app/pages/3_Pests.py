@@ -51,7 +51,7 @@ if files:
             c1.image(img, caption=f.name, width=200)
             if model:
                 t = Compose([Resize((224,224)),ToTensor(),Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
-                with torch.no_grad(): probs = F.softmax(model(t(img).unsqueeze(0)),dim=1)[0].cpu().numpy()
+                with torch.no_grad(): probs = F.softmax(model(t(img).unsqueeze(0)),dim=1)[0].detach().cpu().numpy()
             else:
                 import hashlib
                 seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8],16)

@@ -19,11 +19,12 @@ CROP_CLASSES = {
     "mango":["Anthracnose","Bacterial Canker","Cutting Weevil","Die Back","Gall Midge","Healthy","Powdery Mildew","Sooty Mould"],
     "orange":["Citrus Canker","Nutrient Deficiency (Yellow Leaf)","Healthy","Multiple Diseases","Young Healthy"],
     "grape":["Black Measles","Black Rot","Healthy","Leaf Blight"],
-    "rice":["Bacterial Blight","Brown Spot","Leaf Smut"],
+    "rice": ["Leaf scald", "Narrow Brown Spot", "Tungro", "Bacterial Leaf Blight", "Brown Spot", "Healthy Rice Leaf", "Leaf Blast", "Leaf smut", "Sheath Blight", "Neck Blast", "Hispa"],
     "maize":["Northern Leaf Blight","Healthy","Southern Leaf Blight","Common Rust"],
     "beans":["Angular Leaf Spot","Bean Rust","Healthy"],
     "potato":["Bacteria","Fungi","Healthy","Nematode","Pest","Phytophthora","Virus"],
     "wheat":["Aphid","Black Rust","Blast","Brown Rust","Common Root Rot","Fusarium Head Blight","Healthy","Leaf Blight","Mildew","Mite","Septoria","Smut","Stem Fly","Tan Spot","Yellow Rust"],
+    "millet": ["Blast", "Rust", "Healthy"],
     "banana":["Fusarium Wilt","Healthy","Natural Death Leaf","Rhizome Root"]
 }
 

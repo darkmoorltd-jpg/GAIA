@@ -14,10 +14,10 @@ CROP_CLASSES = {
 }
 
 CROP_BG = {
-    "millet": "https://source.unsplash.com/featured/?millet-field",
-    "maize": "https://source.unsplash.com/featured/?corn-field",
-    "soybean": "https://source.unsplash.com/featured/?soybean-field",
-    "pepper": "https://source.unsplash.com/featured/?pepper-plant",
+    'millet': 'https://images.unsplash.com/photo-1601275868393-45b4e4b0f3b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
+    'maize': 'https://images.unsplash.com/photo-1601024445120-e5b67b5f44b9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
+    'soybean': 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
+    'pepper': 'https://images.unsplash.com/photo-1563690443-4e3c9e0e3c0d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
 }
 
 if 'selected_crop' not in st.session_state:
@@ -27,16 +27,19 @@ crop = st.session_state.selected_crop
 
 if crop and crop in CROP_BG:
     bg_url = CROP_BG[crop]
-    st.markdown(f'''<style>.stApp{{background:linear-gradient(rgba(0,0,0,0.45),rgba(0,0,0,0.45)),url("{bg_url}") center/cover fixed!important;}}</style>''', unsafe_allow_html=True)
+    bg_html = '<style>.stApp{background:linear-gradient(rgba(0,0,0,0.5),rgba(0,0,0,0.5)),url(' + bg_url + ') no-repeat center center fixed!important;background-size:cover!important;}</style>'
+    st.markdown(bg_html, unsafe_allow_html=True)
 
 st.markdown('<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>', unsafe_allow_html=True)
 dark = st.toggle('', value=False, key='crops_theme')
 theme = 'dark' if dark else 'light'
 
 if theme == 'dark':
-    st.markdown('''<style>header,footer{visibility:hidden}.title{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#b0bec5;margin-bottom:2rem}.pred-box{background:rgba(255,255,255,.05);backdrop-filter:blur(12px);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}.pred-box-high{border-left-color:#2e7d32;background:rgba(255,255,255,.1)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#4caf50,#81c784)}.crop-btn{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#fff!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}.crop-btn:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,200,83,0.3);border-color:#00c853;background:rgba(0,200,83,0.15)}</style>''', unsafe_allow_html=True)
+    dark_css = '<style>header,footer{visibility:hidden}.title{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#b0bec5;margin-bottom:2rem}.pred-box{background:rgba(255,255,255,.05);backdrop-filter:blur(12px);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}.pred-box-high{border-left-color:#2e7d32;background:rgba(255,255,255,.1)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#4caf50,#81c784)}.crop-btn{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#fff!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}.crop-btn:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,200,83,0.3);border-color:#00c853;background:rgba(0,200,83,0.15)}</style>'
+    st.markdown(dark_css, unsafe_allow_html=True)
 else:
-    st.markdown('''<style>header,footer{visibility:hidden}.title{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#33691e;margin-bottom:2rem}.pred-box{background:rgba(255,255,255,0.9);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}.pred-box-high{border-left-color:#2e7d32;background:rgba(255,255,255,1)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#4caf50,#81c784)}.crop-btn{background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border:1px solid rgba(0,0,0,0.1);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#1b5e20!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}.crop-btn:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(46,125,50,0.2);border-color:#2e7d32;background:rgba(46,125,50,0.1)}</style>''', unsafe_allow_html=True)
+    light_css = '<style>header,footer{visibility:hidden}.title{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#33691e;margin-bottom:2rem}.pred-box{background:rgba(255,255,255,0.9);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}.pred-box-high{border-left-color:#2e7d32;background:rgba(255,255,255,1)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#4caf50,#81c784)}.crop-btn{background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border:1px solid rgba(0,0,0,0.1);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#1b5e20!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}.crop-btn:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(46,125,50,0.2);border-color:#2e7d32;background:rgba(46,125,50,0.1)}</style>'
+    st.markdown(light_css, unsafe_allow_html=True)
 
 @st.cache_resource
 def load_crop_model(crop_name: str):
@@ -84,7 +87,7 @@ def deduct_one_scan():
         supabase.rpc('decrement_scan', {'uid': uid}).execute()
     res = supabase.table('user_scans').select('scans_remaining').eq('user_id', uid).execute()
     if res.data:
-        st.success(f'✅ Scan deducted. Remaining scans: {res.data[0]["scans_remaining"]}')
+        st.success(f"✅ Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
 
 st.markdown('<div class="title">🌾 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Select a crop, upload leaf photos, and let AI detect diseases in seconds</div>', unsafe_allow_html=True)

@@ -31,10 +31,17 @@ CROP_CLASSES = {
 @st.cache_resource
 def load_crop_model(crop_name):
     possible = [f"checkpoints/{crop_name}_13class/best_model.pt",f"checkpoints/{crop_name}_8class/best_model.pt",f"checkpoints/{crop_name}_5class/best_model.pt",f"checkpoints/{crop_name}_11class/best_model.pt",f"checkpoints/{crop_name}_4class/best_model.pt",f"checkpoints/{crop_name}/best_model.pt"]
+    errors = []
     for cp in possible:
         if os.path.exists(cp):
-            from app.utils.model_loader import create_model_from_checkpoint
-            return create_model_from_checkpoint(cp, len(CROP_CLASSES[crop_name])), cp
+            try:
+                from app.utils.model_loader import create_model_from_checkpoint
+                model = create_model_from_checkpoint(cp, len(CROP_CLASSES[crop_name]))
+                return model, cp
+            except Exception as e:
+                errors.append(f"{cp}: {e}")
+    if errors:
+        st.warning(f"Model loading errors: {'; '.join(errors[:3])}")
     return None,None
 
 def predict(model, img):

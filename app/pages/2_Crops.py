@@ -31,27 +31,26 @@ def load_crop_model(crop_name: str):
 def get_model_input_size(model):
     """Detect the input size the model expects (224 or 384)."""
     try:
-        # For timm ViT models, the backbone has img_size attribute
-        if hasattr(model.backbone, 'patch_embed'):
-            # timm patch_embed stores img_size as a tuple or list
-            if hasattr(model.backbone.patch_embed, 'img_size'):
-                sz = model.backbone.patch_embed.img_size
-                if isinstance(sz, (list, tuple)):
-                    return sz[0]
-                return sz
-        # Fallback: inspect the positional embedding shape
+        if hasattr(model.backbone, 'patch_embed') and hasattr(model.backbone.patch_embed, 'img_size'):
+            sz = model.backbone.patch_embed.img_size
+            if isinstance(sz, (list, tuple)):
+                return sz[0]
+            return sz
         pos_embed = model.backbone.pos_embed
         num_patches = pos_embed.shape[1] - 1
         grid = int(num_patches ** 0.5)
         return grid * 16
     except Exception:
         pass
-    return 384  # safest default for your ViT‑Small‑384 millet model
+    return 384
 
 def predict(model, img):
     size = get_model_input_size(model)
     t = Compose([Resize((size, size)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
-    return F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].cpu().numpy()
+    with torch.no_grad():
+        logits = model(t(img).unsqueeze(0))
+        probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()
+    return probs
 
 crop = "millet"
 files = st.file_uploader("📤 Upload leaf images", type=["jpg","jpeg","png"], accept_multiple_files=True)

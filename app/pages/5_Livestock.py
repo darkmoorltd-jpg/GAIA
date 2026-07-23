@@ -15,6 +15,20 @@ ANIMALS = {
     "poultry": ["Coccidiosis", "Healthy", "Newcastle Disease", "Salmonella"]
 }
 
+
+def get_model_input_size(model):
+    try:
+        if hasattr(model.backbone, 'patch_embed') and hasattr(model.backbone.patch_embed, 'img_size'):
+            sz = model.backbone.patch_embed.img_size
+            if isinstance(sz, (list, tuple)): return sz[0]
+            return sz
+        pos_embed = model.backbone.pos_embed
+        num_patches = pos_embed.shape[1] - 1
+        return int(num_patches ** 0.5) * 16
+    except: pass
+    return 224
+
+
 def deduct_one_scan():
     if "user" not in st.session_state or st.session_state.user is None:
         return
@@ -97,7 +111,8 @@ if files:
             c1.image(img, caption=f.name, width=200)
 
             if model:
-                t = Compose([Resize((384, 384)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
+                size = get_model_input_size(model)
+                t = Compose([Resize((size, size)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
                 with torch.no_grad():
                     logits = model(t(img).unsqueeze(0))
                     probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()

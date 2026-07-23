@@ -6,50 +6,67 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
 st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌾", layout="wide")
-st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
-dark = st.toggle("", value=False, key="crops_theme")
-theme = "dark" if dark else "light"
 
-if theme == "dark":
-    st.markdown("""
-    <style>
-        .stApp { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); color: #fff; }
-        header, footer {visibility: hidden;}
-        .title { font-size: 2.8rem; font-weight: 800; background: linear-gradient(90deg, #2e7d32, #4caf50); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .subtitle { font-size: 1.2rem; color: #b0bec5; margin-bottom: 2rem; }
-        .pred-box { background: rgba(255,255,255,.05); backdrop-filter: blur(12px); border-left: 5px solid #4caf50; padding: 1rem 1.5rem; border-radius: 10px; margin: .5rem 0; }
-        .pred-box-high { border-left-color: #2e7d32; background: rgba(255,255,255,.1); }
-        .stProgress > div > div > div > div { background: linear-gradient(90deg, #4caf50, #81c784); }
-        .crop-btn { background: rgba(255,255,255,0.08); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 2rem 1rem; width: 100%; height: 120px; color: #fff !important; font-size: 1.3rem; font-weight: 600; transition: all 0.3s ease; cursor: pointer; text-align: center; }
-        .crop-btn:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,200,83,0.3); border-color: #00c853; background: rgba(0,200,83,0.15); }
-    </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <style>
-        .stApp { background: linear-gradient(135deg, #e8f5e9, #f1f8e9); color: #1b5e20; }
-        header, footer {visibility: hidden;}
-        .title { font-size: 2.8rem; font-weight: 800; background: linear-gradient(90deg, #2e7d32, #4caf50); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .subtitle { font-size: 1.2rem; color: #33691e; margin-bottom: 2rem; }
-        .pred-box { background: rgba(255,255,255,0.9); border-left: 5px solid #4caf50; padding: 1rem 1.5rem; border-radius: 10px; margin: .5rem 0; }
-        .pred-box-high { border-left-color: #2e7d32; background: rgba(255,255,255,1); }
-        .stProgress > div > div > div > div { background: linear-gradient(90deg, #4caf50, #81c784); }
-        .crop-btn { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.1); border-radius: 20px; padding: 2rem 1rem; width: 100%; height: 120px; color: #1b5e20 !important; font-size: 1.3rem; font-weight: 600; transition: all 0.3s ease; cursor: pointer; text-align: center; }
-        .crop-btn:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(46,125,50,0.2); border-color: #2e7d32; background: rgba(46,125,50,0.1); }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.markdown('<div class="title">🌾 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Select a crop, upload leaf photos, and let AI detect diseases in seconds</div>', unsafe_allow_html=True)
-
+# ---------- Crop definitions ----------
 CROP_CLASSES = {
     "millet": ["Blast", "Rust", "Healthy"],
     "maize": ["Blight", "Common_Rust", "Gray_Leaf_Spot", "Healthy"],
 }
 
+# ---------- Crop background images (Unsplash) ----------
+CROP_BG = {
+    "millet": "https://images.unsplash.com/photo-1601275868393-45b4e4b0f3b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+    "maize": "https://images.unsplash.com/photo-1601024445120-e5b67b5f44b9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+}
+
+# ---------- Session state ----------
 if "selected_crop" not in st.session_state:
     st.session_state.selected_crop = None
 
+crop = st.session_state.selected_crop
+
+# ---------- Theme toggle ----------
+st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
+dark = st.toggle("", value=False, key="crops_theme")
+theme = "dark" if dark else "light"
+
+# ---------- Base CSS + dynamic background ----------
+overlay = "rgba(0,0,0,0.55)" if theme == "dark" else "rgba(255,255,255,0.75)"
+bg_url = CROP_BG.get(crop, "")
+bg_css = f'.stApp {{ background: linear-gradient({overlay}, {overlay}), url("{bg_url}") center/cover fixed; }}' if bg_url else ''
+
+if theme == "dark":
+    st.markdown(f"""
+    <style>
+        .stApp {{ background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); color: #fff; }}
+        header, footer {{visibility: hidden;}}
+        .title {{ font-size: 2.8rem; font-weight: 800; background: linear-gradient(90deg, #2e7d32, #4caf50); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .subtitle {{ font-size: 1.2rem; color: #b0bec5; margin-bottom: 2rem; }}
+        .pred-box {{ background: rgba(255,255,255,.05); backdrop-filter: blur(12px); border-left: 5px solid #4caf50; padding: 1rem 1.5rem; border-radius: 10px; margin: .5rem 0; }}
+        .pred-box-high {{ border-left-color: #2e7d32; background: rgba(255,255,255,.1); }}
+        .stProgress > div > div > div > div {{ background: linear-gradient(90deg, #4caf50, #81c784); }}
+        .crop-btn {{ background: rgba(255,255,255,0.08); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 2rem 1rem; width: 100%; height: 120px; color: #fff !important; font-size: 1.3rem; font-weight: 600; transition: all 0.3s ease; cursor: pointer; text-align: center; }}
+        .crop-btn:hover {{ transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,200,83,0.3); border-color: #00c853; background: rgba(0,200,83,0.15); }}
+        {bg_css}
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown(f"""
+    <style>
+        .stApp {{ background: linear-gradient(135deg, #e8f5e9, #f1f8e9); color: #1b5e20; }}
+        header, footer {{visibility: hidden;}}
+        .title {{ font-size: 2.8rem; font-weight: 800; background: linear-gradient(90deg, #2e7d32, #4caf50); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .subtitle {{ font-size: 1.2rem; color: #33691e; margin-bottom: 2rem; }}
+        .pred-box {{ background: rgba(255,255,255,0.9); border-left: 5px solid #4caf50; padding: 1rem 1.5rem; border-radius: 10px; margin: .5rem 0; }}
+        .pred-box-high {{ border-left-color: #2e7d32; background: rgba(255,255,255,1); }}
+        .stProgress > div > div > div > div {{ background: linear-gradient(90deg, #4caf50, #81c784); }}
+        .crop-btn {{ background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.1); border-radius: 20px; padding: 2rem 1rem; width: 100%; height: 120px; color: #1b5e20 !important; font-size: 1.3rem; font-weight: 600; transition: all 0.3s ease; cursor: pointer; text-align: center; }}
+        .crop-btn:hover {{ transform: translateY(-8px); box-shadow: 0 20px 40px rgba(46,125,50,0.2); border-color: #2e7d32; background: rgba(46,125,50,0.1); }}
+        {bg_css}
+    </style>
+    """, unsafe_allow_html=True)
+
+# ---------- Model loader ----------
 @st.cache_resource
 def load_crop_model(crop_name: str):
     checkpoint_map = {
@@ -66,71 +83,48 @@ def get_model_input_size(model):
     try:
         if hasattr(model.backbone, 'patch_embed') and hasattr(model.backbone.patch_embed, 'img_size'):
             sz = model.backbone.patch_embed.img_size
-            if isinstance(sz, (list, tuple)):
-                return sz[0]
+            if isinstance(sz, (list, tuple)): return sz[0]
             return sz
         pos_embed = model.backbone.pos_embed
         num_patches = pos_embed.shape[1] - 1
-        grid = int(num_patches ** 0.5)
-        return grid * 16
-    except:
-        pass
+        return int(num_patches ** 0.5) * 16
+    except: pass
     return 384
 
 def predict(model, img):
     size = get_model_input_size(model)
     t = Compose([Resize((size, size)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
     with torch.no_grad():
-        logits = model(t(img).unsqueeze(0))
-        probs = F.softmax(logits, dim=1)[0].detach().cpu().numpy()
+        probs = F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].detach().cpu().numpy()
     return probs
 
 def deduct_one_scan():
-    """Robust scan deduction that shows the remaining count."""
-    if "user" not in st.session_state or st.session_state.user is None:
-        return
+    if "user" not in st.session_state or st.session_state.user is None: return
     from supabase import create_client
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    supabase = create_client(url, key)
-    user_id = st.session_state.user.id
-
-    # Ensure row exists
+    supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+    uid = st.session_state.user.id
+    try: supabase.table("user_scans").insert({"user_id":uid,"scans_remaining":30,"plan":"free"}).execute()
+    except: pass
     try:
-        supabase.table("user_scans").insert(
-            {"user_id": user_id, "scans_remaining": 30, "plan": "free"}
-        ).execute()
+        supabase.table("user_scans").update({"scans_remaining": supabase.raw("scans_remaining - 1")}).eq("user_id", uid).execute()
     except:
-        pass
-
-    # Try direct update first
-    try:
-        supabase.table("user_scans") \
-            .update({"scans_remaining": supabase.raw("scans_remaining - 1")}) \
-            .eq("user_id", user_id) \
-            .execute()
-    except:
-        # Fallback to RPC
-        supabase.rpc("decrement_scan", {"uid": user_id}).execute()
-
-    # Fetch and show
-    res = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+        supabase.rpc("decrement_scan", {"uid": uid}).execute()
+    res = supabase.table("user_scans").select("scans_remaining").eq("user_id", uid).execute()
     if res.data:
-        remaining = res.data[0]["scans_remaining"]
-        st.success(f"✅ Scan deducted. Remaining scans: {remaining}")
-    else:
-        st.info("Scan recorded.")
+        st.success(f"✅ Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
 
-# ---------- Main UI ----------
-if st.session_state.selected_crop is None:
+# ---------- UI ----------
+st.markdown('<div class="title">🌾 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Select a crop, upload leaf photos, and let AI detect diseases in seconds</div>', unsafe_allow_html=True)
+
+if crop is None:
     cols = st.columns(len(CROP_CLASSES))
-    for i, crop_name in enumerate(CROP_CLASSES.keys()):
+    for i, name in enumerate(CROP_CLASSES.keys()):
         with cols[i]:
-            if st.button(crop_name.title(), key=f"crop_{crop_name}", use_container_width=True):
-                st.session_state.selected_crop = crop_name
+            if st.button(name.title(), key=f"crop_{name}", use_container_width=True):
+                st.session_state.selected_crop = name
                 st.rerun()
 else:
-    crop = st.session_state.selected_crop
     if st.button("← Back to Crops"):
         st.session_state.selected_crop = None
         st.rerun()
@@ -144,33 +138,25 @@ else:
         for f in files:
             img = Image.open(f).convert("RGB")
             with st.expander(f"📷 {f.name}", expanded=True):
-                c1, c2 = st.columns([1, 2])
+                c1, c2 = st.columns([1,2])
                 c1.image(img, caption=f.name, width=200)
-
                 if model is None:
                     c2.warning("No trained model – using demo predictions.")
                     import hashlib
-                    seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8], 16)
+                    seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8],16)
                     np.random.seed(seed)
-                    probs = np.random.rand(len(class_names))
-                    probs /= probs.sum()
+                    probs = np.random.rand(len(class_names)); probs/=probs.sum()
                 else:
-                    try:
-                        probs = predict(model, img)
-                    except Exception as e:
-                        c2.error(f"Inference error: {e}")
-                        continue
-
+                    try: probs = predict(model, img)
+                    except Exception as e: c2.error(f"Error: {e}"); continue
                 si = np.argsort(probs)[::-1]
                 c2.markdown(f"**Top Result:** {class_names[si[0]]} ({probs[si[0]]*100:.1f}%)")
                 for i in si[:3]:
                     c2.write(f"{class_names[i]}: {probs[i]*100:.1f}%")
                     c2.progress(float(probs[i]))
-
-                # Deduct scan – shown inside the expander, right after the diagnosis
                 deduct_one_scan()
 
-# ---------- Bottom navigation bar ----------
+# ---------- Bottom navigation ----------
 cols = st.columns(5)
 for col, (label, path) in zip(cols, [
     ("🏠 Dashboard", "pages/1_Dashboard.py"),
@@ -179,5 +165,4 @@ for col, (label, path) in zip(cols, [
     ("🏞️ Soil", "pages/4_Soil.py"),
     ("🐄 Livestock", "pages/5_Livestock.py")
 ]):
-    with col:
-        st.page_link(path, label=label)
+    with col: st.page_link(path, label=label)

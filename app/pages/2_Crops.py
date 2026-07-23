@@ -14,10 +14,10 @@ CROP_CLASSES = {
 }
 
 CROP_BG = {
-    'millet': 'https://images.unsplash.com/photo-1598887142486-3e2b0f3f3f3e?w=1920',
-    'maize': 'https://images.unsplash.com/photo-1601024445120-e5b67b5f44b9?w=1920',
+    'millet': 'https://images.unsplash.com/photo-1598887142486-3e2b0f3f3f3e?w=1920&fit=crop',
+    'maize': 'https://images.unsplash.com/photo-1601024445120-e5b67b5f44b9?w=1920&fit=crop',
     'soybean': 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
-    'pepper': 'https://images.unsplash.com/photo-1563690443-4e3c9e0e3c0d?w=1920',
+    'pepper': 'https://images.unsplash.com/photo-1563690443-4e3c9e0e3c0d?w=1920&fit=crop',
 }
 
 if 'selected_crop' not in st.session_state:

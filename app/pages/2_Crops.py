@@ -16,11 +16,12 @@ CROP_CLASSES = {
 }
 
 # ---------- Crop background images (Unsplash) ----------
+# Crop background images (verified working URLs)
 CROP_BG = {
-    "millet": "https://images.unsplash.com/photo-1597848212624-a19eb35e2671?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-    "maize": "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-    "soybean": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-    "pepper": "https://images.unsplash.com/photo-1583111137883-4f0e3f2b3e0f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+    "millet": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Pearl_millet_field.jpg/1280px-Pearl_millet_field.jpg",
+    "maize": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Corn_field_in_South_Africa.jpg/1280px-Corn_field_in_South_Africa.jpg",
+    "soybean": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Soybean_field.jpg/1280px-Soybean_field.jpg",
+    "pepper": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Bell_pepper_plants.jpg/1280px-Bell_pepper_plants.jpg",
 }
 
 # ---------- Session state ----------
@@ -37,7 +38,9 @@ theme = "dark" if dark else "light"
 # ---------- Base CSS + dynamic background ----------
 overlay = "rgba(0,0,0,0.55)" if theme == "dark" else "rgba(255,255,255,0.75)"
 bg_url = CROP_BG.get(crop, "")
-bg_css = f'.stApp {{ background: linear-gradient({overlay}, {overlay}), url("{bg_url}") center/cover fixed; }}' if bg_url else ''
+# If the background image fails, use a solid colour fallback
+fallback_color = "#1a3a1a" if theme == "dark" else "#d4e8d4"
+bg_css = f'.stApp {{ background: linear-gradient({overlay}, {overlay}), url("{bg_url}") center/cover fixed, {fallback_color}; }}' if bg_url else f'.stApp {{ background: {fallback_color}; }}' 
 
 if theme == "dark":
     st.markdown(f"""

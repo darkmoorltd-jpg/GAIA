@@ -25,23 +25,19 @@ if 'selected_crop' not in st.session_state:
 
 crop = st.session_state.selected_crop
 
-# ---- Build theme + background CSS ----
+# ---- FORCE background on <body> (bypasses Streamlit) ----
+if crop and crop in CROP_BG:
+    bg_url = CROP_BG[crop]
+    st.markdown(f'<style>body{{background:linear-gradient(rgba(0,0,0,0.5),rgba(0,0,0,0.5)),url({bg_url}) no-repeat center center fixed!important;background-size:cover!important;}}</style>', unsafe_allow_html=True)
+
 st.markdown('<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>', unsafe_allow_html=True)
 dark = st.toggle('', value=False, key='crops_theme')
 theme = 'dark' if dark else 'light'
 
-if crop and crop in CROP_BG:
-    bg_url = CROP_BG[crop]
-    bg_line = f'body .stApp {{ background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url({bg_url}) no-repeat center center fixed !important; background-size: cover !important; }}'
-else:
-    bg_line = ''
-
 if theme == 'dark':
-    extra_css = bg_line + 'header,footer{visibility:hidden}.title{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#b0bec5;margin-bottom:2rem}.pred-box{background:rgba(255,255,255,.05);backdrop-filter:blur(12px);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}.pred-box-high{border-left-color:#2e7d32;background:rgba(255,255,255,.1)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#4caf50,#81c784)}.crop-btn{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#fff!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}.crop-btn:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,200,83,0.3);border-color:#00c853;background:rgba(0,200,83,0.15)}'
-    st.markdown(f'<style>{extra_css}</style>', unsafe_allow_html=True)
+    st.markdown('<style>header,footer{visibility:hidden}.title{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#b0bec5;margin-bottom:2rem}.pred-box{background:rgba(255,255,255,.05);backdrop-filter:blur(12px);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}.pred-box-high{border-left-color:#2e7d32;background:rgba(255,255,255,.1)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#4caf50,#81c784)}.crop-btn{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#fff!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}.crop-btn:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,200,83,0.3);border-color:#00c853;background:rgba(0,200,83,0.15)}</style>', unsafe_allow_html=True)
 else:
-    extra_css = bg_line + 'header,footer{visibility:hidden}.title{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#33691e;margin-bottom:2rem}.pred-box{background:rgba(255,255,255,0.9);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}.pred-box-high{border-left-color:#2e7d32;background:rgba(255,255,255,1)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#4caf50,#81c784)}.crop-btn{background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border:1px solid rgba(0,0,0,0.1);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#1b5e20!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}.crop-btn:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(46,125,50,0.2);border-color:#2e7d32;background:rgba(46,125,50,0.1)}'
-    st.markdown(f'<style>{extra_css}</style>', unsafe_allow_html=True)
+    st.markdown('<style>header,footer{visibility:hidden}.title{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#33691e;margin-bottom:2rem}.pred-box{background:rgba(255,255,255,0.9);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}.pred-box-high{border-left-color:#2e7d32;background:rgba(255,255,255,1)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#4caf50,#81c784)}.crop-btn{background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border:1px solid rgba(0,0,0,0.1);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#1b5e20!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}.crop-btn:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(46,125,50,0.2);border-color:#2e7d32;background:rgba(46,125,50,0.1)}</style>', unsafe_allow_html=True)
 
 @st.cache_resource
 def load_crop_model(crop_name: str):

@@ -22,22 +22,42 @@ CROP_CLASSES = {"millet": ["Blast", "Rust", "Healthy"]}
 
 @st.cache_resource
 def load_crop_model(crop_name: str):
-    checkpoint = f"checkpoints/millet_3class/best_model.pt"
+    checkpoint = "checkpoints/millet_3class/best_model.pt"
     if os.path.exists(checkpoint):
         from app.utils.model_loader import create_model_from_checkpoint
         return create_model_from_checkpoint(checkpoint, 3), checkpoint
     return None, None
 
+def get_model_input_size(model):
+    """Detect the input size the model expects (224 or 384)."""
+    try:
+        # For timm ViT models, the backbone has img_size attribute
+        if hasattr(model.backbone, 'patch_embed'):
+            # timm patch_embed stores img_size as a tuple or list
+            if hasattr(model.backbone.patch_embed, 'img_size'):
+                sz = model.backbone.patch_embed.img_size
+                if isinstance(sz, (list, tuple)):
+                    return sz[0]
+                return sz
+        # Fallback: inspect the positional embedding shape
+        pos_embed = model.backbone.pos_embed
+        num_patches = pos_embed.shape[1] - 1
+        grid = int(num_patches ** 0.5)
+        return grid * 16
+    except Exception:
+        pass
+    return 384  # safest default for your ViT‑Small‑384 millet model
+
 def predict(model, img):
-    # 🔧 FIXED: Use 384×384 to match the millet model
-    t = Compose([Resize((384, 384)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
+    size = get_model_input_size(model)
+    t = Compose([Resize((size, size)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
     return F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].cpu().numpy()
 
 crop = "millet"
 files = st.file_uploader("📤 Upload leaf images", type=["jpg","jpeg","png"], accept_multiple_files=True)
 
 if files:
-    model, path = load_crop_model(crop)
+    model, _ = load_crop_model(crop)
     class_names = CROP_CLASSES[crop]
     for f in files:
         img = Image.open(f).convert("RGB")
@@ -51,8 +71,11 @@ if files:
                 np.random.seed(seed)
                 probs = np.random.rand(len(class_names)); probs/=probs.sum()
             else:
-                try: probs = predict(model, img)
-                except Exception as e: c2.error(f"Error: {e}"); continue
+                try:
+                    probs = predict(model, img)
+                except Exception as e:
+                    c2.error(f"Error: {e}")
+                    continue
             si = np.argsort(probs)[::-1]
             c2.markdown(f"**Top Result:** {class_names[si[0]]} ({probs[si[0]]*100:.1f}%)")
             for i in si[:3]:

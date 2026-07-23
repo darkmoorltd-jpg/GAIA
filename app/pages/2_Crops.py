@@ -17,10 +17,10 @@ CROP_CLASSES = {
 
 # ---------- Crop background images (Unsplash) ----------
 CROP_BG = {
-    "millet": "https://images.unsplash.com/photo-1601275868393-45b4e4b0f3b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-    "maize": "https://images.unsplash.com/photo-1601024445120-e5b67b5f44b9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+    "millet": "https://images.unsplash.com/photo-1597848212624-a19eb35e2671?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+    "maize": "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
     "soybean": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
-    "pepper": "https://images.unsplash.com/photo-1563690443-4e3c9e0e3c0d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+    "pepper": "https://images.unsplash.com/photo-1583111137883-4f0e3f2b3e0f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
 }
 
 # ---------- Session state ----------

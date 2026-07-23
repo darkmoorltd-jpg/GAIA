@@ -11,12 +11,14 @@ st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌾", layout=
 CROP_CLASSES = {
     "millet": ["Blast", "Rust", "Healthy"],
     "maize": ["Blight", "Common_Rust", "Gray_Leaf_Spot", "Healthy"],
+    "pepper": ["Aphid","Bacterial spot","Blossom end rot","Burn","Edema","Healthy","Leaf curl","Leaf miners","Mosaic virus","Nutrient deficiency","Powdery mildew","Spider mite","Thrips"],
 }
 
 # ---------- Crop background images (Unsplash) ----------
 CROP_BG = {
     "millet": "https://images.unsplash.com/photo-1601275868393-45b4e4b0f3b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
     "maize": "https://images.unsplash.com/photo-1601024445120-e5b67b5f44b9?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+    "pepper": "https://images.unsplash.com/photo-1563690443-4e3c9e0e3c0d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
 }
 
 # ---------- Session state ----------
@@ -72,6 +74,7 @@ def load_crop_model(crop_name: str):
     checkpoint_map = {
         "millet": "checkpoints/millet_3class/best_model.pt",
         "maize": "checkpoints/maize/best_model.pt",
+        "pepper": "checkpoints/pepper_13class/best_model.pt",
     }
     checkpoint = checkpoint_map.get(crop_name)
     if checkpoint and os.path.exists(checkpoint):

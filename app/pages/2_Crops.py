@@ -14,19 +14,7 @@ if theme=="dark":
 else:
     st.markdown("<style>.stApp{background:linear-gradient(135deg,#e8f5e9,#f1f8e9);color:#1b5e20}header,footer{visibility:hidden}.title{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#33691e;margin-bottom:2rem}.pred-box{background:rgba(255,255,255,.9);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}.pred-box-high{border-left-color:#2e7d32;background:rgba(255,255,255,1)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#4caf50,#81c784)}</style>",unsafe_allow_html=True)
 
-CROP_CLASSES = {
-    "apple":["Alternaria Leaf Spot","Apple Scab","Apple rot","Block rot","Brown Spot","Cedar apple rust","Frogeye Leaf Spot","Grey Spot","Healthy","Leaf Blotch","Mosaic","Powdery Mildew","Rust"],
-    "mango":["Anthracnose","Bacterial Canker","Cutting Weevil","Die Back","Gall Midge","Healthy","Powdery Mildew","Sooty Mould"],
-    "orange":["Citrus Canker","Nutrient Deficiency (Yellow Leaf)","Healthy","Multiple Diseases","Young Healthy"],
-    "grape":["Black Measles","Black Rot","Healthy","Leaf Blight"],
-    "rice": ["Leaf scald", "Narrow Brown Spot", "Tungro", "Bacterial Leaf Blight", "Brown Spot", "Healthy Rice Leaf", "Leaf Blast", "Leaf smut", "Sheath Blight", "Neck Blast", "Hispa"],
-    "maize":["Northern Leaf Blight","Healthy","Southern Leaf Blight","Common Rust"],
-    "beans":["Angular Leaf Spot","Bean Rust","Healthy"],
-    "potato":["Bacteria","Fungi","Healthy","Nematode","Pest","Phytophthora","Virus"],
-    "wheat":["Aphid","Black Rust","Blast","Brown Rust","Common Root Rot","Fusarium Head Blight","Healthy","Leaf Blight","Mildew","Mite","Septoria","Smut","Stem Fly","Tan Spot","Yellow Rust"],
-    "millet": ["Blast", "Rust", "Healthy"],
-    "banana":["Fusarium Wilt","Healthy","Natural Death Leaf","Rhizome Root"]
-}
+CROP_CLASSES = {}  # all crops removed – add new ones after training
 
 @st.cache_resource
 def load_crop_model(crop_name):

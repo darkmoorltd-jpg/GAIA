@@ -44,6 +44,7 @@ st.markdown('<div class="subtitle">Select a crop, upload leaf photos, and let AI
 
 CROP_CLASSES = {
     "millet": ["Blast", "Rust", "Healthy"],
+    "maize": ["Blight", "Common_Rust", "Gray_Leaf_Spot", "Healthy"],
 }
 
 if "selected_crop" not in st.session_state:
@@ -53,6 +54,7 @@ if "selected_crop" not in st.session_state:
 def load_crop_model(crop_name: str):
     checkpoint_map = {
         "millet": "checkpoints/millet_3class/best_model.pt",
+        "maize": "checkpoints/maize/best_model.pt",
     }
     checkpoint = checkpoint_map.get(crop_name)
     if checkpoint and os.path.exists(checkpoint):

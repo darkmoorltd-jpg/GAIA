@@ -154,6 +154,28 @@ else:
     components.html(paystack_html, height=100)
     
     st.caption("After payment, return to this page to upload your documents.")
+
+    # Manual reference verification
+    st.markdown("---")
+    st.subheader("✅ Already Paid? Verify Your Payment")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        manual_ref = st.text_input("Enter your Paystack reference", placeholder="e.g., GAIA_VERIFY_abc123", key="verify_ref")
+    with col2:
+        st.write("")
+        if st.button("🔍 Verify Payment", use_container_width=True) and manual_ref:
+            with st.spinner("Verifying..."):
+                if verify_payment(manual_ref):
+                    # Update the verification record
+                    service.table("farmer_verifications").update({
+                        "payment_status": "paid",
+                        "payment_reference": manual_ref,
+                        "status": "pending"
+                    }).eq("user_id", user.id).execute()
+                    st.success("✅ Payment verified! You can now submit your documents.")
+                    st.rerun()
+                else:
+                    st.error("❌ Payment not found. Make sure you completed the payment and the reference is correct.")
     
     st.markdown("---")
     st.markdown("### Step 2: Upload Documents")

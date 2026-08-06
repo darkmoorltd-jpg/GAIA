@@ -52,7 +52,6 @@ PLANS = {
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
-    
     * { font-family: 'Inter', sans-serif; }
     
     .stApp {
@@ -61,244 +60,91 @@ st.markdown("""
     }
     header, footer {visibility: hidden;}
     
-    /* ── Hero ── */
-    .hero {
-        text-align: center;
-        padding: 2rem 0 1rem;
-    }
+    .hero { text-align: center; padding: 2rem 0 1rem; }
     .hero-title {
-        font-size: 4rem;
-        font-weight: 900;
+        font-size: 4rem; font-weight: 900;
         background: linear-gradient(135deg, #00e676, #69f0ae, #00e676);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         text-shadow: 0 0 60px rgba(0,230,118,0.4);
         letter-spacing: -1px;
         animation: titleGlow 3s ease-in-out infinite alternate;
     }
-    @keyframes titleGlow {
-        from { filter: brightness(1); }
-        to { filter: brightness(1.3); }
-    }
-    .hero-subtitle {
-        font-size: 1.3rem;
-        color: #81c784;
-        font-weight: 400;
-        margin-top: 0.5rem;
-    }
+    @keyframes titleGlow { from { filter: brightness(1); } to { filter: brightness(1.3); } }
+    .hero-subtitle { font-size: 1.3rem; color: #81c784; font-weight: 400; margin-top: 0.5rem; }
     
-    /* ── Balance Card ── */
     .balance-ring {
-        width: 140px;
-        height: 140px;
-        border-radius: 50%;
+        width: 140px; height: 140px; border-radius: 50%;
         background: conic-gradient(#00e676 0deg, #00e676 var(--scan-deg, 180deg), rgba(255,255,255,0.05) var(--scan-deg, 180deg));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 1rem;
-        position: relative;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 1rem; position: relative;
         box-shadow: 0 0 40px rgba(0,230,118,0.2);
     }
     .balance-inner {
-        width: 110px;
-        height: 110px;
-        border-radius: 50%;
-        background: #0d1a0d;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
+        width: 110px; height: 110px; border-radius: 50%;
+        background: #0d1a0d; display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
     }
-    .balance-number {
-        font-size: 2.2rem;
-        font-weight: 900;
-        color: #00e676;
-        line-height: 1;
-    }
-    .balance-label {
-        font-size: 0.7rem;
-        color: #81c784;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-    }
+    .balance-number { font-size: 2.2rem; font-weight: 900; color: #00e676; line-height: 1; }
+    .balance-label { font-size: 0.7rem; color: #81c784; text-transform: uppercase; letter-spacing: 2px; }
     
-    /* ── Plan Cards ── */
-    .plan-grid {
-        display: flex;
-        gap: 1rem;
-        justify-content: center;
-        flex-wrap: wrap;
-        margin: 2rem 0;
-    }
-    .plan-card {
+    /* Plan cards rendered by Streamlit buttons */
+    div[data-testid="stVerticalBlock"] > div[style*="flex"] > div[data-testid="stVerticalBlock"] {
         background: rgba(255,255,255,0.03);
         backdrop-filter: blur(20px);
         border: 1px solid rgba(255,255,255,0.06);
         border-radius: 24px;
         padding: 1.8rem 1.5rem;
-        width: 185px;
         text-align: center;
         transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         cursor: pointer;
         position: relative;
         overflow: hidden;
     }
-    .plan-card::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle at center, rgba(0,230,118,0.08) 0%, transparent 70%);
-        opacity: 0;
-        transition: opacity 0.4s ease;
-    }
-    .plan-card:hover {
+    div[data-testid="stVerticalBlock"] > div[style*="flex"] > div[data-testid="stVerticalBlock"]:hover {
         transform: translateY(-12px);
         border-color: rgba(0,230,118,0.3);
         box-shadow: 0 30px 60px rgba(0,230,118,0.15);
     }
-    .plan-card:hover::before { opacity: 1; }
-    .plan-card.selected {
-        border-color: #00e676;
-        background: rgba(0,230,118,0.08);
-        box-shadow: 0 0 50px rgba(0,230,118,0.25);
-        transform: translateY(-8px);
-    }
-    .plan-badge {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        background: linear-gradient(135deg, #00e676, #00c853);
-        color: #000;
-        font-size: 0.6rem;
-        font-weight: 700;
-        padding: 4px 10px;
-        border-radius: 20px;
-        letter-spacing: 0.5px;
-    }
-    .plan-scans {
-        font-size: 2rem;
-        font-weight: 900;
-        color: #fff;
-        margin-bottom: 0.3rem;
-    }
-    .plan-scans span { font-size: 0.9rem; color: #81c784; }
-    .plan-price {
-        font-size: 1.8rem;
-        font-weight: 800;
-        color: #00e676;
-        margin-bottom: 0.2rem;
-    }
-    .plan-savings {
-        font-size: 0.75rem;
-        color: #00e676;
-        font-weight: 600;
-        margin-bottom: 0.8rem;
+    
+    .stButton > button {
+        background: transparent !important;
+        border: none !important;
+        color: #fff !important;
+        font-size: 2rem !important;
+        font-weight: 900 !important;
+        padding: 0 !important;
+        height: auto !important;
+        line-height: 1.2 !important;
     }
     
-    /* ── Pay Button ── */
-    .pay-container {
-        text-align: center;
-        margin: 2rem 0;
-    }
-    .pay-btn {
-        background: linear-gradient(135deg, #00e676, #00c853);
-        color: #000;
-        border: none;
-        padding: 18px 50px;
-        border-radius: 50px;
-        font-weight: 700;
-        font-size: 1.15rem;
-        cursor: pointer;
-        box-shadow: 0 10px 40px rgba(0,230,118,0.35);
-        transition: all 0.3s ease;
-        letter-spacing: 0.3px;
-    }
-    .pay-btn:hover {
-        transform: scale(1.06);
-        box-shadow: 0 20px 60px rgba(0,230,118,0.5);
-    }
-    
-    /* ── Selected Banner ── */
     .selected-banner {
         background: rgba(0,230,118,0.06);
         border: 2px solid rgba(0,230,118,0.25);
-        border-radius: 20px;
-        padding: 1.5rem 2rem;
-        text-align: center;
-        margin: 1rem 0;
+        border-radius: 20px; padding: 1.5rem 2rem;
+        text-align: center; margin: 1rem 0;
         backdrop-filter: blur(10px);
     }
-    .selected-banner h3 {
-        color: #00e676;
-        margin: 0;
-        font-size: 1.4rem;
-        font-weight: 700;
-    }
+    .selected-banner h3 { color: #00e676; margin: 0; font-size: 1.4rem; font-weight: 700; }
     
-    /* ── Manual Reference ── */
     .manual-section {
         background: rgba(255,255,255,0.02);
         border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 2rem 0;
+        border-radius: 20px; padding: 2rem; margin: 2rem 0;
         backdrop-filter: blur(10px);
     }
-    .manual-section h3 {
-        color: #e8f5e9;
-        font-size: 1.2rem;
-        margin-bottom: 1rem;
-    }
+    .manual-section h3 { color: #e8f5e9; font-size: 1.2rem; margin-bottom: 1rem; }
     
-    /* ── Footer ── */
-    .footer {
-        text-align: center;
-        padding: 2rem;
-        color: #4a5a4a;
-        font-size: 0.8rem;
-        border-top: 1px solid rgba(255,255,255,0.04);
-        margin-top: 3rem;
-    }
+    .footer { text-align: center; padding: 2rem; color: #4a5a4a; font-size: 0.8rem; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 3rem; }
     .footer strong { color: #81c784; }
     
-    /* ── Navigation ── */
-    .nav-section {
-        border-top: 1px solid rgba(255,255,255,0.06);
-        padding-top: 1.5rem;
-        margin-top: 1rem;
-    }
+    .nav-section { border-top: 1px solid rgba(255,255,255,0.06); padding-top: 1.5rem; margin-top: 1rem; }
     .nav-section h3 { color: #81c784; font-size: 1rem; }
     
-    /* ── Input Styling ── */
     .stTextInput > div > div > input {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
-        color: #fff;
-        padding: 12px 16px;
+        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px; color: #fff; padding: 12px 16px;
     }
-    .stTextInput > div > div > input:focus {
-        border-color: #00e676;
-        box-shadow: 0 0 0 2px rgba(0,230,118,0.2);
-    }
-    .stButton > button {
-        background: linear-gradient(135deg, #00e676, #00c853) !important;
-        color: #000 !important;
-        border: none !important;
-        border-radius: 12px !important;
-        font-weight: 700 !important;
-        padding: 12px 24px !important;
-        transition: all 0.3s ease !important;
-    }
-    .stButton > button:hover {
-        transform: scale(1.03) !important;
-        box-shadow: 0 8px 25px rgba(0,230,118,0.3) !important;
-    }
-    .stMetric { background: rgba(255,255,255,0.02); border-radius: 16px; padding: 1rem !important; }
+    .stTextInput > div > div > input:focus { border-color: #00e676; box-shadow: 0 0 0 2px rgba(0,230,118,0.2); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -319,7 +165,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- PLAN SELECTION ----------
+# ---------- PLAN SELECTION (Streamlit-only, no duplicate HTML) ----------
 st.markdown("### 📦 Choose Your Plan")
 
 if "chosen_plan" not in st.session_state:
@@ -328,22 +174,22 @@ if "chosen_plan" not in st.session_state:
 cols = st.columns(len(PLANS))
 for i, (plan_key, plan_data) in enumerate(PLANS.items()):
     with cols[i]:
-        selected_class = "selected" if st.session_state.chosen_plan == plan_key else ""
-        badge_html = f'<div class="plan-badge">{plan_data["badge"]}</div>' if plan_data["badge"] else ""
-        savings_html = f'<div class="plan-savings">{plan_data["savings"]}</div>' if plan_data["savings"] else '<div style="height:1.5rem;"></div>'
+        # Badge
+        if plan_data["badge"]:
+            st.markdown(f'<p style="text-align:center;color:#00e676;font-size:0.7rem;font-weight:700;margin:0;">{plan_data["badge"]}</p>', unsafe_allow_html=True)
+        else:
+            st.markdown('<p style="text-align:center;font-size:0.7rem;margin:0;">&nbsp;</p>', unsafe_allow_html=True)
         
-        st.markdown(f"""
-        <div class="plan-card {selected_class}">
-            {badge_html}
-            <div class="plan-scans">{plan_data['scans'] if plan_key != 'unlimited' else '♾️'} <span>scans</span></div>
-            <div class="plan-price">{plan_data['price']}</div>
-            {savings_html}
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button(f"Select", key=f"select_{plan_key}", use_container_width=True):
+        # Scans + Price as a Streamlit button
+        if st.button(f'{plan_data["scans"] if plan_key != "unlimited" else "♾️"} scans\n{plan_data["price"]}', key=f"select_{plan_key}", use_container_width=True):
             st.session_state.chosen_plan = plan_key
             st.rerun()
+        
+        # Savings
+        if plan_data["savings"]:
+            st.markdown(f'<p style="text-align:center;color:#00e676;font-size:0.75rem;font-weight:600;margin:0.2rem 0 0 0;">{plan_data["savings"]}</p>', unsafe_allow_html=True)
+        else:
+            st.markdown('<p style="text-align:center;font-size:0.75rem;margin:0.2rem 0 0 0;">&nbsp;</p>', unsafe_allow_html=True)
 
 # ---------- PAYMENT SECTION ----------
 if st.session_state.chosen_plan:
@@ -357,18 +203,18 @@ if st.session_state.chosen_plan:
     
     ref = f"GAIA_{user.id[:8]}_{st.session_state.chosen_plan}_{uuid.uuid4().hex[:6]}"
     
-    # LARGE Paystack popup (increased size via container & scaling)
+    # LARGER Paystack popup (increased container height significantly)
     paystack_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://js.paystack.co/v1/inline.js"></script>
         <style>
-            body {{ margin:0; padding:0; display:flex; justify-content:center; align-items:center; height:200px; }}
+            body {{ margin:0; padding:0; display:flex; justify-content:center; align-items:center; height:300px; }}
             .pay-btn {{
                 background: linear-gradient(135deg, #00e676, #00c853);
-                color: #000; border: none; padding: 22px 60px;
-                border-radius: 50px; font-weight: 700; font-size: 1.2rem;
+                color: #000; border: none; padding: 24px 70px;
+                border-radius: 50px; font-weight: 700; font-size: 1.3rem;
                 cursor: pointer; box-shadow: 0 10px 40px rgba(0,230,118,0.35);
                 transition: all 0.3s ease; letter-spacing: 0.3px;
             }}
@@ -398,8 +244,8 @@ if st.session_state.chosen_plan:
     </html>
     """
     
-    # Increase the iframe height to make the popup larger
-    components.html(paystack_html, height=220)
+    # Increased height to 350px for a much larger popup area
+    components.html(paystack_html, height=350)
 
 # ---------- MANUAL REFERENCE ----------
 st.markdown('<div class="manual-section">', unsafe_allow_html=True)

@@ -226,23 +226,67 @@ with tabs[1]:
 # ==================== TAB 3: DISCOVER ====================
 with tabs[2]:
     st.markdown("### 🌍 Discover Farmers")
-    search = st.text_input("", placeholder="Search by name or location...", key="disc_search")
+    st.caption("Search by name, email, phone, state, or country")
+    search = st.text_input("", placeholder="Search anything — name, email, phone, location...", key="disc_search")
     if search:
+        search_lower = search.lower().strip()
+        found = False
         for uid, prof in all_users.items():
             if uid == user.id:
                 continue
-            full = f"{prof.get('first_name','')} {prof.get('last_name','')} {prof.get('state_city','')}"
-            if search.lower() in full.lower():
-                name = f"{prof.get('first_name','')} {prof.get('last_name','')}"
+            
+            # Build comprehensive search string
+            name = f"{prof.get('first_name','')} {prof.get('last_name','')}".strip()
+            email = ""
+            phone = prof.get('phone', '') or ''
+            state_city = prof.get('state_city', '') or ''
+            country = prof.get('country', '') or ''
+            address = prof.get('address', '') or ''
+            
+            # Try to get email from auth users (via service client)
+            try:
+                auth_res = service.auth.admin.get_user_by_id(uid)
+                if auth_res and auth_res.user:
+                    email = auth_res.user.email or ''
+            except:
+                pass
+            
+            # Combine all searchable fields
+            searchable = f"{name} {email} {phone} {state_city} {country} {address}".lower()
+            
+            if search_lower in searchable:
+                found = True
                 is_online = uid in online_users
                 is_friend = uid in friend_ids
-                st.markdown(f"{'🟢' if is_online else '⚫'} **{name}** · {prof.get('state_city','')}")
+                
+                # Display user card
+                st.markdown(f"""
+                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:15px;margin:8px 0;display:flex;align-items:center;gap:12px;">
+                    <div class="chat-avatar">{name[0].upper() if name else '?'}</div>
+                    <div style="flex:1;">
+                        <strong style="color:#fff;">{name or 'Unknown'}</strong>
+                        <div style="color:rgba(255,255,255,0.4);font-size:0.85rem;">
+                            {'🟢 Online · ' if is_online else '⚫ Offline · '}{state_city or 'Unknown location'}
+                        </div>
+                        <div style="color:rgba(255,255,255,0.25);font-size:0.75rem;">{email} · {phone}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 if not is_friend:
                     if st.button("➕ Add Friend", key=f"add_{uid}"):
-                        service.table("friendships").insert({"sender_id": user.id, "receiver_id": uid, "status": "pending"}).execute()
-                        st.success("Request sent!")
-                        st.rerun()
+                        try:
+                            service.table("friendships").insert({"sender_id": user.id, "receiver_id": uid, "status": "pending"}).execute()
+                            st.success("Request sent!")
+                            st.rerun()
+                        except:
+                            st.warning("Already sent or error.")
+                else:
+                    st.caption("✅ Already friends")
                 st.markdown("---")
+        
+        if not found:
+            st.info(f"No farmers found matching '{search}'.")
 
 # ==================== TAB 4: FEED ====================
 with tabs[3]:

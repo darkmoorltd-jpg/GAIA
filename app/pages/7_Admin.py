@@ -86,6 +86,13 @@ def change_user_password(user_id, new_password):
 
 def delete_user(user_id):
     try:
+        # 1. Delete related records first (order matters due to foreign keys)
+        supabase.table("payment_history").delete().eq("user_id", user_id).execute()
+        supabase.table("messages").delete().eq("user_id", user_id).execute()
+        supabase.table("farmer_verifications").delete().eq("user_id", user_id).execute()
+        supabase.table("user_profiles").delete().eq("user_id", user_id).execute()
+        supabase.table("user_scans").delete().eq("user_id", user_id).execute()
+        # 2. Finally delete the auth user
         supabase.auth.admin.delete_user(user_id)
         return True, None
     except Exception as e:

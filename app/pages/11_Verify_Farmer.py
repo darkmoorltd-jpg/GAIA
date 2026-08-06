@@ -113,16 +113,45 @@ else:
         "status": "pending"
     }).execute()
     
-    paystack_url = f"https://paystack.shop/pay/verify-farmer?reference={ref}"
-    st.markdown(f"""
-    <div style="text-align:center; margin: 2rem 0;">
-        <a href="{paystack_url}" target="_blank">
-            <button style="padding: 15px 40px; background: #0d6efd; color: #fff; border: none; border-radius: 30px; font-size: 1.2rem; cursor: pointer;">
-                💳 Pay N500 to Verify
-            </button>
-        </a>
-    </div>
-    """, unsafe_allow_html=True)
+    # Inline Paystack popup (same pattern as Buy Scans)
+    import streamlit.components.v1 as components
+    paystack_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://js.paystack.co/v1/inline.js"></script>
+        <style>
+            body {{ margin:0; padding:0; display:flex; justify-content:center; }}
+            .btn {{
+                padding: 15px 40px; background: #0d6efd; color: #fff;
+                border: none; border-radius: 30px; font-size: 1.2rem;
+                cursor: pointer; font-weight: 600;
+            }}
+            .btn:hover {{ background: #0b5ed7; }}
+        </style>
+    </head>
+    <body>
+        <button class="btn" onclick="payWithPaystack()">💳 Pay N500 to Verify</button>
+        <script>
+            function payWithPaystack() {{
+                PaystackPop.setup({{
+                    key: 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057',
+                    email: '{user.email}',
+                    amount: 50000,
+                    currency: 'NGN',
+                    ref: '{ref}',
+                    label: 'GAIA Farmer Verification',
+                    onClose: function() {{ window.location.reload(); }},
+                    callback: function(response) {{
+                        window.location.href = '/~/callback?reference=' + response.reference + '&plan=verify';
+                    }}
+                }}).openIframe();
+            }}
+        </script>
+    </body>
+    </html>
+    """
+    components.html(paystack_html, height=100)
     
     st.caption("After payment, return to this page to upload your documents.")
     

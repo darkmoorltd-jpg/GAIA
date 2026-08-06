@@ -85,24 +85,12 @@ if verification:
     status = verification.get("status", "pending")
     if status == "approved":
         st.markdown(f'<div style="text-align:center;"><span class="verified-badge">✅ Verified Farmer</span></div>', unsafe_allow_html=True)
-        st.success(f"**Name:** {verification.get('full_name')}
-
-**Phone:** {verification.get('phone')}
-
-**State:** {verification.get('state')} | **LGA:** {verification.get('lga')}
-
-**Crops:** {safe_crops(verification.get('crops'))}")
+        st.success(f"**Name:** {verification.get('full_name')}\n\n**Phone:** {verification.get('phone')}\n\n**State:** {verification.get('state')} | **LGA:** {verification.get('lga')}\n\n**Crops:** {safe_crops(verification.get('crops'))}")
         st.info("🎉 You are verified! Your digital wallet is now active. Go to **💰 Digital Wallet** to view your account.")
         
     elif status == "pending":
         st.markdown(f'<div style="text-align:center;"><span class="pending-badge">⏳ Under Review</span></div>', unsafe_allow_html=True)
-        st.info(f"**Name:** {verification.get('full_name')}
-
-**Phone:** {verification.get('phone')}
-
-**State:** {verification.get('state')} | **LGA:** {verification.get('lga')}
-
-**Crops:** {safe_crops(verification.get('crops'))}")
+        st.info(f"**Name:** {verification.get('full_name')}\n\n**Phone:** {verification.get('phone')}\n\n**State:** {verification.get('state')} | **LGA:** {verification.get('lga')}\n\n**Crops:** {safe_crops(verification.get('crops'))}")
         st.info("Your verification is under review. An admin will check within 24 hours.")
         
     elif status == "rejected":

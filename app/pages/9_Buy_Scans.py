@@ -151,7 +151,7 @@ if st.session_state.chosen_plan:
         }}
         .popup-container {{
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 600px; height: 600px; z-index: 9999; display: none;
+            width: 680px; height: 680px; z-index: 9999; display: none;
             background: #fff; border-radius: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.3);
         }}
     </style>

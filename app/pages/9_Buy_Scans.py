@@ -51,14 +51,12 @@ PLANS = {
 # ========== WORLD-CLASS LIGHT MODE CSS ==========
 st.markdown("""
 <style>
-    /* Global */
     .stApp {
         background: linear-gradient(160deg, #f8fafc 0%, #f0fdf4 30%, #ecfdf5 60%, #f8fafc 100%);
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     header, footer {visibility: hidden;}
     
-    /* Hero */
     .hero-title {
         font-size: 3.2rem;
         font-weight: 800;
@@ -77,7 +75,6 @@ st.markdown("""
         font-weight: 400;
     }
     
-    /* Balance badge */
     .balance-badge {
         display: flex;
         align-items: center;
@@ -103,14 +100,6 @@ st.markdown("""
         letter-spacing: 0.5px;
     }
     
-    /* Plan cards */
-    .plan-grid {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 1.2rem;
-        margin: 2rem 0;
-    }
     .plan-card {
         background: white;
         border-radius: 24px;
@@ -124,17 +113,6 @@ st.markdown("""
         position: relative;
         overflow: hidden;
     }
-    .plan-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        border-radius: 24px 24px 0 0;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
     .plan-card:hover {
         transform: translateY(-10px);
         box-shadow: 0 20px 40px rgba(0,0,0,0.08);
@@ -143,10 +121,6 @@ st.markdown("""
         border-color: #22c55e;
         box-shadow: 0 8px 32px rgba(34,197,94,0.15);
         transform: translateY(-6px);
-    }
-    .plan-card.selected::before {
-        opacity: 1;
-        background: linear-gradient(90deg, #22c55e, #4ade80);
     }
     .plan-icon {
         font-size: 2.4rem;
@@ -164,12 +138,7 @@ st.markdown("""
         color: #166534;
         margin-bottom: 0.3rem;
     }
-    .plan-per {
-        font-size: 0.8rem;
-        color: #94a3b8;
-    }
     
-    /* Selected banner */
     .selected-banner {
         background: linear-gradient(135deg, #f0fdf4, #dcfce7);
         border: 2px solid #22c55e;
@@ -189,31 +158,6 @@ st.markdown("""
         font-size: 1.4rem;
     }
     
-    /* Pay button */
-    .pay-btn-wrapper {
-        text-align: center;
-        margin: 1rem 0;
-    }
-    .pay-btn {
-        background: linear-gradient(135deg, #16a34a, #22c55e);
-        color: white;
-        border: none;
-        padding: 18px 50px;
-        border-radius: 50px;
-        font-weight: 700;
-        font-size: 1.2rem;
-        cursor: pointer;
-        box-shadow: 0 8px 24px rgba(22,163,74,0.3);
-        transition: all 0.3s ease;
-        letter-spacing: 0.3px;
-    }
-    .pay-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 14px 32px rgba(22,163,74,0.4);
-        background: linear-gradient(135deg, #15803d, #16a34a);
-    }
-    
-    /* Manual verify */
     .manual-section {
         max-width: 600px;
         margin: 2rem auto;
@@ -223,12 +167,7 @@ st.markdown("""
         box-shadow: 0 4px 16px rgba(0,0,0,0.03);
         border: 1px solid rgba(0,0,0,0.06);
     }
-    .manual-section h4 {
-        color: #166534;
-        margin-top: 0;
-    }
     
-    /* Footer */
     .footer-line {
         text-align: center;
         color: #94a3b8;
@@ -269,7 +208,6 @@ for i, (plan_key, plan_data) in enumerate(PLANS.items()):
             <div class="plan-icon">{plan_data['icon']}</div>
             <div class="plan-scans">{plan_data['scans'] if plan_key != 'unlimited' else '♾️'} scans</div>
             <div class="plan-price">{plan_data['price']}</div>
-            <div class="plan-per">one‑time</div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -289,7 +227,7 @@ if st.session_state.chosen_plan:
     
     ref = f"GAIA_{user.id[:8]}_{st.session_state.chosen_plan}_{uuid.uuid4().hex[:6]}"
     
-    # Paystack popup — 400px width
+    # FULL SCREEN Paystack Popup (standard, not iframe)
     paystack_html = f"""
     <!DOCTYPE html>
     <html>
@@ -304,20 +242,22 @@ if st.session_state.chosen_plan:
                 align-items: center;
                 background: transparent;
             }}
-            .custom-pay-btn {{
+            .pay-now-btn {{
                 background: linear-gradient(135deg, #16a34a, #22c55e);
                 color: white;
                 border: none;
-                padding: 18px 50px;
+                padding: 20px 60px;
                 border-radius: 50px;
                 font-weight: 700;
-                font-size: 1.15rem;
+                font-size: 1.2rem;
                 cursor: pointer;
                 box-shadow: 0 8px 24px rgba(22,163,74,0.3);
                 transition: all 0.3s ease;
                 letter-spacing: 0.3px;
+                width: 100%;
+                max-width: 400px;
             }}
-            .custom-pay-btn:hover {{
+            .pay-now-btn:hover {{
                 transform: translateY(-2px);
                 box-shadow: 0 14px 32px rgba(22,163,74,0.4);
                 background: linear-gradient(135deg, #15803d, #16a34a);
@@ -325,7 +265,7 @@ if st.session_state.chosen_plan:
         </style>
     </head>
     <body>
-        <button class="custom-pay-btn" onclick="payWithPaystack()">
+        <button class="pay-now-btn" onclick="payWithPaystack()">
             💳 Pay {plan_data['price']} Now
         </button>
         <script>
@@ -343,26 +283,12 @@ if st.session_state.chosen_plan:
                     }}
                 }});
                 handler.openIframe();
-                
-                // Set popup width to 400px
-                setTimeout(function() {{
-                    var iframe = document.querySelector('iframe[name="paystack"]');
-                    if (iframe) {{
-                        iframe.style.width = '400px';
-                        iframe.style.maxWidth = '95vw';
-                    }}
-                    var popup = document.querySelector('.paystack-popup');
-                    if (popup) {{
-                        popup.style.width = '400px';
-                        popup.style.maxWidth = '95vw';
-                    }}
-                }}, 500);
             }}
         </script>
     </body>
     </html>
     """
-    components.html(paystack_html, height=90)
+    components.html(paystack_html, height=80)
 
 # ========== MANUAL VERIFICATION ==========
 st.markdown("---")

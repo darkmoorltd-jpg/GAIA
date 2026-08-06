@@ -387,11 +387,14 @@ st.sidebar.metric("Scans Remaining", scans_left)
 st.sidebar.write(f"Plan: {plan_name}")
 
 # Show badge if active
-badge_res = supabase.table("badge_subscriptions").select("badge_tier").eq("user_id", user_id).eq("status", "active").execute()
-if badge_res.data:
-    badge_emojis = {"bronze": "🥉", "silver": "🥈", "gold": "🥇", "platinum": "💎"}
-    badge_tier = badge_res.data[0]["badge_tier"]
-    st.sidebar.markdown(f"### {badge_emojis.get(badge_tier, '')} {badge_tier.title()} Farmer")
+try:
+    badge_res = supabase.table("badge_subscriptions").select("badge_tier").eq("user_id", user_id).eq("status", "active").execute()
+    if badge_res.data:
+        badge_emojis = {"bronze": "🥉", "silver": "🥈", "gold": "🥇", "platinum": "💎"}
+        badge_tier = badge_res.data[0]["badge_tier"]
+        st.sidebar.markdown(f"### {badge_emojis.get(badge_tier, '')} {badge_tier.title()} Farmer")
+except:
+    pass
 
 # Show badge if active (safe fallback)
 try:

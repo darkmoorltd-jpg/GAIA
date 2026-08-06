@@ -250,6 +250,12 @@ with tab4:
                     st.markdown("**Selfie:**")
                     st.image(v['selfie_url'], width=200)
                 
+                # Delete button for any verification
+                if st.button("🗑️ Delete Verification", key=f"del_ver_{v['user_id']}"):
+                    supabase.table("farmer_verifications").delete().eq("user_id", v["user_id"]).execute()
+                    st.success("Verification record deleted.")
+                    st.rerun()
+
                 if status == "approved":
                     c1, c2 = st.columns(2)
                     if c1.button("🔄 Revoke Approval", key=f"revoke_{v['user_id']}"):

@@ -27,7 +27,10 @@ db = get_supabase()
 service = get_service()
 
 # Mark user online
-service.table("user_status").upsert({"user_id": user.id, "is_online": True, "last_seen": datetime.now().isoformat()}).execute()
+try:
+    service.table("user_status").upsert({"user_id": user.id, "is_online": True, "last_seen": datetime.now().isoformat()}).execute()
+except:
+    pass
 
 # ---------- STYLES ----------
 st.markdown("""
@@ -73,9 +76,13 @@ if "active_chat_name" not in st.session_state:
 
 # ---------- FETCH DATA ----------
 # Get all verified users (for search)
-all_users = service.table("user_profiles").select("user_id,first_name,last_name,country,state_city").execute()
+all_users = None
+try:
+    all_users = service.table("user_profiles").select("user_id,first_name,last_name,country,state_city").execute()
+except:
+    pass
 user_map = {}
-if all_users.data:
+if all_users and all_users.data:
     for u in all_users.data:
         user_map[u["user_id"]] = u
 

@@ -99,15 +99,6 @@ st.markdown('''
         border: 2px solid #2e7d32; border-radius: 20px;
         padding: 1.5rem 2rem; text-align: center; margin: 1.8rem 0;
     }
-    .overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.55); z-index: 9998; display: none;
-    }
-    .popup-container {
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        width: 800px; height: 850px; z-index: 9999; display: none;
-        background: #fff; border-radius: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.3);
-    }
 </style>
 ''', unsafe_allow_html=True)
 
@@ -141,6 +132,7 @@ if st.session_state.chosen_plan:
     
     ref = f"GAIA_{user.id[:8]}_{st.session_state.chosen_plan}_{uuid.uuid4().hex[:6]}"
     
+    # ---------- BIG PAYSTACK POPUP (850x900px) ----------
     paystack_html = f'''<!DOCTYPE html>
 <html>
 <head>
@@ -149,12 +141,20 @@ if st.session_state.chosen_plan:
         body {{ margin:0; padding:0; }}
         .pay-btn {{
             background: linear-gradient(135deg, #2e7d32, #43a047);
-            color: #fff; border: none; padding: 20px 60px;
-            border-radius: 50px; font-weight: 700; font-size: 1.3rem;
+            color: #fff; border: none; padding: 18px 50px;
+            border-radius: 50px; font-weight: 700; font-size: 1.2rem;
             cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,0.3);
-            transition: all 0.25s ease;
         }}
         .pay-btn:hover {{ transform: scale(1.03); }}
+        .overlay {{
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.65); z-index: 9998; display: none;
+        }}
+        .popup-container {{
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 850px; height: 900px; z-index: 9999; display: none;
+            background: #fff; border-radius: 28px; box-shadow: 0 40px 80px rgba(0,0,0,0.4);
+        }}
     </style>
 </head>
 <body>
@@ -189,21 +189,18 @@ if st.session_state.chosen_plan:
             setTimeout(function() {{
                 var iframe = document.querySelector('iframe[name="paystack-popup"]');
                 if (iframe) {{
-                    iframe.style.width = '800px';
-                    iframe.style.height = '850px';
+                    iframe.style.width = '850px';
+                    iframe.style.height = '900px';
                     iframe.style.border = 'none';
                     iframe.style.borderRadius = '28px';
-                    iframe.style.boxShadow = '0 30px 60px rgba(0,0,0,0.4)';
                     container.appendChild(iframe);
-                    container.style.width = '800px';
-                    container.style.height = '850px';
                 }}
             }}, 800);
         }}
     </script>
 </body>
 </html>'''
-    components.html(paystack_html, height=0)
+    components.html(paystack_html, height=120)
 
 st.markdown("---")
 st.markdown("### ✅ Already Paid? Enter Your Reference")

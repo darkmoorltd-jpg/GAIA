@@ -31,7 +31,6 @@ if "user" not in st.session_state or not st.session_state.user:
 user = st.session_state.user
 db = get_supabase()
 
-# Get current scans
 res = db.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
 scans = res.data[0]["scans_remaining"] if res.data else 30
 
@@ -43,7 +42,6 @@ PLANS = {
     "unl": {"scans": 9999,"price": "N20,000","kobo": 2000000},
 }
 
-# ---------- STYLES ----------
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(160deg, #f4faf5, #eaf5ee, #fdfefb); color: #1b5e20; }
@@ -79,10 +77,21 @@ st.markdown("""
         font-size: 1.2rem; cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,.3);
     }
     .pay-btn:hover { transform: scale(1.03); }
+
+    /* BIG POPUP OVERLAY */
+    .ps-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.7); z-index: 9999;
+    }
+    .ps-box {
+        display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 480px; min-height: 600px; max-height: 90vh; overflow-y: auto;
+        background: #fff; border-radius: 16px; z-index: 10000;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5); padding: 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- HEADER ----------
 st.markdown('<div class="title">Buy Scans</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Get more AI-powered diagnoses for your farm</div>', unsafe_allow_html=True)
 
@@ -90,7 +99,6 @@ c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
     st.markdown(f'<div style="text-align:center"><div class="badge"><div class="badge-num">{scans}</div><div class="badge-lbl">Scans Remaining</div></div></div>', unsafe_allow_html=True)
 
-# ---------- PLAN CARDS ----------
 st.markdown("### Choose Your Plan")
 
 if "plan" not in st.session_state:
@@ -106,13 +114,17 @@ for i, (key, p) in enumerate(PLANS.items()):
             st.session_state.plan = key
             st.rerun()
 
-# ---------- PAYMENT ----------
 if st.session_state.plan:
     p = PLANS[st.session_state.plan]
     label = "Unlimited" if st.session_state.plan == "unl" else f"{p['scans']} scans"
     ref = f"GAIA_{user.id[:8]}_{st.session_state.plan}_{uuid.uuid4().hex[:6]}"
 
     st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
+
+    # ---------- THE ACTUAL FIX ----------
+    # Create a visible overlay + container in Streamlit, then Paystack opens INSIDE it.
+    st.markdown('<div class="ps-overlay" id="psOverlay"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="ps-box" id="psBox"></div>', unsafe_allow_html=True)
 
     components.html(f"""
     <script src="https://js.paystack.co/v1/inline.js"></script>
@@ -121,23 +133,45 @@ if st.session_state.plan:
     </div>
     <script>
         function pay() {{
-            PaystackPop.setup({{
+            // Show our big overlay
+            var overlay = parent.document.getElementById('psOverlay');
+            var box = parent.document.getElementById('psBox');
+            overlay.style.display = 'block';
+            box.style.display = 'block';
+
+            var handler = PaystackPop.setup({{
                 key: '{PAYSTACK_PUBLIC}',
                 email: '{user.email}',
                 amount: {p['kobo']},
                 currency: 'NGN',
                 ref: '{ref}',
                 label: 'GAIA {label}',
-                onClose: function() {{ window.location.reload(); }},
+                onClose: function() {{
+                    overlay.style.display = 'none';
+                    box.style.display = 'none';
+                    window.location.reload();
+                }},
                 callback: function(r) {{
                     window.location.href = '/~/callback?reference=' + r.reference + '&plan={st.session_state.plan}';
                 }}
-            }}).openIframe();
+            }});
+            handler.openIframe();
+
+            // Move the Paystack iframe into our big box
+            setTimeout(function() {{
+                var iframe = document.querySelector('iframe[name="paystack-popup"]');
+                if (iframe) {{
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = 'none';
+                    iframe.style.borderRadius = '16px';
+                    box.appendChild(iframe);
+                }}
+            }}, 500);
         }}
     </script>
     """, height=100)
 
-# ---------- MANUAL VERIFY ----------
 st.markdown("---")
 st.markdown("### Already Paid? Enter Your Reference")
 
@@ -177,7 +211,6 @@ with c2:
 st.markdown("---")
 st.caption("Secure payments by Paystack . Darkmoor Ltd")
 
-# Navigation
 cols = st.columns(6)
 cols[0].page_link("pages/1_Dashboard.py", label="Dashboard")
 cols[1].page_link("pages/2_Crops.py", label="Crops")

@@ -453,7 +453,8 @@ buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 
 early_warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
 badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
-help_page = st.Page("pages/13_Help.py", title="Help & Support", icon="💬")
+chat_page = st.Page("pages/16_Chat.py", title="Chat", icon="💬")
+help_page = st.Page("pages/13_Help.py", title="Help & Support", icon="🆘")
 verify_farmer_page = st.Page("pages/11_Verify_Farmer.py", title="Verify Farmer", icon="🛡️")
 verify_history_page = st.Page("pages/12_Verification_History.py", title="Verification History", icon="📋")
 wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
@@ -463,6 +464,7 @@ pg = st.navigation({
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page, early_warning_page],
     "Account": [payment_history_page, profile_page, buy_scans_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],
     "Admin": [admin_page],
+    "Community": [chat_page],
     "Support": [help_page],
 })
 pg.run()

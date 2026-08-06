@@ -250,6 +250,19 @@ with tab4:
                     st.markdown("**Selfie:**")
                     st.image(v['selfie_url'], width=200)
                 
+                if status == "approved":
+                    c1, c2 = st.columns(2)
+                    if c1.button("🔄 Revoke Approval", key=f"revoke_{v['user_id']}"):
+                        supabase.table("farmer_verifications").update({"status": "pending"}).eq("user_id", v["user_id"]).execute()
+                        st.warning("Approval revoked — status set back to pending.")
+                        st.rerun()
+                    if c2.button("❌ Reject Farmer", key=f"rej_approved_{v['user_id']}"):
+                        reason = st.text_input("Rejection reason", key=f"reason_app_{v['user_id']}")
+                        if st.button("Confirm Reject", key=f"conf_app_{v['user_id']}"):
+                            supabase.table("farmer_verifications").update({"status": "rejected", "rejection_reason": reason}).eq("user_id", v["user_id"]).execute()
+                            st.error("Farmer rejected")
+                            st.rerun()
+
                 if status == "pending":
                     c1, c2 = st.columns(2)
                     if c1.button("✅ Approve", key=f"app_{v['user_id']}"):

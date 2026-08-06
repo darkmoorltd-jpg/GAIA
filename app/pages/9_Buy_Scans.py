@@ -133,41 +133,25 @@ if st.session_state.chosen_plan:
     ref = f"GAIA_{user.id[:8]}_{st.session_state.chosen_plan}_{uuid.uuid4().hex[:6]}"
     
     # ---------- BIG PAYSTACK POPUP (850x900px) ----------
-    paystack_html = f'''<!DOCTYPE html>
+    paystack_html = f"""<!DOCTYPE html>
 <html>
 <head>
     <script src="https://js.paystack.co/v1/inline.js"></script>
     <style>
-        body {{ margin:0; padding:0; }}
+        body {{ margin:0; padding:0; display:flex; justify-content:center; align-items:center; }}
         .pay-btn {{
             background: linear-gradient(135deg, #2e7d32, #43a047);
-            color: #fff; border: none; padding: 18px 50px;
-            border-radius: 50px; font-weight: 700; font-size: 1.2rem;
-            cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,0.3);
+            color: #fff; border: none; padding: 20px 60px;
+            border-radius: 50px; font-weight: 700; font-size: 1.3rem;
+            cursor: pointer; box-shadow: 0 10px 30px rgba(46,125,50,0.3);
         }}
-        .pay-btn:hover {{ transform: scale(1.03); }}
-        .overlay {{
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.65); z-index: 9998; display: none;
-        }}
-        .popup-container {{
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 850px; height: 900px; z-index: 9999; display: none;
-            background: #fff; border-radius: 28px; box-shadow: 0 40px 80px rgba(0,0,0,0.4);
-        }}
+        .pay-btn:hover {{ transform: scale(1.05); }}
     </style>
 </head>
 <body>
-    <button class="pay-btn" onclick="openPaystackPopup()">💳 Pay {plan_data['price']} Now</button>
-    <div id="overlay" class="overlay"></div>
-    <div id="popupContainer" class="popup-container"></div>
+    <button class="pay-btn" onclick="payWithPaystack()">💳 Pay {plan_data['price']} Now</button>
     <script>
-        function openPaystackPopup() {{
-            document.getElementById('overlay').style.display = 'block';
-            var container = document.getElementById('popupContainer');
-            container.style.display = 'block';
-            container.innerHTML = '';
-            
+        function payWithPaystack() {{
             var handler = PaystackPop.setup({{
                 key: '{PAYSTACK_PUBLIC_KEY}',
                 email: '{user.email}',
@@ -175,32 +159,17 @@ if st.session_state.chosen_plan:
                 currency: 'NGN',
                 ref: '{ref}',
                 label: 'GAIA {scans_display}',
-                onClose: function() {{
-                    document.getElementById('overlay').style.display = 'none';
-                    container.style.display = 'none';
-                    window.location.reload();
-                }},
+                onClose: function() {{ window.parent.location.reload(); }},
                 callback: function(response) {{
                     window.location.href = 'https://gaiagpt.streamlit.app/~/callback?reference=' + response.reference + '&plan={st.session_state.chosen_plan}';
                 }}
             }});
             handler.openIframe();
-            
-            setTimeout(function() {{
-                var iframe = document.querySelector('iframe[name="paystack-popup"]');
-                if (iframe) {{
-                    iframe.style.width = '850px';
-                    iframe.style.height = '900px';
-                    iframe.style.border = 'none';
-                    iframe.style.borderRadius = '28px';
-                    container.appendChild(iframe);
-                }}
-            }}, 800);
         }}
     </script>
 </body>
-</html>'''
-    components.html(paystack_html, height=120)
+</html>"""
+    components.html(paystack_html, height=100)
 
 st.markdown("---")
 st.markdown("### ✅ Already Paid? Enter Your Reference")

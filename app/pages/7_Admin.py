@@ -1,41 +1,11 @@
-
 import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
 from datetime import datetime
 
-def bottom_nav():
-    st.markdown("---")
-    st.markdown("### 🚀 Quick Navigation")
-    cols = st.columns(8)
-    with cols[0]:
-        if st.button("🌿 Crops", key="bn_crops"): st.switch_page("pages/2_Crops.py")
-    with cols[1]:
-        if st.button("🐛 Pests", key="bn_pests"): st.switch_page("pages/3_Pests.py")
-    with cols[2]:
-        if st.button("🏞️ Soil", key="bn_soil"): st.switch_page("pages/4_Soil.py")
-    with cols[3]:
-        if st.button("🐄 Livestock", key="bn_livestock"): st.switch_page("pages/5_Livestock.py")
-    with cols[4]:
-        if st.button("💳 Buy Scans", key="bn_buy"): st.switch_page("pages/9_Buy_Scans.py")
-    with cols[5]:
-        if st.button("📋 Payments", key="bn_payments"): st.switch_page("pages/6_Payment_History.py")
-    with cols[6]:
-        if st.button("🔐 Admin", key="bn_admin"): st.switch_page("pages/7_Admin.py")
-    with cols[7]:
-        if st.button("🚪 Logout", key="bn_logout"):
-            from supabase import create_client
-            url = st.secrets["supabase"]["url"]
-            key = st.secrets["supabase"]["key"]
-            supabase = create_client(url, key)
-            supabase.auth.sign_out()
-            st.session_state.user = None
-            st.rerun()
-
-
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
-SUPABASE_KEY = st.secrets["supabase"]["key"]  # anon key for storage uploads
+SUPABASE_KEY = st.secrets["supabase"]["key"]
 
 @st.cache_resource
 def init_service_client():
@@ -45,13 +15,12 @@ def init_service_client():
 def init_anon_client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-st.set_page_config(page_title="GAIA – Admin", page_icon="🔐", layout="wide", initial_sidebar_state="expanded")
+def safe_crops(val):
+    if not val: return 'None'
+    if isinstance(val, list): return ', '.join(val)
+    return str(val).strip('{}').replace('"', '')
 
-# Force sidebar visible on all pages
-st.markdown("""
-
-""", unsafe_allow_html=True)
-
+st.set_page_config(page_title="GAIA – Admin", page_icon="🔐", layout="wide")
 
 ADMIN_EMAIL = "darkmoorltd@gmail.com"
 if "user" not in st.session_state or st.session_state.user is None:
@@ -139,7 +108,6 @@ def create_new_user(email, password, first_name="", last_name=""):
         return False, str(e)
 
 def get_messages():
-    """Get all messages ordered by most recent."""
     resp = supabase.table("messages").select("*").order("created_at", desc=True).limit(100).execute()
     return resp.data if resp.data else []
 
@@ -153,7 +121,7 @@ def send_admin_reply(user_id, message_text):
     }).execute()
 
 # ---------- Tabs ----------
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "👤 Manage Users", "➕ Create User", "📨 Messages"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "👤 Users", "➕ Create User", "🛡️ Verifications", "📨 Messages"])
 
 with tab1:
     users = get_all_users()
@@ -172,7 +140,7 @@ with tab2:
     
     if selected_user:
         uid = selected_user["user_id"]
-        st.write(f"**{selected_user['email']}** – {selected_user.get('first_name','')} {selected_user.get('last_name','')}")
+        st.write(f"**{selected_user['email']}** — {selected_user.get('first_name','')} {selected_user.get('last_name','')}")
         st.write(f"Country: {selected_user.get('country','')} | Phone: {selected_user.get('phone','')}")
         st.metric("Scans Remaining", selected_user["scans_remaining"])
         
@@ -227,10 +195,36 @@ with tab3:
                     st.error(msg)
 
 with tab4:
+    st.subheader("🛡️ Farmer Verifications")
+    verifications = supabase.table("farmer_verifications").select("*").order("created_at", desc=True).limit(50).execute()
+    if verifications.data:
+        for v in verifications.data:
+            status = v.get("status", "pending")
+            emoji = "✅" if status == "approved" else ("⏳" if status == "pending" else "❌")
+            with st.expander(f"{emoji} {v.get('full_name','N/A')} — {status.upper()}"):
+                st.write(f"**Phone:** {v.get('phone','N/A')}")
+                st.write(f"**State:** {v.get('state','N/A')} | LGA: {v.get('lga','N/A')}")
+                st.write(f"**Crops:** {safe_crops(v.get('crops'))}")
+                st.write(f"**Payment:** {v.get('payment_status','N/A')}")
+                
+                if status == "pending":
+                    c1, c2 = st.columns(2)
+                    if c1.button("✅ Approve", key=f"app_{v['user_id']}"):
+                        supabase.table("farmer_verifications").update({"status": "approved"}).eq("user_id", v["user_id"]).execute()
+                        st.success("Approved!")
+                        st.rerun()
+                    if c2.button("❌ Reject", key=f"rej_{v['user_id']}"):
+                        reason = st.text_input("Rejection reason", key=f"reason_{v['user_id']}")
+                        if st.button("Confirm Reject", key=f"conf_{v['user_id']}"):
+                            supabase.table("farmer_verifications").update({"status": "rejected", "rejection_reason": reason}).eq("user_id", v["user_id"]).execute()
+                            st.error("Rejected")
+                            st.rerun()
+    else:
+        st.info("No verification requests yet.")
+
+with tab5:
     st.subheader("📨 User Messages")
     messages = get_messages()
-    
-    # Group messages by user
     from collections import defaultdict
     threads = defaultdict(list)
     for msg in messages:
@@ -240,80 +234,32 @@ with tab4:
         st.info("No messages yet.")
     else:
         for user_id, msgs in threads.items():
-            # Get user email
-            user_email = "Unknown"
-            for m in msgs:
-                if m.get("user_email"):
-                    user_email = m["user_email"]
-                    break
-            if user_email == "Unknown":
-                # Try to get from profiles
-                profile = supabase.table("user_profiles").select("first_name,last_name").eq("user_id", user_id).execute()
-                if profile.data:
-                    p = profile.data[0]
-                    user_email = f"{p.get('first_name','')} {p.get('last_name','')}".strip() or "User"
-            
-            latest = msgs[0]  # most recent
-            unread = sum(1 for m in msgs if not m["read"] and not m["is_from_admin"])
-            
-            with st.expander(f"{'🔴 ' if unread else ''}{user_email} – {len(msgs)} messages (last: {latest['created_at'][:16]})"):
-                for msg in reversed(msgs):  # show oldest first
-                    sender = "👤 User" if not msg["is_from_admin"] else "🔐 You"
-                    timestamp = msg["created_at"][:16] if msg.get("created_at") else ""
-                    st.markdown(f"**{sender}** – {timestamp}")
+            unread = sum(1 for m in msgs if not m.get("read") and not m.get("is_from_admin"))
+            latest = msgs[0]
+            with st.expander(f"{'🔴 ' if unread else ''}User: {user_id[:12]}... — {len(msgs)} messages"):
+                for msg in reversed(msgs):
+                    sender = "🔐 Admin" if msg.get("is_from_admin") else "👤 User"
+                    st.markdown(f"**{sender}** — {msg.get('created_at','')[:16]}")
                     if msg.get("message"):
                         st.write(msg["message"])
                     if msg.get("attachment_url"):
-                        if msg.get("attachment_type") in ["image"]:
-                            st.image(msg["attachment_url"], width=200)
-                        else:
-                            st.markdown(f"[📎 Download attachment]({msg['attachment_url']})")
+                        st.markdown(f"[📎 Attachment]({msg['attachment_url']})")
                     st.markdown("---")
                 
-                # Reply box
-                reply = st.text_input(f"Reply to {user_email}", key=f"reply_{user_id}")
+                reply = st.text_input(f"Reply", key=f"reply_{user_id}")
                 if st.button(f"Send reply", key=f"send_{user_id}"):
                     if reply.strip():
                         send_admin_reply(user_id, reply.strip())
                         st.success("Reply sent!")
-                        st.cache_data.clear()
                         st.rerun()
 
-
-# ---------- Universal Bottom Navigation (safe) ----------
+# Quick Navigation
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(6)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
-
-# ---------- Quick Navigation ----------
-st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(8)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
-with cols[6]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
-with cols[7]:
-    st.page_link("pages/13_Help.py", label="💬 Help")
+with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

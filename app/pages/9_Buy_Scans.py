@@ -73,7 +73,11 @@ st.markdown("""
         border-radius: 30px; font-weight: 600; cursor: pointer;
         width: 100%; margin-top: 0.5rem; font-size: 1rem;
     }
+
+    iframe { width: 100% !important; min-height: 500px !important; }
+    .popup-btn:hover { transform: scale(1.05); }
 </style>
+
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="title">💳 Buy Scans</div>', unsafe_allow_html=True)
@@ -100,7 +104,7 @@ for i, (plan_key, plan_data) in enumerate(PLANS.items()):
         <html>
         <head><script src="https://js.paystack.co/v1/inline.js"></script></head>
         <body>
-            <button onclick="payWithPaystack()" class="popup-btn">Pay {plan_data['price']}</button>
+            <button onclick="payWithPaystack()" class="popup-btn" style="padding:15px 30px;font-size:1.1rem;cursor:pointer;">Pay {plan_data['price']}</button>
             <script>
                 function payWithPaystack() {{
                     var handler = PaystackPop.setup({{
@@ -121,7 +125,7 @@ for i, (plan_key, plan_data) in enumerate(PLANS.items()):
         </body>
         </html>
         """
-        components.html(paystack_popup, height=50)
+        components.html(paystack_popup, height=600)
 
 # ---- TAB 2: Already Paid? Confirm Here ----
 st.markdown("---")

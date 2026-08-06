@@ -75,7 +75,6 @@ st.markdown("""
         background: linear-gradient(135deg, #2e7d32, #43a047); color: #fff;
         border: none; padding: 18px 50px; border-radius: 50px; font-weight: 700;
         font-size: 1.2rem; cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,.3);
-        text-decoration: none; display: inline-block; text-align: center;
     }
     .pay-btn:hover { transform: scale(1.03); }
 </style>
@@ -110,10 +109,42 @@ if st.session_state.plan:
 
     st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
 
-    # PAYSTACK REDIRECT - opens full page, always works, always large
-    paystack_url = f"https://checkout.paystack.com/{PAYSTACK_PUBLIC}?email={user.email}&amount={p['kobo']}&currency=NGN&ref={ref}&label=GAIA%20{label.replace(' ', '%20')}&callback_url=https://gaiagpt.streamlit.app/~/callback?reference={ref}&plan={st.session_state.plan}"
-
-    st.markdown(f'<a href="{paystack_url}" target="_blank"><div class="pay-btn">Pay {p["price"]} Now</div></a>', unsafe_allow_html=True)
+    components.html(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://js.paystack.co/v1/inline.js"></script>
+        <style>
+            body {{ margin:0; padding:0; }}
+            .btn {{
+                background: linear-gradient(135deg, #2e7d32, #43a047); color: #fff;
+                border: none; padding: 18px 50px; border-radius: 50px; font-weight: 700;
+                font-size: 1.2rem; cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,.3);
+            }}
+            .btn:hover {{ transform: scale(1.03); }}
+        </style>
+    </head>
+    <body>
+        <button class="btn" onclick="payWithPaystack()">Pay {p['price']} Now</button>
+        <script>
+            function payWithPaystack() {{
+                PaystackPop.setup({{
+                    key: '{PAYSTACK_PUBLIC}',
+                    email: '{user.email}',
+                    amount: {p['kobo']},
+                    currency: 'NGN',
+                    ref: '{ref}',
+                    label: 'GAIA {label}',
+                    onClose: function() {{ window.location.reload(); }},
+                    callback: function(response) {{
+                        window.location.href = '/~/callback?reference=' + response.reference + '&plan={st.session_state.plan}';
+                    }}
+                }}).openIframe();
+            }}
+        </script>
+    </body>
+    </html>
+    """, height=120)
 
 st.markdown("---")
 st.markdown("### Already Paid? Enter Your Reference")

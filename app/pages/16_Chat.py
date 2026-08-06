@@ -30,28 +30,41 @@ try:
 except:
     pass
 
+# ===== BUILD COMPLETE USER DATABASE =====
 all_users = {}
-user_emails = {}
 
-try:
-    res = service.table("user_profiles").select("*").execute()
-    if res.data:
-        for u in res.data:
-            all_users[u["user_id"]] = u
-except:
-    pass
-
+# 1. Get all auth users (emails)
 try:
     auth_users = service.auth.admin.list_users()
     if auth_users:
         for au in auth_users:
-            user_emails[au.id] = au.email or ''
+            all_users[au.id] = {
+                "user_id": au.id,
+                "email": au.email or '',
+                "first_name": "",
+                "last_name": "",
+                "phone": "",
+                "country": "",
+                "state_city": "",
+                "address": "",
+            }
 except:
     pass
 
-for uid in all_users:
-    all_users[uid]['email'] = user_emails.get(uid, '')
+# 2. Get all profiles and merge
+try:
+    res = service.table("user_profiles").select("*").execute()
+    if res.data:
+        for p in res.data:
+            uid = p["user_id"]
+            if uid not in all_users:
+                all_users[uid] = {"user_id": uid, "email": ""}
+            for key in ["first_name", "last_name", "phone", "country", "state_city", "address"]:
+                all_users[uid][key] = p.get(key, "") or ""
+except:
+    pass
 
+# Online users
 online_users = set()
 try:
     res = service.table("user_status").select("user_id").eq("is_online", True).execute()
@@ -61,6 +74,7 @@ try:
 except:
     pass
 
+# Friends
 friend_ids = set()
 try:
     res = db.table("friendships").select("*").eq("status", "accepted").or_(f"sender_id.eq.{user.id},receiver_id.eq.{user.id}").execute()
@@ -71,6 +85,7 @@ try:
 except:
     pass
 
+# Pending requests
 pending_requests = []
 try:
     res = db.table("friendships").select("*").eq("receiver_id", user.id).eq("status", "pending").execute()
@@ -79,6 +94,7 @@ try:
 except:
     pass
 
+# Chat rooms
 my_rooms = []
 try:
     res = db.table("chat_members").select("room_id").eq("user_id", user.id).execute()
@@ -99,7 +115,9 @@ try:
                                 break
                     if other_id and other_id in all_users:
                         prof = all_users[other_id]
-                        name = f"{prof.get('first_name','')} {prof.get('last_name','')}"
+                        name = f"{prof.get('first_name','')} {prof.get('last_name','')}".strip()
+                        if not name:
+                            name = prof.get('email','Unknown')
                     else:
                         name = "Unknown"
                     my_rooms.append({"id": room["id"], "name": name, "other_id": other_id, "is_group": False})
@@ -129,11 +147,6 @@ st.markdown("""
         width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #2e7d32, #4caf50);
         display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 1.2rem;
     }
-    .btn {
-        padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
-        background: transparent; color: #fff; cursor: pointer; font-size: 0.8rem; font-weight: 600;
-    }
-    .btn:hover { background: rgba(255,255,255,0.1); }
     .empty-state { text-align: center; padding: 60px 20px; }
     .empty-state h3 { color: rgba(255,255,255,0.3); }
     .empty-state p { color: rgba(255,255,255,0.2); }
@@ -143,6 +156,7 @@ st.markdown("""
 # ---------- TABS ----------
 tabs = st.tabs(["💬 Messages", "👥 Friends", "🌍 Discover", "📝 Feed"])
 
+# ===== TAB 1: MESSAGES =====
 with tabs[0]:
     col1, col2 = st.columns([1, 2.5])
     with col1:
@@ -168,8 +182,6 @@ with tabs[0]:
                 with st.chat_message("user" if is_mine else "assistant"):
                     if msg.get("content"):
                         st.write(msg["content"])
-                    if msg.get("attachment_url") and msg.get("attachment_type") == "image":
-                        st.image(msg["attachment_url"], width=200)
                     st.caption(msg["created_at"][11:16] if msg.get("created_at") else "")
             ca, cb = st.columns([5, 1])
             with ca:
@@ -180,15 +192,18 @@ with tabs[0]:
                         service.table("messages").insert({"room_id": room_id, "sender_id": user.id, "content": msg_text}).execute()
                         st.rerun()
         else:
-            st.markdown('<div class="empty-state"><h3>💬 Your Messages</h3><p>Select a chat or find a farmer to start messaging</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="empty-state"><h3>💬 Your Messages</h3><p>Select a chat or find a farmer</p></div>', unsafe_allow_html=True)
 
+# ===== TAB 2: FRIENDS =====
 with tabs[1]:
     if pending_requests:
         st.markdown("### 📨 Friend Requests")
         for req in pending_requests:
             sender_id = req["sender_id"]
             sender = all_users.get(sender_id, {})
-            name = f"{sender.get('first_name','')} {sender.get('last_name','')}"
+            name = f"{sender.get('first_name','')} {sender.get('last_name','')}".strip()
+            if not name:
+                name = sender.get('email', 'Unknown')
             st.markdown(f'<div class="user-card"><div class="avatar">{name[0].upper() if name else "?"}</div><div><strong>{name}</strong><br><span style="color:rgba(255,255,255,0.4);">wants to be your friend</span></div></div>', unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             if c1.button("✅ Accept", key=f"acc_{sender_id}"):
@@ -202,12 +217,15 @@ with tabs[1]:
     if found_friends:
         for fid in found_friends:
             prof = all_users[fid]
-            name = f"{prof.get('first_name','')} {prof.get('last_name','')}"
+            name = f"{prof.get('first_name','')} {prof.get('last_name','')}".strip()
+            if not name:
+                name = prof.get('email', 'Unknown')
             is_online = fid in online_users
-            st.markdown(f"{'🟢' if is_online else '⚫'} **{name}** · {prof.get('state_city','')} · {prof.get('email','')}")
+            st.markdown(f"{'🟢' if is_online else '⚫'} **{name}** · {prof.get('state_city','')} · {prof.get('email','')} · {prof.get('phone','')}")
     else:
-        st.info("No friends yet. Search in Discover tab.")
+        st.info("No friends yet.")
 
+# ===== TAB 3: DISCOVER =====
 with tabs[2]:
     st.markdown("### 🌍 Discover Farmers")
     st.caption("Search by name, email, phone, state, or country")
@@ -229,7 +247,8 @@ with tabs[2]:
                 found = True
                 is_online = uid in online_users
                 is_friend = uid in friend_ids
-                st.markdown(f'<div class="user-card"><div class="avatar">{name[0].upper() if name else "?"}</div><div style="flex:1;"><strong>{name or "Unknown"}</strong><div style="color:rgba(255,255,255,0.4);font-size:0.85rem;">{"🟢 Online · " if is_online else "⚫ Offline · "}{state_city or "Unknown"}</div><div style="color:rgba(255,255,255,0.25);font-size:0.75rem;">{email} · {phone}</div></div></div>', unsafe_allow_html=True)
+                display_name = name if name else (email or 'Unknown')
+                st.markdown(f'<div class="user-card"><div class="avatar">{display_name[0].upper()}</div><div style="flex:1;"><strong>{display_name}</strong><div style="color:rgba(255,255,255,0.4);font-size:0.85rem;">{"🟢 Online · " if is_online else "⚫ Offline · "}{state_city or "Unknown"}</div><div style="color:rgba(255,255,255,0.25);font-size:0.75rem;">{email} · {phone}</div></div></div>', unsafe_allow_html=True)
                 if not is_friend:
                     if st.button("➕ Add Friend", key=f"add_{uid}"):
                         try:
@@ -244,6 +263,7 @@ with tabs[2]:
         if not found:
             st.info(f"No farmers found matching '{search}'.")
 
+# ===== TAB 4: FEED =====
 with tabs[3]:
     st.markdown("### 📝 Community Feed")
     post_content = st.text_area("Share something...", max_chars=500)
@@ -256,7 +276,9 @@ with tabs[3]:
         if posts.data:
             for post in posts.data:
                 author = all_users.get(post["user_id"], {})
-                author_name = f"{author.get('first_name','')} {author.get('last_name','')}"
+                author_name = f"{author.get('first_name','')} {author.get('last_name','')}".strip()
+                if not author_name:
+                    author_name = author.get('email', 'Unknown')
                 st.markdown(f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:15px;margin:10px 0;"><strong>{author_name}</strong><div style="color:rgba(255,255,255,0.5);font-size:0.75rem;">{post.get("created_at","")[:16]}</div><p style="margin-top:8px;">{post.get("content","")}</p></div>', unsafe_allow_html=True)
     except:
         st.info("No posts yet.")

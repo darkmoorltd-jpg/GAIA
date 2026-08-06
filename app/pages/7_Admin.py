@@ -84,6 +84,13 @@ def change_user_password(user_id, new_password):
     except Exception as e:
         return False, str(e)
 
+def delete_user(user_id):
+    try:
+        supabase.auth.admin.delete_user(user_id)
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
 def create_new_user(email, password, first_name="", last_name=""):
     try:
         resp = supabase.auth.admin.create_user({
@@ -144,7 +151,7 @@ with tab2:
         st.write(f"Country: {selected_user.get('country','')} | Phone: {selected_user.get('phone','')}")
         st.metric("Scans Remaining", selected_user["scans_remaining"])
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             scans_to_add = st.number_input("Scans to add", min_value=1, max_value=9999, value=10)
             if st.button("➕ Add Scans"):
@@ -170,6 +177,16 @@ with tab2:
                     st.success("Reset link sent")
                 except Exception as e:
                     st.error(f"Failed: {e}")
+        with col4:
+            if st.button("🗑️ Delete User", type="secondary"):
+                if st.session_state.user.email == ADMIN_EMAIL:
+                    success, err = delete_user(uid)
+                    if success:
+                        st.success("User deleted")
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.error(f"Failed: {err}")
 
 with tab3:
     st.subheader("➕ Create New User")
@@ -202,10 +219,29 @@ with tab4:
             status = v.get("status", "pending")
             emoji = "✅" if status == "approved" else ("⏳" if status == "pending" else "❌")
             with st.expander(f"{emoji} {v.get('full_name','N/A')} — {status.upper()}"):
-                st.write(f"**Phone:** {v.get('phone','N/A')}")
-                st.write(f"**State:** {v.get('state','N/A')} | LGA: {v.get('lga','N/A')}")
+                # User details
+                st.markdown("### 📋 User Details")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**Name:** {v.get('full_name','N/A')}")
+                    st.write(f"**Phone:** {v.get('phone','N/A')}")
+                    st.write(f"**Email:** {v.get('email','N/A')}")
+                with col2:
+                    st.write(f"**State:** {v.get('state','N/A')}")
+                    st.write(f"**LGA:** {v.get('lga','N/A')}")
+                    st.write(f"**Address:** {v.get('address','N/A')}")
+                
                 st.write(f"**Crops:** {safe_crops(v.get('crops'))}")
-                st.write(f"**Payment:** {v.get('payment_status','N/A')}")
+                st.write(f"**Payment Reference:** {v.get('payment_reference','N/A')}")
+                st.write(f"**Payment Status:** {v.get('payment_status','N/A')}")
+                
+                # Show ID and selfie if available
+                if v.get('id_url'):
+                    st.markdown("**ID Card:**")
+                    st.image(v['id_url'], width=300)
+                if v.get('selfie_url'):
+                    st.markdown("**Selfie:**")
+                    st.image(v['selfie_url'], width=200)
                 
                 if status == "pending":
                     c1, c2 = st.columns(2)

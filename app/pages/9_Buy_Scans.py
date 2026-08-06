@@ -95,16 +95,6 @@ for i, (plan_key, plan_data) in enumerate(PLANS.items()):
             # Generate unique reference
             ref = f"GAIA_SCAN_{user.id[:8]}_{plan_key}_{uuid.uuid4().hex[:8]}"
             
-            # Save pending payment
-            supabase.table("pending_payments").insert({
-                "user_id": user.id,
-                "reference": ref,
-                "plan": plan_key,
-                "amount": plan_data["amount"] / 100,
-                "scans": plan_data["scans"],
-                "status": "pending"
-            }).execute()
-            
             # Build Paystack popup HTML
             paystack_html = f"""
             <!DOCTYPE html>

@@ -20,8 +20,40 @@ PAYSTACK_PLANS = {
 }
 
 # ---------- Country & phone lists ----------
-countries = ["Nigeria", "Ghana", "Kenya", "United Kingdom", "United States"]
-country_codes = ["+234", "+233", "+254", "+44", "+1"]
+countries = [
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+    "Bahrain", "Bangladesh", "Belarus", "Belgium", "Benin", "Bolivia", "Bosnia", "Botswana", "Brazil", "Bulgaria",
+    "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada", "Chad", "Chile", "China", "Colombia", "Congo",
+    "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Ecuador", "Egypt", "Estonia", "Ethiopia",
+    "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Guatemala", "Guinea",
+    "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel",
+    "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kuwait", "Kyrgyzstan", "Laos", "Latvia",
+    "Lebanon", "Liberia", "Libya", "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Mali", "Malta",
+    "Mauritania", "Mauritius", "Mexico", "Moldova", "Mongolia", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nepal",
+    "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "Norway", "Oman", "Pakistan", "Palestine",
+    "Panama", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda",
+    "Saudi Arabia", "Senegal", "Serbia", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Somalia", "South Africa", "South Korea",
+    "South Sudan", "Spain", "Sri Lanka", "Sudan", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania",
+    "Thailand", "Togo", "Tunisia", "Turkey", "Turkmenistan", "Uganda", "Ukraine", "UAE", "United Kingdom", "United States",
+    "Uruguay", "Uzbekistan", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+]
+country_codes = [
+    "+93", "+355", "+213", "+376", "+244", "+54", "+374", "+61", "+43", "+994",
+    "+973", "+880", "+375", "+32", "+229", "+591", "+387", "+267", "+55", "+359",
+    "+226", "+257", "+855", "+237", "+1", "+235", "+56", "+86", "+57", "+242",
+    "+506", "+385", "+53", "+357", "+420", "+45", "+593", "+20", "+372", "+251",
+    "+358", "+33", "+241", "+220", "+995", "+49", "+233", "+30", "+502", "+224",
+    "+509", "+504", "+36", "+354", "+91", "+62", "+98", "+964", "+353", "+972",
+    "+39", "+1", "+81", "+962", "+7", "+254", "+965", "+996", "+856", "+371",
+    "+961", "+231", "+218", "+370", "+352", "+261", "+265", "+60", "+223", "+356",
+    "+222", "+230", "+52", "+373", "+976", "+212", "+258", "+95", "+264", "+977",
+    "+31", "+64", "+505", "+227", "+234", "+850", "+47", "+968", "+92", "+970",
+    "+507", "+595", "+51", "+63", "+48", "+351", "+974", "+40", "+7", "+250",
+    "+966", "+221", "+381", "+232", "+65", "+421", "+386", "+252", "+27", "+82",
+    "+211", "+34", "+94", "+249", "+46", "+41", "+963", "+886", "+992", "+255",
+    "+66", "+228", "+216", "+90", "+993", "+256", "+380", "+971", "+44", "+1",
+    "+598", "+998", "+58", "+84", "+967", "+260", "+263"
+]
 
 # ---------- Supabase helpers ----------
 @st.cache_resource
@@ -33,7 +65,7 @@ def get_service_client() -> Client:
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
 def sign_up(email: str, password: str, first_name: str = "", last_name: str = "",
-            phone: str = "", country: str = "", social_media: dict = None):
+            phone: str = "", country: str = "", state_city: str = "", address: str = "", social_media: dict = None):
     supabase = init_supabase()
     try:
         res = supabase.auth.sign_up({"email": email, "password": password})
@@ -52,6 +84,8 @@ def sign_up(email: str, password: str, first_name: str = "", last_name: str = ""
                     "last_name": last_name,
                     "phone": phone,
                     "country": country,
+                    "state_city": state_city,
+                    "address": address,
                     "social_media": social_media or {}
                 }).execute()
             except:
@@ -211,17 +245,22 @@ if st.session_state.user is None:
         with st.form("signup_form"):
             col1, col2 = st.columns(2)
             with col1:
-                new_first_name = st.text_input("First Name")
+                new_first_name = st.text_input("First Name *")
             with col2:
-                new_last_name = st.text_input("Last Name")
+                new_last_name = st.text_input("Last Name *")
             new_email = st.text_input("Email *")
             new_password = st.text_input("Password (min 6 characters) *", type="password")
             col1, col2 = st.columns(2)
             with col1:
-                new_country = st.selectbox("Country", options=[""] + countries)
+                new_country = st.selectbox("Country *", options=[""] + countries)
             with col2:
-                new_phone_code = st.selectbox("Country Code", options=[""] + country_codes)
-            new_phone = st.text_input("Phone Number", placeholder="+2347012345678")
+                new_phone_code = st.selectbox("Country Code *", options=[""] + country_codes)
+            new_phone = st.text_input("Phone Number *", placeholder="+2347012345678")
+            col1, col2 = st.columns(2)
+            with col1:
+                new_state_city = st.text_input("State/City *", placeholder="e.g., Lagos, London, New York")
+            with col2:
+                new_address = st.text_input("Address *", placeholder="e.g., 123 Main Street")
             
             st.markdown("**Social Media (optional)**")
             col1, col2, col3 = st.columns(3)
@@ -237,6 +276,16 @@ if st.session_state.user is None:
                     st.error("Email and password are required.")
                 elif len(new_password) < 6:
                     st.error("Password must be at least 6 characters.")
+                elif not new_first_name.strip() or not new_last_name.strip():
+                    st.error("First name and last name are required.")
+                elif not new_country:
+                    st.error("Country is required.")
+                elif not new_phone.strip():
+                    st.error("Phone number is required.")
+                elif not new_state_city.strip():
+                    st.error("State/City is required.")
+                elif not new_address.strip():
+                    st.error("Address is required.")
                 else:
                     full_phone = new_phone.strip()
                     if new_phone_code and not full_phone.startswith("+"):
@@ -253,6 +302,8 @@ if st.session_state.user is None:
                         last_name=new_last_name.strip(),
                         phone=full_phone,
                         country=new_country,
+                        state_city=new_state_city.strip(),
+                        address=new_address.strip(),
                         social_media=social
                     )
                     if error:

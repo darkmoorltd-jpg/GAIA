@@ -218,8 +218,8 @@ if st.session_state.chosen_plan:
             setTimeout(function() {{
                 var iframe = document.querySelector('iframe[name="paystack-popup"]');
                 if (iframe) {{
-                    iframe.style.width = '600px';
-                    iframe.style.height = '600px';
+                    iframe.style.width = '750px';
+                    iframe.style.height = '650px';
                     iframe.style.border = 'none';
                     iframe.style.borderRadius = '28px';
                     container.appendChild(iframe);

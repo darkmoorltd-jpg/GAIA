@@ -386,6 +386,13 @@ st.sidebar.write(f"👤 {st.session_state.user.email}")
 st.sidebar.metric("Scans Remaining", scans_left)
 st.sidebar.write(f"Plan: {plan_name}")
 
+# Show badge if active
+badge_res = supabase.table("badge_subscriptions").select("badge_tier").eq("user_id", user_id).eq("status", "active").execute()
+if badge_res.data:
+    badge_emojis = {"bronze": "🥉", "silver": "🥈", "gold": "🥇", "platinum": "💎"}
+    badge_tier = badge_res.data[0]["badge_tier"]
+    st.sidebar.markdown(f"### {badge_emojis.get(badge_tier, '')} {badge_tier.title()} Farmer")
+
 if scans_left <= 0:
     st.warning("You have no scans left. Choose a plan to continue.")
     st.markdown("### Choose a Plan")
@@ -445,6 +452,7 @@ buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 
 
 early_warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
+badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
 help_page = st.Page("pages/13_Help.py", title="Help & Support", icon="💬")
 verify_farmer_page = st.Page("pages/11_Verify_Farmer.py", title="Verify Farmer", icon="🛡️")
 verify_history_page = st.Page("pages/12_Verification_History.py", title="Verification History", icon="📋")
@@ -453,7 +461,7 @@ wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 pg = st.navigation({
     "GAIA": [dashboard_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page, early_warning_page],
-    "Account": [payment_history_page, profile_page, buy_scans_page, verify_farmer_page, verify_history_page, wallet_page],
+    "Account": [payment_history_page, profile_page, buy_scans_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],
     "Admin": [admin_page],
     "Support": [help_page],
 })

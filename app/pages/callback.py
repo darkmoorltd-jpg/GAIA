@@ -10,6 +10,7 @@ PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 st.set_page_config(page_title="Processing Payment", page_icon="⏳", layout="centered")
 
 PLANS = {"10": 10, "25": 25, "60": 60, "250": 250, "unlimited": 9999}
+BADGE_PLANS = {"bronze": "bronze", "silver": "silver", "gold": "gold", "platinum": "platinum"}
 
 def verify_transaction(reference):
     url = f"https://api.paystack.co/transaction/verify/{reference}"
@@ -59,5 +60,21 @@ try:
     }).execute()
     st.success(f"✅ Payment saved! {scans} scans will be added to your account after login.")
     st.markdown("[Go to GAIA](https://gaiagpt.streamlit.app)")
+
+# Handle badge payments
+badge = query_params.get("badge", [None])[0]
+if badge and badge in BADGE_PLANS:
+    from datetime import datetime, timedelta
+    exp_date = (datetime.now() + timedelta(days=30)).isoformat()
+    service = create_client(SUPABASE_URL, SERVICE_KEY)
+    service.table("badge_subscriptions").upsert({
+        "user_id": txn.get("customer", {}).get("email", ""),
+        "badge_tier": badge,
+        "status": "active",
+        "subscribed_at": datetime.now().isoformat(),
+        "expires_at": exp_date,
+        "payment_reference": reference
+    }).execute()
+    st.success(f"✅ {badge.title()} badge activated!")
 except Exception as e:
     st.error(f"Failed to save payment: {e}")

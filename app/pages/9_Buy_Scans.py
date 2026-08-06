@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from supabase import create_client, Client
 import uuid
 import requests as req
@@ -59,45 +60,41 @@ current_plan = user_data.data[0]["plan"] if (user_data.data and len(user_data.da
 st.sidebar.metric("Scans Remaining", scans_left)
 st.sidebar.caption(f"Plan: {current_plan}")
 
-# Get user phone
-profile = supabase.table("user_profiles").select("phone").eq("user_id", user.id).execute()
-user_phone = profile.data[0]["phone"] if (profile.data and len(profile.data) > 0) else ""
-
 # Handle Paystack callback
 query_params = st.query_params
-paystack_ref = query_params.get("reference", [None])[0]
+reference = query_params.get("reference", [None])[0]
 
-if paystack_ref:
-    result = verify_payment(paystack_ref)
+if reference:
+    result = verify_payment(reference)
     if result["paid"]:
+        # Find which plan was purchased
         plan_key = query_params.get("plan", ["10"])[0]
         scans_to_add = PLANS.get(plan_key, {}).get("scans", 10)
         
+        # Update user scans
         current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
-        current_scans = current.data[0]["scans_remaining"] if (current.data and len(current.data) > 0) else 0
+        current_scans = current.data[0]["scans_remaining"] if current.data else 0
         new_total = current_scans + scans_to_add
         
-        supabase.table("user_scans").upsert({
-            "user_id": user.id,
+        supabase.table("user_scans").update({
             "scans_remaining": new_total,
             "plan": plan_key
-        }).execute()
+        }).eq("user_id", user.id).execute()
         
+        # Record payment
         supabase.table("payment_history").insert({
             "user_id": user.id,
             "amount": result["amount"],
             "scans_added": scans_to_add,
             "plan": plan_key,
-            "reference": paystack_ref
+            "reference": reference
         }).execute()
         
         st.success(f"✅ Payment successful! {scans_to_add} scans added to your account.")
         st.query_params.clear()
         st.rerun()
-    else:
-        st.error("Payment verification failed. Please contact support.")
 
-# Plan cards
+# Plan selection
 st.markdown("### Choose a Plan")
 cols = st.columns(len(PLANS))
 
@@ -108,42 +105,38 @@ for i, (plan_key, plan_data) in enumerate(PLANS.items()):
         <div class="plan-card">
             <h3>{scans_text}</h3>
             <div class="plan-price">{plan_data['price']}</div>
-            <p style="color:#888;font-size:0.8rem;">per month</p>
+            <p style="color:#888;">per month</p>
         </div>
         """, unsafe_allow_html=True)
         
-        ref = f"GAIA_SCAN_{user.id[:8]}_{plan_key}_{uuid.uuid4().hex[:6]}"
-        
-        paystack_html = f"""
-        <script src="https://js.paystack.co/v1/inline.js"></script>
-        <button onclick="payWithPaystack()" style="width:100%;padding:10px;background:#2e7d32;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:600;">
-            Buy {scans_text}
-        </button>
-        <script>
-        function payWithPaystack() {{
-            var handler = PaystackPop.setup({{
-                key: '{PAYSTACK_PUBLIC_KEY}',
-                email: '{user.email}',
-                amount: {plan_data['amount'] * 100},
-                ref: '{ref}',
-                currency: 'NGN',
-                label: 'GAIA {plan_key} Scans',
-                metadata: {{
-                    phone: '{user_phone}'
-                }},
-                onClose: function() {{ alert('Payment cancelled.'); }},
-                callback: function(response) {{
-                    window.location.href = '?reference=' + response.reference + '&plan={plan_key}';
-                }}
-            }});
-            handler.openIframe();
-        }}
-        </script>
-        """
-        st.components.v1.html(paystack_html, height=50)
+        if st.button(f"Buy Now", key=f"buy_{plan_key}"):
+            ref = f"GAIA_SCAN_{user.id[:8]}_{plan_key}_{uuid.uuid4().hex[:8]}"
+            
+            # Paystack inline popup
+            paystack_code = f"""
+            <script src="https://js.paystack.co/v1/inline.js"></script>
+            <script>
+                var handler = PaystackPop.setup({{
+                    key: '{PAYSTACK_PUBLIC_KEY}',
+                    email: '{user.email}',
+                    amount: {plan_data['amount'] * 100},
+                    ref: '{ref}',
+                    currency: 'NGN',
+                    label: 'GAIA {plan_data["scans"]} Scans',
+                    onClose: function() {{
+                        alert('Payment cancelled.');
+                    }},
+                    callback: function(response) {{
+                        window.location.href = 'https://gaiagpt.streamlit.app/~/9_Buy_Scans?reference=' + response.reference + '&plan={plan_key}';
+                    }}
+                }});
+                handler.openIframe();
+            </script>
+            """
+            components.html(paystack_code, height=0)
 
 st.markdown("---")
-st.caption("Payments processed securely by Paystack | Powered by Darkmoor Ltd")
+st.caption("Payments processed securely by Paystack | Darkmoor Ltd")
 
 # Quick Navigation
 st.markdown("### 🔗 Quick Navigation")

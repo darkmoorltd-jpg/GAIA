@@ -102,16 +102,16 @@ st.markdown('''
 
     /* Force Paystack iframe to fill the popup container */
     iframe[name="paystack-popup"] {
-        width: 100% !important;
-        height: 100% !important;
-        border: none !important;
-        border-radius: 28px !important;
+        width: 100%;
+        height: 100%;
+        border: none;
+        border-radius: 28px;
     }
     .popup-container iframe {
-        width: 100% !important;
-        height: 100% !important;
-        border: none !important;
-        border-radius: 28px !important;
+        width: 100%;
+        height: 100%;
+        border: none;
+        border-radius: 28px;
     }
 
 </style>
@@ -172,16 +172,16 @@ if st.session_state.chosen_plan:
     
     /* Force Paystack iframe to fill the popup container */
     iframe[name="paystack-popup"] {
-        width: 100% !important;
-        height: 100% !important;
-        border: none !important;
-        border-radius: 28px !important;
+        width: 100%;
+        height: 100%;
+        border: none;
+        border-radius: 28px;
     }
     .popup-container iframe {
-        width: 100% !important;
-        height: 100% !important;
-        border: none !important;
-        border-radius: 28px !important;
+        width: 100%;
+        height: 100%;
+        border: none;
+        border-radius: 28px;
     }
 
 </style>

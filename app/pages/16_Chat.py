@@ -39,6 +39,24 @@ try:
 except:
     pass
 
+# Also fetch auth users to get emails
+user_emails = {}
+try:
+    auth_users = service.auth.admin.list_users()
+    if auth_users:
+        for au in auth_users:
+            user_emails[au.id] = au.email or ''
+except:
+    pass
+
+# Merge emails into all_users
+for uid in all_users:
+    if uid in user_emails:
+        all_users[uid]['email'] = user_emails[uid]
+    else:
+        all_users[uid]['email'] = ''
+
+
 online_users = set()
 try:
     res = service.table("user_status").select("user_id").eq("is_online", True).execute()
@@ -243,13 +261,7 @@ with tabs[2]:
             country = prof.get('country', '') or ''
             address = prof.get('address', '') or ''
             
-            # Try to get email from auth users (via service client)
-            try:
-                auth_res = service.auth.admin.get_user_by_id(uid)
-                if auth_res and auth_res.user:
-                    email = auth_res.user.email or ''
-            except:
-                pass
+            email = prof.get('email', '') or 
             
             # Combine all searchable fields
             searchable = f"{name} {email} {phone} {state_city} {country} {address}".lower()

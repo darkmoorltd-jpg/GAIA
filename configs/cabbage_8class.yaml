@@ -1,0 +1,5 @@
+crop: "cabbage"
+num_classes: 8
+class_names: ["Alternaria Leaf Spot", "Bacterial Spot Rot", "Black Rot", "Cabbage Aphid Colony", "Downy Mildew", "Healthy", "Club Root", "Ring Spot"]
+model_type: "vit_pretrained"
+in_channels: 3

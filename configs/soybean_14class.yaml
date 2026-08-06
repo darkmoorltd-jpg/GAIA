@@ -1,0 +1,5 @@
+crop: "soybean"
+num_classes: 14
+class_names: ["Bacterial Pustule", "Frogeye Leaf Spot", "Healthy", "Mosaic Virus", "Rust", "Southern blight", "Sudden Death Syndrome", "Target Leaf Spot", "Yellow Mosaic", "brown_spot", "crestamento", "ferrugen", "powdery_mildew", "septoria"]
+model_type: "vit_pretrained"
+in_channels: 3

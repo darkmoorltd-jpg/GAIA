@@ -75,20 +75,9 @@ st.markdown("""
         background: linear-gradient(135deg, #2e7d32, #43a047); color: #fff;
         border: none; padding: 18px 50px; border-radius: 50px; font-weight: 700;
         font-size: 1.2rem; cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,.3);
+        text-decoration: none; display: inline-block; text-align: center;
     }
     .pay-btn:hover { transform: scale(1.03); }
-
-    /* BIG POPUP OVERLAY */
-    .ps-overlay {
-        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.7); z-index: 9999;
-    }
-    .ps-box {
-        display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        width: 480px; min-height: 600px; max-height: 90vh; overflow-y: auto;
-        background: #fff; border-radius: 16px; z-index: 10000;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.5); padding: 0;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -121,56 +110,10 @@ if st.session_state.plan:
 
     st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
 
-    # ---------- THE ACTUAL FIX ----------
-    # Create a visible overlay + container in Streamlit, then Paystack opens INSIDE it.
-    st.markdown('<div class="ps-overlay" id="psOverlay"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="ps-box" id="psBox"></div>', unsafe_allow_html=True)
+    # PAYSTACK REDIRECT - opens full page, always works, always large
+    paystack_url = f"https://checkout.paystack.com/{PAYSTACK_PUBLIC}?email={user.email}&amount={p['kobo']}&currency=NGN&ref={ref}&label=GAIA%20{label.replace(' ', '%20')}&callback_url=https://gaiagpt.streamlit.app/~/callback?reference={ref}&plan={st.session_state.plan}"
 
-    components.html(f"""
-    <script src="https://js.paystack.co/v1/inline.js"></script>
-    <div style="text-align:center">
-        <button class="pay-btn" onclick="pay()">Pay {p['price']} Now</button>
-    </div>
-    <script>
-        function pay() {{
-            // Show our big overlay
-            var overlay = parent.document.getElementById('psOverlay');
-            var box = parent.document.getElementById('psBox');
-            overlay.style.display = 'block';
-            box.style.display = 'block';
-
-            var handler = PaystackPop.setup({{
-                key: '{PAYSTACK_PUBLIC}',
-                email: '{user.email}',
-                amount: {p['kobo']},
-                currency: 'NGN',
-                ref: '{ref}',
-                label: 'GAIA {label}',
-                onClose: function() {{
-                    overlay.style.display = 'none';
-                    box.style.display = 'none';
-                    window.location.reload();
-                }},
-                callback: function(r) {{
-                    window.location.href = '/~/callback?reference=' + r.reference + '&plan={st.session_state.plan}';
-                }}
-            }});
-            handler.openIframe();
-
-            // Move the Paystack iframe into our big box
-            setTimeout(function() {{
-                var iframe = document.querySelector('iframe[name="paystack-popup"]');
-                if (iframe) {{
-                    iframe.style.width = '100%';
-                    iframe.style.height = '100%';
-                    iframe.style.border = 'none';
-                    iframe.style.borderRadius = '16px';
-                    box.appendChild(iframe);
-                }}
-            }}, 500);
-        }}
-    </script>
-    """, height=100)
+    st.markdown(f'<a href="{paystack_url}" target="_blank"><div class="pay-btn">Pay {p["price"]} Now</div></a>', unsafe_allow_html=True)
 
 st.markdown("---")
 st.markdown("### Already Paid? Enter Your Reference")

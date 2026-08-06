@@ -99,6 +99,21 @@ st.markdown('''
         border: 2px solid #2e7d32; border-radius: 20px;
         padding: 1.5rem 2rem; text-align: center; margin: 1.8rem 0;
     }
+
+    /* Force Paystack iframe to fill the popup container */
+    iframe[name="paystack-popup"] {
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
+        border-radius: 28px !important;
+    }
+    .popup-container iframe {
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
+        border-radius: 28px !important;
+    }
+
 </style>
 ''', unsafe_allow_html=True)
 
@@ -151,10 +166,25 @@ if st.session_state.chosen_plan:
         }}
         .popup-container {{
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 680px; height: 680px; z-index: 9999; display: none;
+            width: 800px; height: 650px; max-width: 95vw; z-index: 9999; display: none;
             background: #fff; border-radius: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.3);
         }}
-    </style>
+    
+    /* Force Paystack iframe to fill the popup container */
+    iframe[name="paystack-popup"] {
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
+        border-radius: 28px !important;
+    }
+    .popup-container iframe {
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
+        border-radius: 28px !important;
+    }
+
+</style>
 </head>
 <body>
     <button class="pay-btn" onclick="openPaystackPopup()">💳 Pay {plan_data['price']} Now</button>

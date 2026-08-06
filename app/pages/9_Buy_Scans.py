@@ -1,4 +1,3 @@
-
 import streamlit as st
 from supabase import create_client, Client
 import uuid
@@ -48,7 +47,6 @@ PLANS = {
     "unlimited": {"scans": 9999, "price": "N20,000", "amount": 20000},
 }
 
-# Theme
 st.markdown("<style>.stApp{background:linear-gradient(135deg,#f5f7fa,#e8f5e9)}.title{font-size:2.5rem;font-weight:800;text-align:center;color:#2e7d32}.subtitle{text-align:center;color:#555;margin-bottom:2rem}.plan-card{background:#fff;border-radius:15px;padding:1.5rem;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,.05);margin:0.5rem}.plan-price{font-size:2rem;font-weight:900;color:#2e7d32}</style>", unsafe_allow_html=True)
 
 st.markdown('<div class="title">💳 Buy Scans</div>', unsafe_allow_html=True)
@@ -58,9 +56,12 @@ st.markdown('<div class="subtitle">Pay securely with Paystack — instant scans 
 user_data = supabase.table("user_scans").select("scans_remaining, plan").eq("user_id", user.id).execute()
 scans_left = user_data.data[0]["scans_remaining"] if (user_data.data and len(user_data.data) > 0) else 30
 current_plan = user_data.data[0]["plan"] if (user_data.data and len(user_data.data) > 0) else "free"
-
 st.sidebar.metric("Scans Remaining", scans_left)
 st.sidebar.caption(f"Plan: {current_plan}")
+
+# Get user phone
+profile = supabase.table("user_profiles").select("phone").eq("user_id", user.id).execute()
+user_phone = profile.data[0]["phone"] if (profile.data and len(profile.data) > 0) else ""
 
 # Handle Paystack callback
 query_params = st.query_params
@@ -111,10 +112,8 @@ for i, (plan_key, plan_data) in enumerate(PLANS.items()):
         </div>
         """, unsafe_allow_html=True)
         
-        # Generate unique reference
         ref = f"GAIA_SCAN_{user.id[:8]}_{plan_key}_{uuid.uuid4().hex[:6]}"
         
-        # Paystack inline popup
         paystack_html = f"""
         <script src="https://js.paystack.co/v1/inline.js"></script>
         <button onclick="payWithPaystack()" style="width:100%;padding:10px;background:#2e7d32;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:600;">
@@ -129,6 +128,9 @@ for i, (plan_key, plan_data) in enumerate(PLANS.items()):
                 ref: '{ref}',
                 currency: 'NGN',
                 label: 'GAIA {plan_key} Scans',
+                metadata: {{
+                    phone: '{user_phone}'
+                }},
                 onClose: function() {{ alert('Payment cancelled.'); }},
                 callback: function(response) {{
                     window.location.href = '?reference=' + response.reference + '&plan={plan_key}';

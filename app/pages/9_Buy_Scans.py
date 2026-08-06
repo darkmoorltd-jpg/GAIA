@@ -41,94 +41,80 @@ user_data = supabase.table("user_scans").select("scans_remaining, plan").eq("use
 scans_left = user_data.data[0]["scans_remaining"] if (user_data.data and len(user_data.data) > 0) else 30
 
 PLANS = {
-    "10": {"scans": 10, "price": "₦500", "amount": 50000},
-    "25": {"scans": 25, "price": "₦1,000", "amount": 100000},
-    "60": {"scans": 60, "price": "₦2,000", "amount": 200000},
-    "250": {"scans": 250, "price": "₦8,000", "amount": 800000},
-    "unlimited": {"scans": 9999, "price": "₦20,000", "amount": 2000000},
+    "10 Scans — ₦500": {"key": "10", "scans": 10, "amount": 50000},
+    "25 Scans — ₦1,000": {"key": "25", "scans": 25, "amount": 100000},
+    "60 Scans — ₦2,000": {"key": "60", "scans": 60, "amount": 200000},
+    "250 Scans — ₦8,000": {"key": "250", "scans": 250, "amount": 800000},
+    "Unlimited — ₦20,000": {"key": "unlimited", "scans": 9999, "amount": 2000000},
 }
-
-# Track which plan is selected
-if "pay_plan" not in st.session_state:
-    st.session_state.pay_plan = None
 
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(135deg, #f5f7fa, #e8f5e9); }
     .title { font-size: 2.5rem; font-weight: 800; text-align: center; color: #2e7d32; }
-    .plan-card {
-        background: #fff; border-radius: 15px; padding: 1.5rem;
-        text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,.05);
-        margin: 0.5rem;
-    }
-    .plan-price { font-size: 2rem; font-weight: 900; color: #2e7d32; }
-    .plan-scans { font-size: 1.2rem; color: #555; }
-    .pay-now-btn {
+    .popup-btn {
         background: linear-gradient(135deg, #2e7d32, #4caf50);
-        color: #fff; border: none; padding: 15px 25px;
-        border-radius: 30px; font-weight: 700; cursor: pointer;
-        width: 100%; margin-top: 0.5rem; font-size: 1rem;
+        color: #fff; border: none; padding: 20px 40px;
+        border-radius: 40px; font-weight: 800; cursor: pointer;
+        width: 100%; font-size: 1.3rem; margin-top: 1rem;
     }
     .selected-banner {
-        background: #fff3e0; border: 2px solid #ff9800; border-radius: 15px;
+        background: #e8f5e9; border: 2px solid #2e7d32; border-radius: 15px;
         padding: 1.5rem; text-align: center; margin: 1rem 0;
     }
+    .selected-banner h2 { color: #2e7d32; margin: 0; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="title">💳 Buy Scans</div>', unsafe_allow_html=True)
 st.metric("Scans Remaining", scans_left)
 
-# ---- PLAN CARDS ----
+# ---- STEP 1: Select Plan (Radio Buttons) ----
 st.markdown("---")
-st.subheader("🔵 Step 1: Choose Your Plan")
+st.subheader("Step 1: Select a Plan")
 
-cols = st.columns(len(PLANS))
-for i, (plan_key, plan_data) in enumerate(PLANS.items()):
-    with cols[i]:
-        st.markdown(f"""
-        <div class="plan-card">
-            <div class="plan-scans">{plan_data['scans'] if plan_key != 'unlimited' else '♾️'} scans</div>
-            <div class="plan-price">{plan_data['price']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button(f"Select {plan_data['scans']} scans", key=f"select_{plan_key}", use_container_width=True):
-            st.session_state.pay_plan = plan_key
-            st.rerun()
+plan_choice = st.radio(
+    "Choose your plan",
+    list(PLANS.keys()),
+    index=None,
+    format_func=lambda x: f"{x}",
+    key="plan_radio"
+)
 
-# ---- PAY NOW BUTTON (appears after selection) ----
-if st.session_state.pay_plan:
-    plan_key = st.session_state.pay_plan
-    plan_data = PLANS[plan_key]
+# ---- STEP 2: Pay Button (only shows after selection) ----
+if plan_choice:
+    plan_data = PLANS[plan_choice]
+    plan_key = plan_data["key"]
     ref = f"GAIA_{user.id[:8]}_{plan_key}_{uuid.uuid4().hex[:6]}"
     
     st.markdown(f"""
     <div class="selected-banner">
-        <h3 style="color:#e65100;">🛒 Ready to pay: {plan_data['scans']} scans — {plan_data['price']}</h3>
-        <p style="color:#555;">Click the green button below to open the Paystack popup</p>
+        <h2>🛒 {plan_choice}</h2>
+        <p style="font-size:1.1rem;margin-top:0.5rem;">Click the button below to pay securely with Paystack</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Single clean Paystack popup
+    # BIG popup — 500px height gives Paystack room to display properly
     paystack_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://js.paystack.co/v1/inline.js"></script>
         <style>
-            body {{ margin: 0; padding: 0; display: flex; justify-content: center; }}
-            .big-btn {{
+            body {{ margin:0; padding:20px; background: transparent; display:flex; justify-content:center; align-items:center; min-height:400px; }}
+            button {{
                 background: linear-gradient(135deg, #2e7d32, #4caf50);
-                color: #fff; border: none; padding: 20px 40px;
-                border-radius: 40px; font-weight: 700; cursor: pointer;
-                font-size: 1.2rem; width: 300px; margin: 10px 0;
+                color: #fff; border: none; padding: 25px 50px;
+                border-radius: 50px; font-weight: 800; cursor: pointer;
+                font-size: 1.4rem; width: 100%; max-width: 500px;
+                box-shadow: 0 10px 30px rgba(46,125,50,.3);
+                transition: all 0.3s ease;
             }}
-            .big-btn:hover {{ box-shadow: 0 0 25px rgba(46,125,50,.5); }}
+            button:hover {{ transform: scale(1.03); box-shadow: 0 15px 40px rgba(46,125,50,.4); }}
         </style>
     </head>
     <body>
-        <button onclick="payWithPaystack()" class="big-btn">💳 Pay {plan_data['price']} Now</button>
+        <button onclick="payWithPaystack()">🔒 Pay Securely with Paystack</button>
         <script>
             function payWithPaystack() {{
                 var handler = PaystackPop.setup({{
@@ -149,19 +135,15 @@ if st.session_state.pay_plan:
     </body>
     </html>
     """
-    components.html(paystack_html, height=90)
-    
-    if st.button("↩️ Cancel & Choose Different Plan"):
-        st.session_state.pay_plan = None
-        st.rerun()
+    components.html(paystack_html, height=500)
 
-# ---- MANUAL REFERENCE ----
+# ---- STEP 3: Manual Reference Verification ----
 st.markdown("---")
-st.subheader("✅ Already Paid? Enter Your Paystack Reference")
+st.subheader("✅ Already Paid? Verify Your Payment")
 
 col1, col2 = st.columns([3, 1])
 with col1:
-    manual_ref = st.text_input("Paste your Paystack reference number", placeholder="e.g., GAIA_12345_10_a1b2c3")
+    manual_ref = st.text_input("Paste your Paystack reference number", placeholder="e.g., GAIA_12345_10_a1b2c3", key="manual_ref")
 with col2:
     st.write("")
     st.write("")
@@ -175,23 +157,26 @@ with col2:
                 else:
                     amount_paid = result["amount"]
                     plan_match = None
-                    for pk, pd in PLANS.items():
+                    for name, pd in PLANS.items():
                         if abs(pd["amount"] / 100 - amount_paid) < 1:
-                            plan_match = pk
+                            plan_match = pd["key"]
                             break
+                    
                     if plan_match:
-                        scans_to_add = PLANS[plan_match]["scans"]
+                        scans_to_add = next(p["scans"] for p in PLANS.values() if p["key"] == plan_match)
                         current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
                         current_scans = current.data[0]["scans_remaining"] if (current.data and len(current.data) > 0) else 0
                         new_total = current_scans + scans_to_add
+                        
                         supabase.table("user_scans").update({"scans_remaining": new_total, "plan": plan_match}).eq("user_id", user.id).execute()
                         supabase.table("payment_history").insert({"user_id": user.id, "amount": amount_paid, "scans_added": scans_to_add, "plan": plan_match, "reference": manual_ref}).execute()
+                        
                         st.success(f"✅ {scans_to_add} scans added! New balance: {new_total}")
                         st.rerun()
                     else:
                         st.error(f"Amount (₦{amount_paid:,.2f}) doesn't match any plan.")
             else:
-                st.error("❌ Payment not found.")
+                st.error("❌ Payment not found. Check your reference and try again.")
 
 st.markdown("---")
 st.caption("Powered by Darkmoor Ltd | Payments by Paystack")

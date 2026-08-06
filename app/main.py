@@ -217,7 +217,7 @@ if st.session_state.user is None:
 # ----- Login page -----
 if st.session_state.user is None:
     st.title("🌱 GAIA – Sign In / Create Account")
-    tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Sign Up", "🅶 Google"])
+    tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
 
     with tab1:
         with st.form("login_form"):
@@ -312,10 +312,6 @@ if st.session_state.user is None:
                         st.success("Account created! You are logged in with 30 free scans.")
                         st.rerun()
 
-    with tab3:
-        st.write("Sign in instantly with your Google account.")
-        google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app"
-        st.markdown(f'<a href="{google_auth_url}" target="_self"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;cursor:pointer;">Sign in with Google</button></a>', unsafe_allow_html=True)
 
     st.stop()
 

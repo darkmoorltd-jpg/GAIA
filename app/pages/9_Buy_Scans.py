@@ -105,7 +105,7 @@ st.markdown('''
     }
     .popup-container {
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        width: 680px; height: 750px; z-index: 9999; display: none;
+        width: 800px; height: 850px; z-index: 9999; display: none;
         background: #fff; border-radius: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.3);
     }
 </style>
@@ -149,9 +149,10 @@ if st.session_state.chosen_plan:
         body {{ margin:0; padding:0; }}
         .pay-btn {{
             background: linear-gradient(135deg, #2e7d32, #43a047);
-            color: #fff; border: none; padding: 18px 50px;
-            border-radius: 50px; font-weight: 700; font-size: 1.2rem;
+            color: #fff; border: none; padding: 20px 60px;
+            border-radius: 50px; font-weight: 700; font-size: 1.3rem;
             cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,0.3);
+            transition: all 0.25s ease;
         }}
         .pay-btn:hover {{ transform: scale(1.03); }}
     </style>
@@ -188,21 +189,21 @@ if st.session_state.chosen_plan:
             setTimeout(function() {{
                 var iframe = document.querySelector('iframe[name="paystack-popup"]');
                 if (iframe) {{
-                    iframe.style.width = '680px';
-                    iframe.style.height = '750px';
+                    iframe.style.width = '800px';
+                    iframe.style.height = '850px';
                     iframe.style.border = 'none';
                     iframe.style.borderRadius = '28px';
                     iframe.style.boxShadow = '0 30px 60px rgba(0,0,0,0.4)';
                     container.appendChild(iframe);
-                    container.style.width = '680px';
-                    container.style.height = '750px';
+                    container.style.width = '800px';
+                    container.style.height = '850px';
                 }}
             }}, 800);
         }}
     </script>
 </body>
 </html>'''
-    components.html(paystack_html, height=120)
+    components.html(paystack_html, height=0)
 
 st.markdown("---")
 st.markdown("### ✅ Already Paid? Enter Your Reference")

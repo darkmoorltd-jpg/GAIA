@@ -333,8 +333,9 @@ if files:
     model = None
     try:
         from app.utils.model_loader import create_model_from_checkpoint
-        cp = "checkpoints/pests_102class/best_model.pt"
-        if os.path.exists(cp): model = create_model_from_checkpoint(cp, N)
+        from app.utils.download_models import ensure_model
+        cp = ensure_model("pests_102class")
+        if cp and os.path.exists(cp): model = create_model_from_checkpoint(cp, N)
     except Exception as e: st.warning(f"Real model unavailable, using demo. ({e})")
 
     predictions = []

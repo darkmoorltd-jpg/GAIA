@@ -265,7 +265,7 @@ if st.session_state.user is None:
                         if err:
                             st.error(err)
                         else:
-                            st.success("A 6‑digit code has been sent to your email.")
+                            st.success("A 8‑digit code has been sent to your email.")
                             st.session_state.show_reset_form = True
                             st.rerun()
                     else:
@@ -348,7 +348,7 @@ if st.session_state.user is None:
         st.markdown("---")
         st.subheader("🔑 Reset Your Password")
         with st.form("reset_code_form"):
-            reset_code = st.text_input("Enter 6‑digit code from email", max_chars=6, placeholder="123456")
+            reset_code = st.text_input("Enter 8‑digit code from email", max_chars=8, placeholder="12345678")
             new_pass = st.text_input("New password (min 6 characters)", type="password")
             confirm_pass = st.text_input("Confirm new password", type="password")
             if st.form_submit_button("Reset Password"):
@@ -415,38 +415,7 @@ if scans_left <= 0:
         with cols[i]:
             st.markdown(f"**{scans_text}**")
             st.markdown(f'<a href="https://paystack.shop/pay/{plan_key}" target="_blank"><button style="width:100%;padding:10px;background:#0d6efd;color:white;border:none;border-radius:5px;">Select</button></a>', unsafe_allow_html=True)
-    # Password reset form (appears after user clicks "Forgot Password")
-    if st.session_state.get("show_reset_form"):
-        st.markdown("---")
-        st.subheader("🔑 Reset Your Password")
-        with st.form("reset_code_form"):
-            reset_code = st.text_input("Enter 6‑digit code from email", max_chars=6, placeholder="123456")
-            new_pass = st.text_input("New password (min 6 characters)", type="password")
-            confirm_pass = st.text_input("Confirm new password", type="password")
-            if st.form_submit_button("Reset Password"):
-                if not reset_code or len(reset_code) < 8:
-                    st.error("Please enter the 8‑digit code from your email.")
-                elif len(new_pass) < 6:
-                    st.error("Password must be at least 6 characters.")
-                elif new_pass != confirm_pass:
-                    st.error("Passwords do not match.")
-                else:
-                    email = st.session_state.get("reset_email", "")
-                    success, err = verify_reset_code(email, reset_code, new_pass)
-                    if success:
-                        st.success("Password reset successfully! You can now log in with your new password.")
-                        st.session_state.show_reset_form = False
-                        st.session_state.reset_email = ""
-                        st.rerun()
-                    else:
-                        st.error(f"Failed: {err}")
-        
-        if st.button("Cancel"):
-            st.session_state.show_reset_form = False
-            st.session_state.reset_email = ""
-            st.rerun()
-
-    st.stop()
+    # 
 
 if st.sidebar.button("Logout"):
     sign_out()

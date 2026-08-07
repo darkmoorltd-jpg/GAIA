@@ -1,11 +1,13 @@
 import os, requests, streamlit as st
 
-# Hugging Face model URLs (free, fast, no limits)
+# GitHub Releases — your actual filenames
+BASE = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0"
+
 MODEL_LINKS = {
-    "poultry": "https://huggingface.co/tjgguy12/gaia-poultry/resolve/main/best_model.pt",
-    "cattle":  "https://huggingface.co/tjgguy12/gaia-cattle/resolve/main/best_model.pt",
-    "pests_102class": "https://huggingface.co/tjgguy12/gaia-pests-102class/resolve/main/best_model.pt",
-    "soil_11class": "https://huggingface.co/tjgguy12/gaia-soil-11class/resolve/main/best_model.pt",
+    "poultry": f"{BASE}/poultry_best_model.pt",
+    "cattle":  f"{BASE}/cattle_best_model.pt",
+    "pests_102class": f"{BASE}/pests_102class_best_model.pt",
+    "soil_11class": f"{BASE}/soil_11class_best_model.pt",
 }
 
 def ensure_model(model_key):

@@ -1,1 +1,2 @@
 *.pt filter=lfs diff=lfs merge=lfs -text
+checkpoints/soil_11class/best_model.pt filter=lfs diff=lfs merge=lfs -text

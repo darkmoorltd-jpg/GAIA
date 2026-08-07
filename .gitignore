@@ -1,5 +1,4 @@
 *.pt
-checkpoints/
 __pycache__/
 *.pyc
 venv/

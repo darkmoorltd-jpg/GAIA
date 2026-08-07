@@ -37,8 +37,10 @@ def deduct_one_scan():
 
 @st.cache_resource
 def load_animal_model(animal):
-    checkpoint = f"checkpoints/{animal}/best_model.pt"
-    if not os.path.exists(checkpoint): return None, None
+    from app.utils.download_models import ensure_model
+    checkpoint = ensure_model(animal)
+    if not checkpoint or not os.path.exists(checkpoint):
+        return None, None
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
     embed_dim = state[f"{prefix}cls_token"].shape[-1]

@@ -123,7 +123,11 @@ files = st.file_uploader("📤 Upload 2–3 soil photos", type=["jpg","jpeg","pn
 if files:
     model, img_size = load_soil_model()
     if model is None:
-        st.error("🚫 Soil model not found. Please contact support.")
+        st.error("🚫 Soil model could not be loaded.")
+        st.info("🔄 Try refreshing the page. The model may need to download first (one‑time, ~87 MB).")
+        if st.button("🔄 Retry Download"):
+            st.cache_resource.clear()
+            st.rerun()
         st.stop()
 
     all_predictions = []

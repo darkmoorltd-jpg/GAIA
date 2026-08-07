@@ -17,25 +17,34 @@ def ensure_model(model_key):
     if not os.path.exists(checkpoint_path):
         url = MODEL_LINKS.get(model_key)
         if not url:
+            st.warning(f"No download URL for {model_key}")
             return None
         
         os.makedirs(checkpoint_dir, exist_ok=True)
         
         with st.spinner(f"Downloading {model_key} model (one‑time) …"):
             try:
-                r = requests.get(url, stream=True, timeout=120)
+                r = requests.get(url, stream=True, timeout=300, allow_redirects=True)
                 r.raise_for_status()
+                
+                total_size = 0
                 with open(checkpoint_path, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=8192):
+                    for chunk in r.iter_content(chunk_size=32768):
                         if chunk:
                             f.write(chunk)
+                            total_size += len(chunk)
                 
-                size = os.path.getsize(checkpoint_path)
-                if size < 1000:
+                size_mb = total_size / (1024*1024)
+                if total_size < 1000:
                     os.remove(checkpoint_path)
-                    raise ValueError(f"Downloaded file too small ({size} bytes)")
+                    st.error(f"Downloaded file too small ({total_size} bytes). Expected several MB.")
+                    return None
+                
+                st.success(f"Model downloaded: {size_mb:.1f} MB")
             except Exception as e:
-                st.error(f"Download failed for {model_key}: {e}")
+                st.error(f"Download failed for {model_key}: {str(e)[:200]}")
+                if os.path.exists(checkpoint_path):
+                    os.remove(checkpoint_path)
                 return None
     
     return checkpoint_path

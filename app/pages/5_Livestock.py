@@ -39,7 +39,7 @@ def load_animal_model(animal):
     from app.utils.download_models import ensure_model
     
     # Force delete old file to ensure fresh download
-    cp_path = os.path.join("checkpoints", animal, "model_v2.pt")
+    cp_path = os.path.join("checkpoints", animal, "model.pt")
     if os.path.exists(cp_path):
         os.remove(cp_path)
     

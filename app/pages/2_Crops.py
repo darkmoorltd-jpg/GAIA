@@ -19,12 +19,12 @@ CROP_CLASSES = {
 }
 
 CHECKPOINT_MAP = {
-    "millet": "checkpoints/millet_3class/best_model.pt",
-    "maize": "checkpoints/maize/best_model.pt",
-    "rice": "checkpoints/rice_11class/best_model.pt",
-    "soybean": "checkpoints/soybean_14class/best_model.pt",
-    "pepper": "checkpoints/pepper_13class/best_model.pt",
-    "cabbage": "checkpoints/cabbage_8class/best_model.pt",
+    "millet": os.path.join("models", "millet_3class", "model.pt"),
+    "maize": os.path.join("models", "maize", "model.pt"),
+    "rice": os.path.join("models", "rice_11class", "model.pt"),
+    "soybean": os.path.join("models", "soybean_14class", "model.pt"),
+    "pepper": os.path.join("models", "pepper_13class", "model.pt"),
+    "cabbage": os.path.join("models", "cabbage_8class", "model.pt"),
 }
 
 if "selected_crop" not in st.session_state:

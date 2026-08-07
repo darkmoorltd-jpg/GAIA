@@ -11,7 +11,7 @@ MODEL_LINKS = {
 }
 
 def ensure_model(model_key):
-    checkpoint_dir = f"checkpoints/{model_key}"
+    checkpoint_dir = f"models/{model_key}"
     checkpoint_path = os.path.join(checkpoint_dir, "best_model.pt")
     
     # Check if file exists AND is valid (not corrupted/empty)

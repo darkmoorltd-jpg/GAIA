@@ -38,6 +38,12 @@ def deduct_one_scan():
 @st.cache_resource
 def load_animal_model(animal):
     from app.utils.download_models import ensure_model
+    
+    # Delete corrupted file if it exists
+    cp_path = os.path.join("checkpoints", animal, "best_model.pt")
+    if os.path.exists(cp_path) and os.path.getsize(cp_path) < 1000000:
+        os.remove(cp_path)
+    
     checkpoint = ensure_model(animal)
     if not checkpoint or not os.path.exists(checkpoint):
         return None, None

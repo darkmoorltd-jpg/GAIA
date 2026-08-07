@@ -334,6 +334,12 @@ if files:
     try:
         from app.utils.model_loader import create_model_from_checkpoint
         from app.utils.download_models import ensure_model
+        
+        # Delete corrupted file if it exists
+        cp_path = os.path.join("checkpoints", "pests_102class", "best_model.pt")
+        if os.path.exists(cp_path) and os.path.getsize(cp_path) < 1000000:
+            os.remove(cp_path)
+        
         cp = ensure_model("pests_102class")
         if cp and os.path.exists(cp): model = create_model_from_checkpoint(cp, N)
     except Exception as e: st.warning(f"Real model unavailable, using demo. ({e})")

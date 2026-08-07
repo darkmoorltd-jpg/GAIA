@@ -11,22 +11,22 @@ MODEL_LINKS = {
 def ensure_model(model_key):
     """Download the model file if it is not already present."""
     import subprocess, sys
-    
+
     checkpoint_dir = f"checkpoints/{model_key}"
     checkpoint_path = os.path.join(checkpoint_dir, "best_model.pt")
-    
+
     if os.path.exists(checkpoint_path):
         size = os.path.getsize(checkpoint_path)
         if size > 1000000:
             return checkpoint_path
         os.remove(checkpoint_path)
-    
+
     url = MODEL_LINKS.get(model_key)
     if not url:
         return None
-    
+
     os.makedirs(checkpoint_dir, exist_ok=True)
-    
+
     with st.spinner(f"Downloading {model_key} model..."):
         try:
             # Use wget via subprocess - most reliable on Linux
@@ -34,7 +34,7 @@ def ensure_model(model_key):
                 ["wget", "-q", "-O", checkpoint_path, url],
                 capture_output=True, text=True, timeout=300
             )
-            
+
             if os.path.exists(checkpoint_path):
                 size = os.path.getsize(checkpoint_path)
                 if size > 1000000:

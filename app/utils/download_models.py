@@ -14,7 +14,15 @@ def ensure_model(model_key):
     checkpoint_dir = f"checkpoints/{model_key}"
     checkpoint_path = os.path.join(checkpoint_dir, "best_model.pt")
     
-    if not os.path.exists(checkpoint_path):
+    # Check if file exists AND is valid (not corrupted/empty)
+    file_exists = os.path.exists(checkpoint_path)
+    file_valid = file_exists and os.path.getsize(checkpoint_path) > 10000  # > 10KB
+    
+    if not file_valid:
+        # Delete corrupted file if it exists
+        if file_exists:
+            os.remove(checkpoint_path)
+        
         url = MODEL_LINKS.get(model_key)
         if not url:
             st.warning(f"No download URL for {model_key}")
@@ -35,14 +43,14 @@ def ensure_model(model_key):
                             total_size += len(chunk)
                 
                 size_mb = total_size / (1024*1024)
-                if total_size < 1000:
+                if total_size < 10000:
                     os.remove(checkpoint_path)
-                    st.error(f"Downloaded file too small ({total_size} bytes). Expected several MB.")
+                    st.error(f"Download failed — file too small ({total_size} bytes).")
                     return None
                 
-                st.success(f"Model downloaded: {size_mb:.1f} MB")
+                st.success(f"Model ready: {size_mb:.1f} MB")
             except Exception as e:
-                st.error(f"Download failed for {model_key}: {str(e)[:200]}")
+                st.error(f"Download failed: {str(e)[:200]}")
                 if os.path.exists(checkpoint_path):
                     os.remove(checkpoint_path)
                 return None

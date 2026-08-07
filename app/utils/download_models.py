@@ -19,6 +19,12 @@ def ensure_model(model_key):
     checkpoint_dir = f"checkpoints/{model_key}"
     checkpoint_path = os.path.join(checkpoint_dir, "best_model.pt")
     
+    # If file exists but is too small, delete it (corrupted download)
+    if os.path.exists(checkpoint_path):
+        size = os.path.getsize(checkpoint_path)
+        if size < 100000:  # Less than 100KB = corrupted
+            os.remove(checkpoint_path)
+    
     if not os.path.exists(checkpoint_path):
         url = MODEL_PATHS.get(model_key)
         if not url:
@@ -28,22 +34,16 @@ def ensure_model(model_key):
             try:
                 r = requests.get(url, stream=True, timeout=600)
                 if r.status_code == 200:
-                    total_size = int(r.headers.get('content-length', 0))
-                    downloaded = 0
                     with open(checkpoint_path, "wb") as f:
                         for chunk in r.iter_content(chunk_size=65536):
                             if chunk:
                                 f.write(chunk)
-                                downloaded += len(chunk)
                     
-                    # Validate the file is big enough (at least 500KB)
                     actual_size = os.path.getsize(checkpoint_path)
                     if actual_size < 500000:
                         os.remove(checkpoint_path)
-                        st.error(f"Download failed: file too small ({actual_size} bytes)")
+                        st.error(f"Download failed: file too small ({actual_size} bytes). Retrying...")
                         return None
-                    
-                    st.success(f"Model downloaded ({actual_size/1024/1024:.0f} MB)")
                 else:
                     st.error(f"Download failed: HTTP {r.status_code}")
                     return None

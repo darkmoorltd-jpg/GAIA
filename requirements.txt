@@ -18,4 +18,3 @@ folium
 streamlit-folium
 geopy
 reportlab
-gdown

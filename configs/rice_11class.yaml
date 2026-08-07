@@ -1,5 +1,0 @@
-crop: "rice"
-num_classes: 11
-class_names: ["Bacterial Leaf Blight", "Brown Spot", "Healthy Rice Leaf", "Hispa", "Leaf Blast", "Leaf scald", "Leaf smut", "Narrow Brown Spot", "Neck Blast", "Sheath Blight", "Tungro"]
-model_type: "vit_tiny"
-in_channels: 3

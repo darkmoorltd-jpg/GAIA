@@ -68,52 +68,72 @@ def apply_location_prior(probs, state):
 
 @st.cache_resource(ttl=3600)
 def load_soil_model_v2():
+    # FIRST: Check for local file (committed via Git)
+    checkpoint = "checkpoints/soil_11class/best_model.pt"
+    
+    # SECOND: If local file exists and is valid, use it
+    if os.path.exists(checkpoint):
+        size = os.path.getsize(checkpoint)
+        if size > 1000000:  # > 1MB
+            with open(checkpoint, "rb") as f:
+                header = f.read(10)
+            if header[:1] != b'<':  # Not HTML
+                state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+                return load_model_state(state)
+    
+    # THIRD: Try downloading as backup
     from app.utils.download_models import ensure_model
-    
-    # Force delete any corrupted cached file
-    import glob
-    for bad_file in glob.glob("checkpoints/soil_11class/*"):
-        try:
-            os.remove(bad_file)
-        except:
-            pass
-    
     checkpoint = ensure_model("soil_11class")
     if not checkpoint or not os.path.exists(checkpoint):
-        st.warning("Soil model download failed. Check your internet connection.")
+        st.warning("Soil model not available.")
         return None, None
     
-    # Verify the file is valid before loading
     with open(checkpoint, "rb") as f:
         header = f.read(10)
     if header[:1] == b'<':
         os.remove(checkpoint)
-        st.error("Downloaded file was HTML. Retrying...")
-        st.cache_resource.clear()
-        st.rerun()
+        st.error("Model file corrupted.")
+        return None, None
     
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    return load_model_state(state)
+
+def load_model_state(state):
+    """Build model from state dict (shared code)."""
     prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
     embed_dim = state[f"{prefix}cls_token"].shape[-1]
-    pos = state[f"{prefix}pos_embed"]; num_patches = pos.shape[1]-1; grid = int(num_patches**0.5); img_size = grid*16
+    pos = state[f"{prefix}pos_embed"]
+    num_patches = pos.shape[1]-1
+    grid = int(num_patches**0.5)
+    img_size = grid*16
     depth = len([k for k in state if k.startswith(f"{prefix}blocks") and k.endswith(".norm1.weight")])
+    
     backbone = VisionTransformer(img_size=img_size, patch_size=16, embed_dim=embed_dim, depth=depth, num_heads=6, num_classes=0, global_pool='token')
     backbone.load_state_dict({k.replace(prefix,""):v for k,v in state.items() if k.startswith(prefix)}, strict=False)
+    
     head_keys = [k for k in state if k.startswith("head.")]
     w_keys = sorted([k for k in head_keys if k.endswith(".weight")], key=lambda x: int(x.split('.')[1]))
-    layers = []; in_feat = embed_dim
+    layers = []
+    in_feat = embed_dim
     for wk in w_keys:
-        w = state[wk]; out_feat = w.shape[0]
+        w = state[wk]
+        out_feat = w.shape[0]
         layers.append(nn.Linear(in_feat, out_feat))
-        if wk != w_keys[-1]: layers.extend([nn.GELU(), nn.Dropout(0.2)])
+        if wk != w_keys[-1]:
+            layers.extend([nn.GELU(), nn.Dropout(0.2)])
         in_feat = out_feat
     head = nn.Sequential(*layers)
     head.load_state_dict({k.replace("head.",""):v for k,v in state.items() if k.startswith("head.")}, strict=False)
+    
     class SoilViT(torch.nn.Module):
         def __init__(self,b,h): super().__init__(); self.backbone=b; self.head=h
         def forward(self,x): return self.head(self.backbone(x))
-    model = SoilViT(backbone, head); model.eval()
+    
+    model = SoilViT(backbone, head)
+    model.eval()
     return model, img_size
+
+
 
 def deduct_one_scan():
     if "user" not in st.session_state or st.session_state.user is None: return

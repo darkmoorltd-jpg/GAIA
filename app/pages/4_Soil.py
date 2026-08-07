@@ -68,8 +68,10 @@ def apply_location_prior(probs, state):
 
 @st.cache_resource
 def load_soil_model():
-    checkpoint = "checkpoints/soil_11class/best_model.pt"
-    if not os.path.exists(checkpoint):
+    from app.utils.download_models import ensure_model
+    checkpoint = ensure_model("soil_11class")
+    if not checkpoint or not os.path.exists(checkpoint):
+        st.warning("Soil model download failed. Check your internet connection.")
         return None, None
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."

@@ -66,13 +66,32 @@ def apply_location_prior(probs, state):
             probs[SOIL_NAMES.index(soil_name)] *= (0.5 + prior)
     return probs / probs.sum()
 
-@st.cache_resource
-def load_soil_model():
+@st.cache_resource(ttl=3600)
+def load_soil_model_v2():
     from app.utils.download_models import ensure_model
+    
+    # Force delete any corrupted cached file
+    import glob
+    for bad_file in glob.glob("checkpoints/soil_11class/*"):
+        try:
+            os.remove(bad_file)
+        except:
+            pass
+    
     checkpoint = ensure_model("soil_11class")
     if not checkpoint or not os.path.exists(checkpoint):
         st.warning("Soil model download failed. Check your internet connection.")
         return None, None
+    
+    # Verify the file is valid before loading
+    with open(checkpoint, "rb") as f:
+        header = f.read(10)
+    if header[:1] == b'<':
+        os.remove(checkpoint)
+        st.error("Downloaded file was HTML. Retrying...")
+        st.cache_resource.clear()
+        st.rerun()
+    
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
     embed_dim = state[f"{prefix}cls_token"].shape[-1]
@@ -123,7 +142,7 @@ state = st.selectbox("📍 Your State (optional)", ["None"] + NIGERIAN_STATES)
 files = st.file_uploader("📤 Upload 2–3 soil photos", type=["jpg","jpeg","png"], accept_multiple_files=True)
 
 if files:
-    model, img_size = load_soil_model()
+    model, img_size = load_soil_model_v2()
     if model is None:
         st.error("🚫 Soil model could not be loaded.")
         st.info("🔄 Try refreshing the page. The model may need to download first (one‑time, ~87 MB).")

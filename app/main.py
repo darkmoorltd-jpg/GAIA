@@ -352,8 +352,8 @@ if st.session_state.user is None:
             new_pass = st.text_input("New password (min 6 characters)", type="password")
             confirm_pass = st.text_input("Confirm new password", type="password")
             if st.form_submit_button("Reset Password"):
-                if not reset_code or len(reset_code) < 6:
-                    st.error("Please enter the 6‑digit code from your email.")
+                if not reset_code or len(reset_code) < 8:
+                    st.error("Please enter the 8‑digit code from your email.")
                 elif len(new_pass) < 6:
                     st.error("Password must be at least 6 characters.")
                 elif new_pass != confirm_pass:
@@ -424,8 +424,8 @@ if scans_left <= 0:
             new_pass = st.text_input("New password (min 6 characters)", type="password")
             confirm_pass = st.text_input("Confirm new password", type="password")
             if st.form_submit_button("Reset Password"):
-                if not reset_code or len(reset_code) < 6:
-                    st.error("Please enter the 6‑digit code from your email.")
+                if not reset_code or len(reset_code) < 8:
+                    st.error("Please enter the 8‑digit code from your email.")
                 elif len(new_pass) < 6:
                     st.error("Password must be at least 6 characters.")
                 elif new_pass != confirm_pass:

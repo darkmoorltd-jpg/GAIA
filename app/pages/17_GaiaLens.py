@@ -3,11 +3,39 @@ import streamlit as st
 from PIL import Image, ImageDraw
 import numpy as np
 import onnxruntime as ort
-import os
+import os, requests
 
 st.set_page_config(page_title="GAIA – GaiaLens™", page_icon="🔍", layout="wide")
 
-# ── YOLO via ONNX Runtime (no OpenCV) ──
+# ── INLINE DOWNLOAD FUNCTION ──
+BASE = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v2.0-gaialens"
+GAIA_LENS_MODELS = {
+    "gaia_crop.onnx": f"{BASE}/gaia_crop.onnx",
+    "gaia_crop.onnx.data": f"{BASE}/gaia_crop.onnx.data",
+    "gaia_pest.onnx": f"{BASE}/gaia_pest.onnx",
+    "gaia_pest.onnx.data": f"{BASE}/gaia_pest.onnx.data",
+    "gaia_soil.onnx": f"{BASE}/gaia_soil.onnx",
+    "gaia_soil.onnx.data": f"{BASE}/gaia_soil.onnx.data",
+    "gaia_livestock.onnx": f"{BASE}/gaia_livestock.onnx",
+    "gaia_livestock.onnx.data": f"{BASE}/gaia_livestock.onnx.data",
+    "yolov8_detector.onnx": f"{BASE}/yolov8_detector.onnx",
+}
+
+def ensure_onnx(filename):
+    os.makedirs("onnx", exist_ok=True)
+    dest = os.path.join("onnx", filename)
+    if not os.path.exists(dest) or os.path.getsize(dest) < 1000:
+        url = GAIA_LENS_MODELS.get(filename)
+        if url:
+            with st.spinner(f"⬇️ Downloading {filename}..."):
+                r = requests.get(url, stream=True, timeout=300)
+                if r.status_code == 200:
+                    with open(dest, "wb") as f:
+                        for chunk in r.iter_content(32768):
+                            f.write(chunk)
+    return dest
+
+# ── YOLO via ONNX Runtime ──
 class YOLO_ONNX:
     def __init__(self, onnx_path):
         self.session = ort.InferenceSession(onnx_path)
@@ -16,14 +44,13 @@ class YOLO_ONNX:
     def preprocess(self, pil_image):
         img = pil_image.resize((320, 320))
         img_np = np.array(img).astype(np.float32) / 255.0
-        img_np = img_np.transpose(2, 0, 1)  # HWC → CHW
+        img_np = img_np.transpose(2, 0, 1)
         return np.expand_dims(img_np, axis=0).astype(np.float32)
     
     def detect(self, pil_image):
         inp = self.preprocess(pil_image)
         outputs = self.session.run(None, {self.input_name: inp})[0]
-        outputs = np.squeeze(outputs).transpose()  # [2100, 84]
-        
+        outputs = np.squeeze(outputs).transpose()
         img_w, img_h = pil_image.size
         boxes = []
         for row in outputs:
@@ -31,13 +58,11 @@ class YOLO_ONNX:
             scores = row[4:]
             max_score = np.max(scores)
             max_class = np.argmax(scores)
-            
             if max_score > 0.25:
                 x1 = int((cx - w/2) * img_w)
                 y1 = int((cy - h/2) * img_h)
                 x2 = int((cx + w/2) * img_w)
                 y2 = int((cy + h/2) * img_h)
-                
                 boxes.append({
                     "class": int(max_class),
                     "confidence": float(max_score),
@@ -45,15 +70,11 @@ class YOLO_ONNX:
                 })
         return boxes
 
-# ── PIL‑based image resize (replaces cv2.resize) ──
+# ── Preprocessing ──
 def pil_resize(img_np, size):
-    """Resize a numpy image array using PIL."""
-    pil_img = Image.fromarray(img_np)
-    pil_img = pil_img.resize((size, size), Image.BILINEAR)
-    return np.array(pil_img)
+    return np.array(Image.fromarray(img_np).resize((size, size), Image.BILINEAR))
 
 def preprocess_gaia(img_np, size):
-    """Preprocess for GAIA classifier (no OpenCV)."""
     img = pil_resize(img_np, size).astype(np.float32) / 255.0
     img = (img - np.array([0.485, 0.456, 0.406])) / np.array([0.229, 0.224, 0.225])
     img = img.transpose(2, 0, 1)
@@ -62,12 +83,8 @@ def preprocess_gaia(img_np, size):
 # ── Load models ──
 @st.cache_resource
 def load_gaialens_models():
-    from app.utils.download_models import ensure_gaialens_model
-    
-    for f in ["gaia_crop.onnx","gaia_crop.onnx.data","gaia_pest.onnx","gaia_pest.onnx.data",
-              "gaia_soil.onnx","gaia_soil.onnx.data","gaia_livestock.onnx","gaia_livestock.onnx.data",
-              "yolov8_detector.onnx"]:
-        ensure_gaialens_model(f)
+    for f in GAIA_LENS_MODELS:
+        ensure_onnx(f)
     
     models = {}
     class_names = {
@@ -112,7 +129,7 @@ def classify_region(img_np, model_type, models, class_names, input_sizes):
 
 # ── UI ──
 st.title("🔍 GaiaLens™ — AR Crop Disease Scanner")
-st.markdown("Point your camera at a field. Watch diseases light up in real‑time.")
+st.markdown("Upload a farm photo to see AI‑powered disease detection with bounding boxes.")
 
 uploaded_file = st.file_uploader("📤 Upload a farm photo", type=["jpg","jpeg","png"])
 
@@ -123,7 +140,7 @@ if uploaded_file:
     img_np = np.array(image)
     
     if yolo is None:
-        st.error("YOLO model not available. Please try again later.")
+        st.error("YOLO model unavailable. Try refreshing.")
         st.stop()
     
     boxes = yolo.detect(image)

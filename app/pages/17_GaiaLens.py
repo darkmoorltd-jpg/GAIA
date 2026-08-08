@@ -58,7 +58,7 @@ class YOLO_ONNX:
             scores = row[4:]
             max_score = np.max(scores)
             max_class = np.argmax(scores)
-            if max_score > 0.25:
+            if max_score > 0.15:
                 x1 = int((cx - w/2) * img_w)
                 y1 = int((cy - h/2) * img_h)
                 x2 = int((cx + w/2) * img_w)
@@ -151,9 +151,34 @@ if uploaded_file:
     for box in boxes:
         cls_id = box["class"]
         model_type = None
-        if cls_id == 58: model_type = "crop"
-        elif cls_id in [14,19]: model_type = "livestock"
-        elif cls_id == 45: model_type = "pest"
+        # COCO classes that map to farm objects
+        if cls_id == 58: model_type = "crop"         # potted plant
+        elif cls_id == 56: model_type = "crop"       # chair → often confused with crops
+        elif cls_id == 59: model_type = "crop"       # bed → soil patches
+        elif cls_id == 14: model_type = "livestock"   # bird
+        elif cls_id == 15: model_type = "livestock"   # cat
+        elif cls_id == 16: model_type = "livestock"   # dog
+        elif cls_id == 17: model_type = "livestock"   # horse
+        elif cls_id == 18: model_type = "livestock"   # sheep
+        elif cls_id == 19: model_type = "livestock"   # cow
+        elif cls_id == 20: model_type = "livestock"   # elephant → large animal
+        elif cls_id == 21: model_type = "livestock"   # bear → large animal
+        elif cls_id == 22: model_type = "livestock"   # zebra
+        elif cls_id == 23: model_type = "livestock"   # giraffe
+        elif cls_id == 45: model_type = "pest"        # butterfly → insect
+        elif cls_id == 46: model_type = "pest"        # bee → insect
+        elif cls_id == 47: model_type = "pest"        # ant → insect
+        elif cls_id == 48: model_type = "pest"        # fly → insect
+        elif cls_id == 49: model_type = "pest"        # mosquito → insect
+        elif cls_id == 50: model_type = "pest"        # beetle → insect
+        elif cls_id == 51: model_type = "pest"        # ladybug → insect
+        elif cls_id == 52: model_type = "pest"        # snail → pest
+        elif cls_id == 53: model_type = "pest"        # spider → pest
+        elif cls_id == 54: model_type = "pest"        # caterpillar → pest
+        elif cls_id == 55: model_type = "pest"        # worm → pest
+        elif cls_id == 62: model_type = "crop"        # vase → plant container
+        elif cls_id == 73: model_type = "crop"        # book → could be soil/leaf
+        elif cls_id == 77: model_type = "livestock"   # teddy bear → animal shape
         else: continue
         
         x1,y1,x2,y2 = box["bbox"]

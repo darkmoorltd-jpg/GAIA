@@ -151,7 +151,7 @@ if uploaded_file:
                 emoji = "✅" if is_healthy else "⚠️"
                 st.markdown(f"### {emoji} {top_label}")
                 st.markdown(f"**{top_conf:.1f}% confidence**")
-                st.progress(top_conf / 100)
+                st.progress(float(top_conf) / 100)
                 top3 = np.argsort(probs)[-3:][::-1]
                 if len(top3) > 1:
                     st.markdown("**Also possible:**")

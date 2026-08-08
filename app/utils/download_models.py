@@ -1,7 +1,7 @@
 import os, requests, streamlit as st
 
 # GitHub Releases — your actual filenames
-BASE = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0"
+BASE = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v2.0-gaialens"
 
 MODEL_LINKS = {
     "poultry": f"{BASE}/poultry_best_model.pt",
@@ -12,6 +12,37 @@ MODEL_LINKS = {
     "millet_3class": f"{BASE}/gaia_millet_3class.pt",
     "rice_10class": f"{BASE}/gaia_rice_10class_384px.pt",
 }
+
+
+# GaiaLens ONNX models (from GitHub Releases v2.0-gaialens)
+GAIA_LENS_MODELS = {
+    "gaia_crop.onnx": f"{BASE}/gaia_crop.onnx",
+    "gaia_crop.onnx.data": f"{BASE}/gaia_crop.onnx.data",
+    "gaia_pest.onnx": f"{BASE}/gaia_pest.onnx",
+    "gaia_pest.onnx.data": f"{BASE}/gaia_pest.onnx.data",
+    "gaia_soil.onnx": f"{BASE}/gaia_soil.onnx",
+    "gaia_soil.onnx.data": f"{BASE}/gaia_soil.onnx.data",
+    "gaia_livestock.onnx": f"{BASE}/gaia_livestock.onnx",
+    "gaia_livestock.onnx.data": f"{BASE}/gaia_livestock.onnx.data",
+    "yolov8_detector.onnx": f"{BASE}/yolov8_detector.onnx",
+}
+
+def ensure_gaialens_model(filename):
+    """Download a GaiaLens ONNX file if missing."""
+    import os, requests
+    os.makedirs("onnx", exist_ok=True)
+    dest = os.path.join("onnx", filename)
+    if not os.path.exists(dest) or os.path.getsize(dest) < 1000:
+        url = GAIA_LENS_MODELS.get(filename)
+        if url:
+            print(f"⬇️ Downloading {filename}...")
+            r = requests.get(url, stream=True, timeout=300)
+            if r.status_code == 200:
+                with open(dest, "wb") as f:
+                    for chunk in r.iter_content(32768):
+                        f.write(chunk)
+    return dest if os.path.exists(dest) else None
+
 
 def ensure_model(model_key):
     checkpoint_dir = f"models/{model_key}"

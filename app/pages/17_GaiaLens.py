@@ -12,6 +12,14 @@ st.set_page_config(page_title="GAIA – GaiaLens™", page_icon="🔍", layout="
 # ── Load models (cached) ──
 @st.cache_resource
 def load_gaialens_models():
+    from app.utils.download_models import ensure_gaialens_model
+    
+    # Download ONNX files if missing
+    for f in ["gaia_crop.onnx","gaia_crop.onnx.data","gaia_pest.onnx","gaia_pest.onnx.data",
+              "gaia_soil.onnx","gaia_soil.onnx.data","gaia_livestock.onnx","gaia_livestock.onnx.data",
+              "yolov8_detector.onnx"]:
+        ensure_gaialens_model(f)
+    
     models = {}
     class_names = {
         "crop": ["Blast","Rust","Healthy"],
@@ -26,7 +34,7 @@ def load_gaialens_models():
         if os.path.exists(path):
             models[m] = ort.InferenceSession(path)
     
-    yolo = YOLO("onnx/yolov8_detector.onnx", task='detect')
+    yolo = YOLO("onnx/yolov8_detector.onnx", task='detect', verbose=False)
     return models, class_names, input_sizes, yolo
 
 TREATMENTS = {

@@ -12,7 +12,7 @@ st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌾", layout=
 CROP_CLASSES = {
     "millet": ["Blast", "Rust", "Healthy"],
     "maize": ["Blight", "Common_Rust", "Gray_Leaf_Spot", "Healthy"],
-    "rice": ["Bacterial Leaf Blight","Brown Spot","Healthy Rice Leaf","Hispa","Leaf Blast","Leaf scald","Leaf smut","Narrow Brown Spot","Neck Blast","Sheath Blight","Tungro"],
+    "rice": ["Bacterial Leaf Blight","Brown Spot","Healthy Rice Leaf","Leaf Blast","Leaf Scald","Narrow Brown Spot","Neck Blast","Rice Hispa","Sheath Blight","Tungro"],
     "soybean": ["Bacterial Pustule","Frogeye Leaf Spot","Healthy","Mosaic Virus","Rust","Southern blight","Sudden Death Syndrome","Target Leaf Spot","Yellow Mosaic","brown_spot","crestamento","ferrugen","powdery_mildew","septoria"],
     "pepper": ["Aphid","Bacterial spot","Blossom end rot","Burn","Edema","Healthy","Leaf curl","Leaf miners","Mosaic virus","Nutrient deficiency","Powdery mildew","Spider mite","Thrips"],
     "cabbage": ["Alternaria Leaf Spot","Bacterial Spot Rot","Black Rot","Cabbage Aphid Colony","Downy Mildew","Healthy","Club Root","Ring Spot"],

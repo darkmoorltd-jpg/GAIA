@@ -21,7 +21,7 @@ CROP_CLASSES = {
 CHECKPOINT_MAP = {
     "millet": os.path.join("models", "millet_3class", "model.pt"),
     "maize": os.path.join("models", "maize", "model.pt"),
-    "rice": os.path.join("models", "rice_11class", "model.pt"),
+    "rice": os.path.join("models", "rice_10class", "model.pt"),
     "soybean": os.path.join("models", "soybean_14class", "model.pt"),
     "pepper": os.path.join("models", "pepper_13class", "model.pt"),
     "cabbage": os.path.join("models", "cabbage_8class", "model.pt"),
@@ -36,8 +36,19 @@ dark = st.toggle("", value=False, key="crops_theme")
 theme = "dark" if dark else "light"
 
 def load_crop_model(crop_name):
-    checkpoint = CHECKPOINT_MAP.get(crop_name)
-    if not checkpoint or not os.path.exists(checkpoint):
+    from app.utils.download_models import ensure_model
+    
+    # Map crop names to download keys
+    DOWNLOAD_KEYS = {
+        "millet": "millet_3class",
+        "maize": "maize",
+        "rice": "rice_10class",
+    }
+    
+    key = DOWNLOAD_KEYS.get(crop_name, crop_name)
+    checkpoint = ensure_model(key)
+    
+    if checkpoint is None or not os.path.exists(checkpoint):
         return None, None
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."

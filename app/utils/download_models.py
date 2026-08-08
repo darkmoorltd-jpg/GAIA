@@ -8,6 +8,9 @@ MODEL_LINKS = {
     "cattle":  f"{BASE}/cattle_best_model.pt",
     "pests_102class": f"{BASE}/pests_102class_best_model.pt",
     "soil_11class": f"{BASE}/soil_11class_best_model.pt",
+    "maize": f"{BASE}/gaia_maize_4class.pt",
+    "millet_3class": f"{BASE}/gaia_millet_3class.pt",
+    "rice_10class": f"{BASE}/gaia_rice_10class_384px.pt",
 }
 
 def ensure_model(model_key):

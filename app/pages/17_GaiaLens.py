@@ -1,13 +1,13 @@
 
 import streamlit as st
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import onnxruntime as ort
 import os, requests
 
 st.set_page_config(page_title="GAIA – GaiaLens™", page_icon="🔍", layout="wide")
 
-# ── INLINE DOWNLOAD FUNCTION ──
+# ── INLINE DOWNLOAD ──
 BASE = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v2.0-gaialens"
 GAIA_LENS_MODELS = {
     "gaia_crop.onnx": f"{BASE}/gaia_crop.onnx",
@@ -18,7 +18,6 @@ GAIA_LENS_MODELS = {
     "gaia_soil.onnx.data": f"{BASE}/gaia_soil.onnx.data",
     "gaia_livestock.onnx": f"{BASE}/gaia_livestock.onnx",
     "gaia_livestock.onnx.data": f"{BASE}/gaia_livestock.onnx.data",
-    "yolov8_detector.onnx": f"{BASE}/yolov8_detector.onnx",
 }
 
 def ensure_onnx(filename):
@@ -35,42 +34,6 @@ def ensure_onnx(filename):
                             f.write(chunk)
     return dest
 
-# ── YOLO via ONNX Runtime ──
-class YOLO_ONNX:
-    def __init__(self, onnx_path):
-        self.session = ort.InferenceSession(onnx_path)
-        self.input_name = self.session.get_inputs()[0].name
-    
-    def preprocess(self, pil_image):
-        img = pil_image.resize((320, 320))
-        img_np = np.array(img).astype(np.float32) / 255.0
-        img_np = img_np.transpose(2, 0, 1)
-        return np.expand_dims(img_np, axis=0).astype(np.float32)
-    
-    def detect(self, pil_image):
-        inp = self.preprocess(pil_image)
-        outputs = self.session.run(None, {self.input_name: inp})[0]
-        outputs = np.squeeze(outputs).transpose()
-        img_w, img_h = pil_image.size
-        boxes = []
-        for row in outputs:
-            cx, cy, w, h = row[:4]
-            scores = row[4:]
-            max_score = np.max(scores)
-            max_class = np.argmax(scores)
-            if max_score > 0.15:
-                x1 = int((cx - w/2) * img_w)
-                y1 = int((cy - h/2) * img_h)
-                x2 = int((cx + w/2) * img_w)
-                y2 = int((cy + h/2) * img_h)
-                boxes.append({
-                    "class": int(max_class),
-                    "confidence": float(max_score),
-                    "bbox": [max(0,x1), max(0,y1), min(img_w,x2), min(img_h,y2)]
-                })
-        return boxes
-
-# ── Preprocessing ──
 def pil_resize(img_np, size):
     return np.array(Image.fromarray(img_np).resize((size, size), Image.BILINEAR))
 
@@ -80,9 +43,8 @@ def preprocess_gaia(img_np, size):
     img = img.transpose(2, 0, 1)
     return np.expand_dims(img, axis=0).astype(np.float32)
 
-# ── Load models ──
 @st.cache_resource
-def load_gaialens_models():
+def load_gaia_models():
     for f in GAIA_LENS_MODELS:
         ensure_onnx(f)
     
@@ -100,116 +62,102 @@ def load_gaialens_models():
         if os.path.exists(path):
             models[m] = ort.InferenceSession(path)
     
-    yolo_path = "onnx/yolov8_detector.onnx"
-    yolo = YOLO_ONNX(yolo_path) if os.path.exists(yolo_path) else None
-    
-    return models, class_names, input_sizes, yolo
+    return models, class_names, input_sizes
 
-TREATMENTS = {
-    "blast": "Apply tricyclazole or isoprothiolane at booting stage.",
-    "rust": "Spray propiconazole or tebuconazole at first sign.",
-    "coccidiosis": "Start anticoccidial treatment (Amprolium).",
-    "newcastle": "Isolate immediately. Vaccinate remaining flock.",
-    "salmonella": "Antibiotics under vet guidance. Improve hygiene.",
-}
-
-def get_treatment(disease):
-    for key, tx in TREATMENTS.items():
-        if key in disease.lower(): return tx
-    return "Consult your local agricultural extension officer."
-
-def classify_region(img_np, model_type, models, class_names, input_sizes):
-    if model_type not in models: return "Unknown", 0.0
+def classify_image(img_np, model_type, models, class_names, input_sizes):
+    if model_type not in models: return "N/A", 0.0
     size = input_sizes[model_type]
     inp = preprocess_gaia(img_np, size)
     logits = models[model_type].run(None, {"input":inp})[0][0]
     probs = np.exp(logits) / np.sum(np.exp(logits))
-    idx = np.argmax(probs)
-    return class_names[model_type][idx], float(probs[idx]*100)
+    top3_idx = np.argsort(probs)[-3:][::-1]
+    results = []
+    for idx in top3_idx:
+        results.append({
+            "label": class_names[model_type][idx],
+            "confidence": float(probs[idx] * 100)
+        })
+    return results
 
 # ── UI ──
-st.title("🔍 GaiaLens™ — AR Crop Disease Scanner")
-st.markdown("Upload a farm photo to see AI‑powered disease detection with bounding boxes.")
+st.title("🔍 GaiaLens™ — Multi‑AI Farm Scanner")
+st.markdown("Upload a farm photo. All 4 GAIA models analyze it simultaneously — crops, pests, soil, and livestock.")
+
+# Model selection
+st.sidebar.markdown("### 🎯 Select Models")
+scan_crop = st.sidebar.checkbox("🌿 Crop Disease", value=True)
+scan_pest = st.sidebar.checkbox("🐛 Pest Detection", value=True)
+scan_soil = st.sidebar.checkbox("🏞️ Soil Analysis", value=True)
+scan_livestock = st.sidebar.checkbox("🐄 Livestock Health", value=True)
 
 uploaded_file = st.file_uploader("📤 Upload a farm photo", type=["jpg","jpeg","png"])
 
 if uploaded_file:
-    models, class_names, input_sizes, yolo = load_gaialens_models()
+    models, class_names, input_sizes = load_gaia_models()
     
     image = Image.open(uploaded_file).convert("RGB")
     img_np = np.array(image)
     
-    if yolo is None:
-        st.error("YOLO model unavailable. Try refreshing.")
+    st.image(image, caption="📸 Your Farm Photo", use_container_width=True)
+    
+    st.markdown("---")
+    st.markdown("## 🔬 GAIA Multi‑Model Analysis")
+    
+    active_models = []
+    if scan_crop: active_models.append(("crop", "🌿 Crop Disease"))
+    if scan_pest: active_models.append(("pest", "🐛 Pest Detection"))
+    if scan_soil: active_models.append(("soil", "🏞️ Soil Analysis"))
+    if scan_livestock: active_models.append(("livestock", "🐄 Livestock Health"))
+    
+    if not active_models:
+        st.warning("Select at least one model from the sidebar.")
         st.stop()
     
-    boxes = yolo.detect(image)
+    cols = st.columns(len(active_models))
     
-    draw = ImageDraw.Draw(image)
-    detections = []
+    for i, (model_key, model_label) in enumerate(active_models):
+        with cols[i]:
+            st.markdown(f"### {model_label}")
+            
+            with st.spinner(f"Analyzing with {model_label}..."):
+                results = classify_image(img_np, model_key, models, class_names, input_sizes)
+            
+            top = results[0]
+            is_healthy = "healthy" in top["label"].lower()
+            emoji = "✅" if is_healthy else "⚠️"
+            
+            st.markdown(f"### {emoji} {top['label']}")
+            st.markdown(f"**Confidence: {top['confidence']:.1f}%**")
+            st.progress(top["confidence"] / 100)
+            
+            if len(results) > 1:
+                st.markdown("**Other possibilities:**")
+                for r in results[1:]:
+                    st.write(f"• {r['label']} ({r['confidence']:.1f}%)")
     
-    for box in boxes:
-        cls_id = box["class"]
-        model_type = None
-        # COCO classes that map to farm objects
-        if cls_id == 58: model_type = "crop"         # potted plant
-        elif cls_id == 56: model_type = "crop"       # chair → often confused with crops
-        elif cls_id == 59: model_type = "crop"       # bed → soil patches
-        elif cls_id == 14: model_type = "livestock"   # bird
-        elif cls_id == 15: model_type = "livestock"   # cat
-        elif cls_id == 16: model_type = "livestock"   # dog
-        elif cls_id == 17: model_type = "livestock"   # horse
-        elif cls_id == 18: model_type = "livestock"   # sheep
-        elif cls_id == 19: model_type = "livestock"   # cow
-        elif cls_id == 20: model_type = "livestock"   # elephant → large animal
-        elif cls_id == 21: model_type = "livestock"   # bear → large animal
-        elif cls_id == 22: model_type = "livestock"   # zebra
-        elif cls_id == 23: model_type = "livestock"   # giraffe
-        elif cls_id == 45: model_type = "pest"        # butterfly → insect
-        elif cls_id == 46: model_type = "pest"        # bee → insect
-        elif cls_id == 47: model_type = "pest"        # ant → insect
-        elif cls_id == 48: model_type = "pest"        # fly → insect
-        elif cls_id == 49: model_type = "pest"        # mosquito → insect
-        elif cls_id == 50: model_type = "pest"        # beetle → insect
-        elif cls_id == 51: model_type = "pest"        # ladybug → insect
-        elif cls_id == 52: model_type = "pest"        # snail → pest
-        elif cls_id == 53: model_type = "pest"        # spider → pest
-        elif cls_id == 54: model_type = "pest"        # caterpillar → pest
-        elif cls_id == 55: model_type = "pest"        # worm → pest
-        elif cls_id == 62: model_type = "crop"        # vase → plant container
-        elif cls_id == 73: model_type = "crop"        # book → could be soil/leaf
-        elif cls_id == 77: model_type = "livestock"   # teddy bear → animal shape
-        else: continue
-        
-        x1,y1,x2,y2 = box["bbox"]
-        crop = img_np[y1:y2, x1:x2]
-        if crop.size == 0: continue
-        
-        label, conf = classify_region(crop, model_type, models, class_names, input_sizes)
-        is_healthy = "healthy" in label.lower()
-        
-        color = "green" if is_healthy else "red"
-        draw.rectangle([x1,y1,x2,y2], outline=color, width=3)
-        draw.text((x1, y1-15), f"{label} ({conf:.0f}%)", fill=color)
-        
-        treatment = get_treatment(label) if not is_healthy else None
-        detections.append({
-            "label": label, "confidence": conf,
-            "model": model_type, "healthy": is_healthy,
-            "treatment": treatment
-        })
+    # Summary
+    st.markdown("---")
+    st.markdown("## 📋 Field Summary")
     
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.image(image, caption=f"🔍 {len(detections)} objects detected", use_container_width=True)
-    
-    with col2:
-        st.markdown("### 📊 Detections")
-        for d in detections:
-            emoji = "🟢" if d["healthy"] else "🔴"
-            st.markdown(f"**{emoji} {d['model'].upper()}**: {d['label']} ({d['confidence']:.0f}%)")
-            if d["treatment"]:
-                st.info(f"💊 {d['treatment']}")
+    summary_cols = st.columns(len(active_models))
+    for i, (model_key, model_label) in enumerate(active_models):
+        with summary_cols[i]:
+            results = classify_image(img_np, model_key, models, class_names, input_sizes)
+            top = results[0]
+            st.metric(
+                label=model_label,
+                value=top["label"],
+                delta=f"{top['confidence']:.0f}% confidence"
+            )
+
+st.markdown("---")
+st.markdown("### 💡 How GaiaLens Works")
+st.markdown("""
+1. **Upload** any farm photo
+2. **GAIA analyzes** it simultaneously with crop, pest, soil, and livestock AI models
+3. **Each model** returns its top prediction with confidence scores
+4. **AR version coming soon** — real‑time bounding boxes on live camera feed
+""")
 
 st.markdown("---")
 cols = st.columns(6)

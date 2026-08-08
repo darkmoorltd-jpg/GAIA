@@ -51,7 +51,26 @@ def load_gaia_models():
     models = {}
     class_names = {
         "crop": ["Blast","Rust","Healthy"],
-        "pest": [f"pest_{i}" for i in range(102)],
+        "pest": [
+        "rice leaf roller","rice leaf caterpillar","paddy stem maggot","asiatic rice borer","yellow rice borer",
+        "rice gall midge","Rice Stemfly","brown plant hopper","white backed plant hopper","small brown plant hopper",
+        "rice water weevil","rice leafhopper","grain spreader thrips","rice shell pest","grub","mole cricket","wireworm",
+        "white margined moth","black cutworm","large cutworm","yellow cutworm","red spider","corn borer","army worm","aphids",
+        "Potosiabre vitarsis","peach borer","english grain aphid","green bug","bird cherry-oataphid","wheat blossom midge",
+        "penthaleus major","longlegged spider mite","wheat phloeothrips","wheat sawfly","cerodonta denticornis","beet fly",
+        "flea beetle","cabbage army worm","beet army worm","Beet spot flies","meadow moth","beet weevil","sericaorient alismots chulsky",
+        "alfalfa weevil","flax budworm","alfalfa plant bug","tarnished plant bug","Locustoidea","lytta polita","legume blister beetle",
+        "blister beetle","therioaphis maculata Buckton","odontothrips loti","Thrips","alfalfa seed chalcid","Pieris canidia",
+        "Apolygus lucorum","Limacodidae","Viteus vitifoliae","Colomerus vitis","Brevipoalpus lewisi McGregor","oides decempunctata",
+        "Polyphagotars onemus latus","Pseudococcus comstocki Kuwana","parathrene regalis","Ampelophaga","Lycorma delicatula","Xylotrechus",
+        "Cicadella viridis","Miridae","Trialeurodes vaporariorum","Erythroneura apicalis","Papilio xuthus","Panonchus citri McGregor",
+        "Phyllocoptes oleiverus ashmead","Icerya purchasi Maskell","Unaspis yanonensis","Ceroplastes rubens","Chrysomphalus aonidum",
+        "Parlatoria zizyphus Lucus","Nipaecoccus vastalor","Aleurocanthus spiniferus","Tetradacus c Bactrocera minax ","Dacus dorsalis(Hendel)",
+        "Bactrocera tsuneonis","Prodenia litura","Adristyrannus","Phyllocnistis citrella Stainton","Toxoptera citricidus","Toxoptera aurantii",
+        "Aphis citricola Vander Goot","Scirtothrips dorsalis Hood","Dasineura sp","Lawana imitata Melichar","Salurnis marginella Guerr",
+        "Deporaus marginatus Pascoe","Chlumetia transversa","Mango flat beak leafhopper","Rhytidodera bowrinii white","Sternochetus frigidus",
+        "Cicadellidae"
+    ],
         "soil": ["Alluvial","Sandy","Clay","Loamy","Laterite","Black","Red","Peat","Cinder","Sandy Loam","Yellow"],
         "livestock": ["Coccidiosis","Healthy","Newcastle Disease","Salmonella"],
     }
@@ -65,19 +84,26 @@ def load_gaia_models():
     return models, class_names, input_sizes
 
 def classify_image(img_np, model_type, models, class_names, input_sizes):
-    if model_type not in models: return "N/A", 0.0
+    if model_type not in models: return [{"label": "N/A", "confidence": 0.0}]
     size = input_sizes[model_type]
     inp = preprocess_gaia(img_np, size)
     logits = models[model_type].run(None, {"input":inp})[0][0]
     probs = np.exp(logits) / np.sum(np.exp(logits))
-    top3_idx = np.argsort(probs)[-3:][::-1]
+    
+    # Get top 3 safely
+    num_classes = len(logits)
+    top_k = min(3, num_classes)
+    top_idx = np.argsort(probs)[-top_k:][::-1]
+    
     results = []
-    for idx in top3_idx:
-        results.append({
-            "label": class_names[model_type][idx],
-            "confidence": float(probs[idx] * 100)
-        })
-    return results
+    names = class_names.get(model_type, [f"class_{i}" for i in range(num_classes)])
+    for idx in top_idx:
+        if idx < len(names):
+            results.append({
+                "label": names[idx],
+                "confidence": float(probs[idx] * 100)
+            })
+    return results if results else [{"label": "Unknown", "confidence": 0.0}]
 
 # ── UI ──
 st.title("🔍 GaiaLens™ — Multi‑AI Farm Scanner")

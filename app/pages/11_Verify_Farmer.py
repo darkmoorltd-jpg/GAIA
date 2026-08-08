@@ -3,6 +3,7 @@ import streamlit as st
 from supabase import create_client, Client
 import uuid
 import requests as req
+import re
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -66,13 +67,15 @@ service = init_service()
 existing = supabase.table("farmer_verifications").select("*").eq("user_id", user.id).execute()
 verification = existing.data[0] if existing.data and len(existing.data) > 0 else None
 
-# Track payment status in session state
+# Track payment status
 if "verification_paid" not in st.session_state:
-    # Check if already paid from DB
-    if verification and verification.get("payment_status") == "paid":
-        st.session_state.verification_paid = True
-    else:
-        st.session_state.verification_paid = False
+    st.session_state.verification_paid = (
+        verification and verification.get("payment_status") == "paid"
+    ) or False
+
+# Track manual verification attempts
+if "verify_attempts" not in st.session_state:
+    st.session_state.verify_attempts = 0
 
 # Styling
 st.markdown("""
@@ -117,10 +120,10 @@ if verification:
         st.stop()
 
 # ============================================================
-# STEP 1: PAYMENT (only if not yet paid)
+# STEP 1: PAYMENT (₦2,000)
 # ============================================================
 if not st.session_state.verification_paid:
-    st.markdown("### Step 1: Pay Verification Fee (₦500)")
+    st.markdown("### Step 1: Pay Verification Fee (₦2,000)")
     st.markdown("Payment is required before you can submit your documents.")
     
     ref = f"GAIA_VERIFY_{user.id[:8]}_{uuid.uuid4().hex[:8]}"
@@ -151,13 +154,13 @@ if not st.session_state.verification_paid:
         </style>
     </head>
     <body>
-        <button class="btn" onclick="payWithPaystack()">💳 Pay ₦500 to Verify</button>
+        <button class="btn" onclick="payWithPaystack()">💳 Pay ₦2,000 to Verify</button>
         <script>
             function payWithPaystack() {{
                 PaystackPop.setup({{
                     key: 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057',
                     email: '{user.email}',
-                    amount: 50000,
+                    amount: 200000,
                     currency: 'NGN',
                     ref: '{ref}',
                     label: 'GAIA Farmer Verification',
@@ -173,7 +176,7 @@ if not st.session_state.verification_paid:
     """
     components.html(paystack_html, height=100)
     
-    st.caption("After payment, verify your payment below to unlock the form.")
+    st.caption("⏳ A payment popup will appear. If blocked, allow popups for this site.")
     
     # Manual reference verification
     st.markdown("---")
@@ -192,15 +195,22 @@ if not st.session_state.verification_paid:
                         "status": "pending"
                     }).eq("user_id", user.id).execute()
                     st.session_state.verification_paid = True
+                    st.session_state.verify_attempts = 0
                     st.success("✅ Payment verified! You can now submit your documents.")
                     st.rerun()
                 else:
+                    st.session_state.verify_attempts += 1
                     st.error("❌ Payment not found. Make sure you completed the payment and the reference is correct.")
+                    
+                    # Show support contact after 3 failed attempts
+                    if st.session_state.verify_attempts >= 3:
+                        st.warning("Still having trouble? Contact support with your payment reference.")
+                        st.markdown("[📧 Email Support](mailto:darkmoorltd@gmail.com)")
     
-    st.stop()  # ⬅️ CRITICAL: Stop here. Form is NOT shown until payment is confirmed.
+    st.stop()
 
 # ============================================================
-# STEP 2: UPLOAD DOCUMENTS (only shown after payment confirmed)
+# STEP 2: UPLOAD DOCUMENTS
 # ============================================================
 if st.session_state.verification_paid:
     st.markdown("---")
@@ -236,16 +246,17 @@ if st.session_state.verification_paid:
             selfie_img = st.file_uploader("🤳 Upload Selfie *", type=["jpg","jpeg","png"],
                 help="A clear photo of your face")
         
-        # Submit button
         submitted = st.form_submit_button("📤 Submit Verification", use_container_width=True)
         
         if submitted:
-            # Validate ALL fields
             errors = []
+            
             if not full_name or not full_name.strip():
                 errors.append("Full Name is required")
             if not phone or not phone.strip():
                 errors.append("Phone Number is required")
+            elif not re.match(r'^\+?[\d\s\-\(\)]{10,15}$', phone.strip()):
+                errors.append("Enter a valid phone number (e.g., +2348012345678)")
             if not state or state == "Select your state":
                 errors.append("State is required")
             if not lga or not lga.strip():
@@ -273,6 +284,7 @@ if st.session_state.verification_paid:
                             "user_id": user.id,
                             "full_name": full_name.strip(),
                             "phone": phone.strip(),
+                            "email": user.email,
                             "state": state,
                             "lga": lga.strip(),
                             "crops": crops,

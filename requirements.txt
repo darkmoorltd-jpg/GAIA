@@ -19,4 +19,3 @@ streamlit-folium
 geopy
 reportlab
 onnxruntime
-ultralytics

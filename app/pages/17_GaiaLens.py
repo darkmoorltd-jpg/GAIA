@@ -1,0 +1,121 @@
+
+import streamlit as st
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+import onnxruntime as ort
+from ultralytics import YOLO
+import cv2
+import os
+
+st.set_page_config(page_title="GAIA – GaiaLens™", page_icon="🔍", layout="wide")
+
+# ── Load models (cached) ──
+@st.cache_resource
+def load_gaialens_models():
+    models = {}
+    class_names = {
+        "crop": ["Blast","Rust","Healthy"],
+        "pest": [f"pest_{i}" for i in range(102)],
+        "soil": ["Alluvial","Sandy","Clay","Loamy","Laterite","Black","Red","Peat","Cinder","Sandy Loam","Yellow"],
+        "livestock": ["Coccidiosis","Healthy","Newcastle Disease","Salmonella"],
+    }
+    input_sizes = {"crop":384, "pest":224, "soil":384, "livestock":224}
+    
+    for m in ["crop","pest","soil","livestock"]:
+        path = f"onnx/gaia_{m}.onnx"
+        if os.path.exists(path):
+            models[m] = ort.InferenceSession(path)
+    
+    yolo = YOLO("onnx/yolov8_detector.onnx", task='detect')
+    return models, class_names, input_sizes, yolo
+
+TREATMENTS = {
+    "blast": "Apply tricyclazole or isoprothiolane at booting stage.",
+    "rust": "Spray propiconazole or tebuconazole at first sign.",
+    "coccidiosis": "Start anticoccidial treatment (Amprolium).",
+    "newcastle": "Isolate immediately. Vaccinate remaining flock.",
+    "salmonella": "Antibiotics under vet guidance. Improve hygiene.",
+}
+
+def get_treatment(disease):
+    for key, tx in TREATMENTS.items():
+        if key in disease.lower(): return tx
+    return "Consult your local agricultural extension officer."
+
+# ── UI ──
+st.title("🔍 GaiaLens™ — AR Crop Disease Scanner")
+st.markdown("Point your camera at a field. Watch diseases light up in real‑time.")
+
+uploaded_file = st.file_uploader("📤 Upload a farm photo", type=["jpg","jpeg","png"])
+
+if uploaded_file:
+    models, class_names, input_sizes, yolo = load_gaialens_models()
+    
+    image = Image.open(uploaded_file).convert("RGB")
+    img_np = np.array(image)
+    
+    # YOLO detection
+    results = yolo(img_np, verbose=False)[0]
+    
+    # Process each detection
+    draw = ImageDraw.Draw(image)
+    detections = []
+    
+    for box in results.boxes:
+        cls_id = int(box.cls[0])
+        model_type = None
+        if cls_id == 58: model_type = "crop"
+        elif cls_id in [14,19]: model_type = "livestock"
+        elif cls_id == 45: model_type = "pest"
+        else: continue
+        
+        x1,y1,x2,y2 = map(int, box.xyxy[0].tolist())
+        crop = img_np[y1:y2, x1:x2]
+        if crop.size == 0: continue
+        
+        # Classify with GAIA model
+        if model_type in models:
+            size = input_sizes[model_type]
+            inp = cv2.resize(crop, (size,size)).astype(np.float32)/255.0
+            inp = (inp - np.array([0.485,0.456,0.406])) / np.array([0.229,0.224,0.225])
+            inp = np.expand_dims(inp.transpose(2,0,1), 0).astype(np.float32)
+            logits = models[model_type].run(None, {"input":inp})[0][0]
+            probs = np.exp(logits) / np.sum(np.exp(logits))
+            idx = np.argmax(probs)
+            label = class_names[model_type][idx]
+            conf = float(probs[idx]*100)
+            is_healthy = "healthy" in label.lower()
+            
+            # Draw bounding box
+            color = "green" if is_healthy else "red"
+            draw.rectangle([x1,y1,x2,y2], outline=color, width=3)
+            draw.text((x1, y1-15), f"{label} ({conf:.0f}%)", fill=color)
+            
+            treatment = get_treatment(label) if not is_healthy else None
+            detections.append({
+                "label": label, "confidence": conf,
+                "model": model_type, "healthy": is_healthy,
+                "treatment": treatment
+            })
+    
+    # Display
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.image(image, caption=f"🔍 {len(detections)} objects detected", use_container_width=True)
+    
+    with col2:
+        st.markdown("### 📊 Detections")
+        for i, d in enumerate(detections):
+            emoji = "🟢" if d["healthy"] else "🔴"
+            st.markdown(f"**{emoji} {d['model'].upper()}**: {d['label']} ({d['confidence']:.0f}%)")
+            if d["treatment"]:
+                st.info(f"💊 {d['treatment']}")
+
+st.markdown("---")
+cols = st.columns(6)
+with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]: st.page_link("pages/13_Help.py", label="💬 Help")

@@ -441,8 +441,9 @@ verify_farmer_page = st.Page("pages/11_Verify_Farmer.py", title="Verify Farmer",
 verify_history_page = st.Page("pages/12_Verification_History.py", title="Verification History", icon="📋")
 wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 
+gaialens_page = st.Page("pages/17_GaiaLens.py", title="GaiaLens™", icon="🔍")
 pg = st.navigation({
-    "GAIA": [dashboard_page],
+    "GAIA": [dashboard_page, gaialens_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page, early_warning_page],
     "Account": [payment_history_page, profile_page, buy_scans_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],
     "Admin": [admin_page],

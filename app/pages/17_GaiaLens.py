@@ -1,32 +1,32 @@
 
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 import numpy as np
-import onnxruntime as ort
-import os, requests
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+from timm.models.vision_transformer import VisionTransformer
+import os, requests, hashlib
 
 st.set_page_config(page_title="GAIA – GaiaLens™", page_icon="🔍", layout="wide")
 
-# ── INLINE DOWNLOAD ──
-BASE = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v2.0-gaialens"
-GAIA_LENS_MODELS = {
-    "gaia_crop.onnx": f"{BASE}/gaia_crop.onnx",
-    "gaia_crop.onnx.data": f"{BASE}/gaia_crop.onnx.data",
-    "gaia_pest.onnx": f"{BASE}/gaia_pest.onnx",
-    "gaia_pest.onnx.data": f"{BASE}/gaia_pest.onnx.data",
-    "gaia_soil.onnx": f"{BASE}/gaia_soil.onnx",
-    "gaia_soil.onnx.data": f"{BASE}/gaia_soil.onnx.data",
-    "gaia_livestock.onnx": f"{BASE}/gaia_livestock.onnx",
-    "gaia_livestock.onnx.data": f"{BASE}/gaia_livestock.onnx.data",
+# ── DOWNLOAD MODELS FROM GITHUB RELEASES ──
+BASE = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0"
+MODEL_URLS = {
+    "crop": f"{BASE}/gaia_millet_3class.pt",
+    "pest": f"{BASE}/pests_102class_best_model.pt",
+    "soil": f"{BASE}/soil_11class_best_model.pt",
+    "livestock": f"{BASE}/poultry_best_model.pt",
 }
 
-def ensure_onnx(filename):
-    os.makedirs("onnx", exist_ok=True)
-    dest = os.path.join("onnx", filename)
-    if not os.path.exists(dest) or os.path.getsize(dest) < 1000:
-        url = GAIA_LENS_MODELS.get(filename)
+def ensure_model(model_type):
+    os.makedirs("models", exist_ok=True)
+    dest = f"models/{model_type}.pt"
+    if not os.path.exists(dest) or os.path.getsize(dest) < 10000:
+        url = MODEL_URLS.get(model_type)
         if url:
-            with st.spinner(f"⬇️ Downloading {filename}..."):
+            with st.spinner(f"⬇️ Downloading {model_type} model..."):
                 r = requests.get(url, stream=True, timeout=300)
                 if r.status_code == 200:
                     with open(dest, "wb") as f:
@@ -34,24 +34,39 @@ def ensure_onnx(filename):
                             f.write(chunk)
     return dest
 
-def pil_resize(img_np, size):
-    return np.array(Image.fromarray(img_np).resize((size, size), Image.BILINEAR))
+# ── MODEL REBUILDER (same as your working model_loader.py) ──
+def rebuild_vit(checkpoint_path, num_classes):
+    state = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
+    embed_dim = state[f"{prefix}cls_token"].shape[-1]
+    pos = state[f"{prefix}pos_embed"]
+    patches = pos.shape[1] - 1
+    grid = int(patches ** 0.5)
+    img_size = grid * 16
+    depth = len([k for k in state if k.startswith(f"{prefix}blocks") and k.endswith(".norm1.weight")])
+    heads = 6 if embed_dim == 384 else 3
 
-def preprocess_gaia(img_np, size):
-    img = pil_resize(img_np, size).astype(np.float32) / 255.0
-    img = (img - np.array([0.485, 0.456, 0.406])) / np.array([0.229, 0.224, 0.225])
-    img = img.transpose(2, 0, 1)
-    return np.expand_dims(img, axis=0).astype(np.float32)
+    class ViT(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.backbone = VisionTransformer(img_size=img_size, patch_size=16, embed_dim=embed_dim, depth=depth, num_heads=heads, num_classes=0, global_pool='token')
+            self.head = nn.Linear(embed_dim, num_classes)
+        def forward(self, x): return self.head(self.backbone(x))
 
-@st.cache_resource
-def load_gaia_models():
-    for f in GAIA_LENS_MODELS:
-        ensure_onnx(f)
-    
-    models = {}
-    class_names = {
-        "crop": ["Blast","Rust","Healthy"],
-        "pest": [
+    model = ViT()
+    new_state = {}
+    for k, v in state.items():
+        if k.startswith("head."): new_state[k] = v
+        elif k.startswith(prefix): new_state[k.replace(prefix, "backbone.", 1)] = v
+        else: new_state[k] = v
+    model.load_state_dict(new_state, strict=False)
+    model.eval()
+    return model, img_size
+
+# ── CLASS NAMES ──
+CLASS_NAMES = {
+    "crop": ["Blast", "Rust", "Healthy"],
+    "pest": [
         "rice leaf roller","rice leaf caterpillar","paddy stem maggot","asiatic rice borer","yellow rice borer",
         "rice gall midge","Rice Stemfly","brown plant hopper","white backed plant hopper","small brown plant hopper",
         "rice water weevil","rice leafhopper","grain spreader thrips","rice shell pest","grub","mole cricket","wireworm",
@@ -71,46 +86,33 @@ def load_gaia_models():
         "Deporaus marginatus Pascoe","Chlumetia transversa","Mango flat beak leafhopper","Rhytidodera bowrinii white","Sternochetus frigidus",
         "Cicadellidae"
     ],
-        "soil": ["Alluvial","Sandy","Clay","Loamy","Laterite","Black","Red","Peat","Cinder","Sandy Loam","Yellow"],
-        "livestock": ["Coccidiosis","Healthy","Newcastle Disease","Salmonella"],
-    }
-    input_sizes = {"crop":384, "pest":224, "soil":384, "livestock":224}
-    
-    for m in ["crop","pest","soil","livestock"]:
-        path = f"onnx/gaia_{m}.onnx"
-        if os.path.exists(path):
-            models[m] = ort.InferenceSession(path)
-    
-    return models, class_names, input_sizes
+    "soil": ["Alluvial","Sandy","Clay","Loamy","Laterite","Black","Red","Peat","Cinder","Sandy Loam","Yellow"],
+    "livestock": ["Coccidiosis","Healthy","Newcastle Disease","Salmonella"],
+}
 
-def classify_image(img_np, model_type, models, class_names, input_sizes):
-    if model_type not in models: return [{"label": "N/A", "confidence": 0.0}]
-    size = input_sizes[model_type]
-    inp = preprocess_gaia(img_np, size)
-    logits = models[model_type].run(None, {"input":inp})[0][0]
-    probs = np.exp(logits) / np.sum(np.exp(logits))
-    
-    # Get top 3 safely
-    num_classes = len(logits)
-    top_k = min(3, num_classes)
-    top_idx = np.argsort(probs)[-top_k:][::-1]
-    
-    results = []
-    names = class_names.get(model_type, [f"class_{i}" for i in range(num_classes)])
-    for idx in top_idx:
-        if idx < len(names):
-            results.append({
-                "label": names[idx],
-                "confidence": float(probs[idx] * 100)
-            })
-    return results if results else [{"label": "Unknown", "confidence": 0.0}]
+MODEL_CLASSES = {"crop": 3, "pest": 102, "soil": 11, "livestock": 4}
+
+# ── LOAD MODELS ──
+@st.cache_resource
+def load_all_models():
+    models = {}
+    sizes = {}
+    for m in ["crop","pest","soil","livestock"]:
+        cp = ensure_model(m)
+        if os.path.exists(cp):
+            models[m], sizes[m] = rebuild_vit(cp, MODEL_CLASSES[m])
+    return models, sizes
+
+def predict(model, img, img_size):
+    t = Compose([Resize((img_size, img_size)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
+    with torch.no_grad():
+        probs = F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].detach().cpu().numpy()
+    return probs
 
 # ── UI ──
 st.title("🔍 GaiaLens™ — Multi‑AI Farm Scanner")
-st.markdown("Upload a farm photo. All 4 GAIA models analyze it simultaneously — crops, pests, soil, and livestock.")
+st.markdown("All 4 GAIA models analyze your farm photo simultaneously — crops, pests, soil, livestock.")
 
-# Model selection
-st.sidebar.markdown("### 🎯 Select Models")
 scan_crop = st.sidebar.checkbox("🌿 Crop Disease", value=True)
 scan_pest = st.sidebar.checkbox("🐛 Pest Detection", value=True)
 scan_soil = st.sidebar.checkbox("🏞️ Soil Analysis", value=True)
@@ -119,71 +121,42 @@ scan_livestock = st.sidebar.checkbox("🐄 Livestock Health", value=True)
 uploaded_file = st.file_uploader("📤 Upload a farm photo", type=["jpg","jpeg","png"])
 
 if uploaded_file:
-    models, class_names, input_sizes = load_gaia_models()
-    
+    models, sizes = load_all_models()
     image = Image.open(uploaded_file).convert("RGB")
-    img_np = np.array(image)
-    
     st.image(image, caption="📸 Your Farm Photo", use_container_width=True)
-    
     st.markdown("---")
     st.markdown("## 🔬 GAIA Multi‑Model Analysis")
-    
-    active_models = []
-    if scan_crop: active_models.append(("crop", "🌿 Crop Disease"))
-    if scan_pest: active_models.append(("pest", "🐛 Pest Detection"))
-    if scan_soil: active_models.append(("soil", "🏞️ Soil Analysis"))
-    if scan_livestock: active_models.append(("livestock", "🐄 Livestock Health"))
-    
-    if not active_models:
-        st.warning("Select at least one model from the sidebar.")
-        st.stop()
-    
-    cols = st.columns(len(active_models))
-    
-    for i, (model_key, model_label) in enumerate(active_models):
-        with cols[i]:
-            st.markdown(f"### {model_label}")
-            
-            with st.spinner(f"Analyzing with {model_label}..."):
-                results = classify_image(img_np, model_key, models, class_names, input_sizes)
-            
-            top = results[0]
-            is_healthy = "healthy" in top["label"].lower()
-            emoji = "✅" if is_healthy else "⚠️"
-            
-            st.markdown(f"### {emoji} {top['label']}")
-            st.markdown(f"**Confidence: {top['confidence']:.1f}%**")
-            st.progress(top["confidence"] / 100)
-            
-            if len(results) > 1:
-                st.markdown("**Other possibilities:**")
-                for r in results[1:]:
-                    st.write(f"• {r['label']} ({r['confidence']:.1f}%)")
-    
-    # Summary
-    st.markdown("---")
-    st.markdown("## 📋 Field Summary")
-    
-    summary_cols = st.columns(len(active_models))
-    for i, (model_key, model_label) in enumerate(active_models):
-        with summary_cols[i]:
-            results = classify_image(img_np, model_key, models, class_names, input_sizes)
-            top = results[0]
-            st.metric(
-                label=model_label,
-                value=top["label"],
-                delta=f"{top['confidence']:.0f}% confidence"
-            )
 
-st.markdown("---")
-st.markdown("### 💡 How GaiaLens Works")
-st.markdown("""
-1. **Upload** any farm photo
-2. **GAIA analyzes** it simultaneously with crop, pest, soil, and livestock AI models
-3. **Each model** returns its top prediction with confidence scores
-4. **AR version coming soon** — real‑time bounding boxes on live camera feed
-""")
+    active = []
+    if scan_crop: active.append(("crop","🌿 Crop Disease"))
+    if scan_pest: active.append(("pest","🐛 Pest Detection"))
+    if scan_soil: active.append(("soil","🏞️ Soil Analysis"))
+    if scan_livestock: active.append(("livestock","🐄 Livestock Health"))
+
+    if not active:
+        st.warning("Select at least one model.")
+        st.stop()
+
+    cols = st.columns(len(active))
+    for i, (key, label) in enumerate(active):
+        with cols[i]:
+            st.markdown(f"### {label}")
+            if key in models:
+                with st.spinner("Analyzing..."):
+                    probs = predict(models[key], image, sizes[key])
+                top_idx = np.argmax(probs)
+                top_label = CLASS_NAMES[key][top_idx]
+                top_conf = probs[top_idx] * 100
+                is_healthy = "healthy" in top_label.lower()
+                emoji = "✅" if is_healthy else "⚠️"
+                st.markdown(f"### {emoji} {top_label}")
+                st.markdown(f"**{top_conf:.1f}% confidence**")
+                st.progress(top_conf / 100)
+                top3 = np.argsort(probs)[-3:][::-1]
+                if len(top3) > 1:
+                    st.markdown("**Also possible:**")
+                    for idx in top3[1:]:
+                        st.write(f"• {CLASS_NAMES[key][idx]} ({probs[idx]*100:.1f}%)")
 
 st.markdown("---")
 cols = st.columns(6)

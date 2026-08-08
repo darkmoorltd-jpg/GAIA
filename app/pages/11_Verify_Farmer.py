@@ -146,7 +146,7 @@ if not st.session_state.verification_paid:
         <style>
             body {{ margin:0; padding:0; display:flex; justify-content:center; }}
             .btn {{
-                padding: 15px 40px; background: #0d6efd; color: #fff;
+                padding: 30px 80px; background: linear-gradient(135deg, #0d6efd, #6610f2); color: #fff; font-size: 1.5rem;
                 border: none; border-radius: 30px; font-size: 1.2rem;
                 cursor: pointer; font-weight: 600;
             }}
@@ -174,7 +174,7 @@ if not st.session_state.verification_paid:
     </body>
     </html>
     """
-    components.html(paystack_html, height=100)
+    components.html(paystack_html, height=600)
     
     st.caption("⏳ A payment popup will appear. If blocked, allow popups for this site.")
     

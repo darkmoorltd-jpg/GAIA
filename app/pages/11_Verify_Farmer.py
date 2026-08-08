@@ -1,3 +1,4 @@
+
 import streamlit as st
 from supabase import create_client, Client
 import uuid
@@ -65,6 +66,14 @@ service = init_service()
 existing = supabase.table("farmer_verifications").select("*").eq("user_id", user.id).execute()
 verification = existing.data[0] if existing.data and len(existing.data) > 0 else None
 
+# Track payment status in session state
+if "verification_paid" not in st.session_state:
+    # Check if already paid from DB
+    if verification and verification.get("payment_status") == "paid":
+        st.session_state.verification_paid = True
+    else:
+        st.session_state.verification_paid = False
+
 # Styling
 st.markdown("""
 <style>
@@ -80,29 +89,40 @@ st.markdown("""
 st.markdown('<div class="title">🛡️ Farmer Verification</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Verify your identity to unlock digital wallet and marketplace</div>', unsafe_allow_html=True)
 
-# Show current status
+# ============================================================
+# SHOW CURRENT STATUS IF VERIFICATION EXISTS
+# ============================================================
 if verification:
     status = verification.get("status", "pending")
+    
     if status == "approved":
         st.markdown(f'<div style="text-align:center;"><span class="verified-badge">✅ Verified Farmer</span></div>', unsafe_allow_html=True)
         st.success(f"**Name:** {verification.get('full_name')}\n\n**Phone:** {verification.get('phone')}\n\n**State:** {verification.get('state')} | **LGA:** {verification.get('lga')}\n\n**Crops:** {safe_crops(verification.get('crops'))}")
         st.info("🎉 You are verified! Your digital wallet is now active. Go to **💰 Digital Wallet** to view your account.")
+        st.stop()
         
-    elif status == "pending":
+    elif status == "pending" and verification.get("payment_status") == "paid":
         st.markdown(f'<div style="text-align:center;"><span class="pending-badge">⏳ Under Review</span></div>', unsafe_allow_html=True)
         st.info(f"**Name:** {verification.get('full_name')}\n\n**Phone:** {verification.get('phone')}\n\n**State:** {verification.get('state')} | **LGA:** {verification.get('lga')}\n\n**Crops:** {safe_crops(verification.get('crops'))}")
         st.info("Your verification is under review. An admin will check within 24 hours.")
+        st.stop()
         
     elif status == "rejected":
         st.markdown(f'<div style="text-align:center;"><span class="rejected-badge">❌ Rejected</span></div>', unsafe_allow_html=True)
         st.error(f"**Reason:** {verification.get('rejection_reason', 'No reason provided')}")
         if st.button("🔄 Resubmit Verification"):
             service.table("farmer_verifications").delete().eq("user_id", user.id).execute()
+            st.session_state.verification_paid = False
             st.rerun()
+        st.stop()
 
-else:
-    # Step 1: Payment
-    st.markdown("### Step 1: Pay Verification Fee (N500)")
+# ============================================================
+# STEP 1: PAYMENT (only if not yet paid)
+# ============================================================
+if not st.session_state.verification_paid:
+    st.markdown("### Step 1: Pay Verification Fee (₦500)")
+    st.markdown("Payment is required before you can submit your documents.")
+    
     ref = f"GAIA_VERIFY_{user.id[:8]}_{uuid.uuid4().hex[:8]}"
     
     # Create pending verification record
@@ -113,7 +133,7 @@ else:
         "status": "pending"
     }).execute()
     
-    # Inline Paystack popup (same pattern as Buy Scans)
+    # Inline Paystack popup
     import streamlit.components.v1 as components
     paystack_html = f"""
     <!DOCTYPE html>
@@ -131,7 +151,7 @@ else:
         </style>
     </head>
     <body>
-        <button class="btn" onclick="payWithPaystack()">💳 Pay N500 to Verify</button>
+        <button class="btn" onclick="payWithPaystack()">💳 Pay ₦500 to Verify</button>
         <script>
             function payWithPaystack() {{
                 PaystackPop.setup({{
@@ -153,11 +173,11 @@ else:
     """
     components.html(paystack_html, height=100)
     
-    st.caption("After payment, return to this page to upload your documents.")
-
+    st.caption("After payment, verify your payment below to unlock the form.")
+    
     # Manual reference verification
     st.markdown("---")
-    st.subheader("✅ Already Paid? Verify Your Payment")
+    st.subheader("✅ Already Paid? Verify Your Payment to Continue")
     col1, col2 = st.columns([3, 1])
     with col1:
         manual_ref = st.text_input("Enter your Paystack reference", placeholder="e.g., GAIA_VERIFY_abc123", key="verify_ref")
@@ -166,62 +186,100 @@ else:
         if st.button("🔍 Verify Payment", use_container_width=True) and manual_ref:
             with st.spinner("Verifying..."):
                 if verify_payment(manual_ref):
-                    # Update the verification record
                     service.table("farmer_verifications").update({
                         "payment_status": "paid",
                         "payment_reference": manual_ref,
                         "status": "pending"
                     }).eq("user_id", user.id).execute()
+                    st.session_state.verification_paid = True
                     st.success("✅ Payment verified! You can now submit your documents.")
                     st.rerun()
                 else:
                     st.error("❌ Payment not found. Make sure you completed the payment and the reference is correct.")
     
+    st.stop()  # ⬅️ CRITICAL: Stop here. Form is NOT shown until payment is confirmed.
+
+# ============================================================
+# STEP 2: UPLOAD DOCUMENTS (only shown after payment confirmed)
+# ============================================================
+if st.session_state.verification_paid:
     st.markdown("---")
-    st.markdown("### Step 2: Upload Documents")
+    st.markdown("### Step 2: Upload Your Documents")
+    st.markdown("All fields are **compulsory**. You cannot submit without filling everything.")
     
     with st.form("verify_form"):
-        full_name = st.text_input("Full Name")
-        phone = st.text_input("Phone Number")
+        full_name = st.text_input("Full Name *", placeholder="Enter your full legal name")
+        phone = st.text_input("Phone Number *", placeholder="+2348012345678")
         
         col1, col2 = st.columns(2)
         with col1:
-            state = st.selectbox("State", ["Delta","Lagos","Abuja","Kano","Rivers","Ogun","Oyo","Kaduna","Enugu","Edo","Anambra","Imo","Akwa Ibom","Benue","Plateau","Niger","Kwara","Osun","Ondo","Ekiti","Bayelsa","Cross River","Ebonyi","Abia","Adamawa","Bauchi","Borno","Gombe","Jigawa","Katsina","Kebbi","Kogi","Nasarawa","Sokoto","Taraba","Yobe","Zamfara"])
+            state = st.selectbox("State *", [
+                "Select your state", "Delta","Lagos","Abuja","Kano","Rivers","Ogun","Oyo",
+                "Kaduna","Enugu","Edo","Anambra","Imo","Akwa Ibom","Benue","Plateau",
+                "Niger","Kwara","Osun","Ondo","Ekiti","Bayelsa","Cross River",
+                "Ebonyi","Abia","Adamawa","Bauchi","Borno","Gombe","Jigawa","Katsina",
+                "Kebbi","Kogi","Nasarawa","Sokoto","Taraba","Yobe","Zamfara"
+            ])
         with col2:
-            lga = st.text_input("LGA")
+            lga = st.text_input("LGA *", placeholder="Your Local Government Area")
         
-        crops = st.multiselect("Crops Grown", ["Maize","Rice","Millet","Beans","Soybean","Cassava","Yam","Tomato","Pepper","Groundnut","Cotton","Sorghum","Vegetables","Fruits"])
+        crops = st.multiselect("Crops Grown *", [
+            "Maize","Rice","Millet","Beans","Soybean","Cassava","Yam",
+            "Tomato","Pepper","Groundnut","Cotton","Sorghum","Vegetables","Fruits"
+        ])
         
         col1, col2 = st.columns(2)
         with col1:
-            id_img = st.file_uploader("📷 Upload ID Card", type=["jpg","jpeg","png"], help="National ID, Voter's Card, Driver's License, or International Passport")
+            id_img = st.file_uploader("📷 Upload ID Card *", type=["jpg","jpeg","png"],
+                help="National ID, Voter's Card, Driver's License, or International Passport")
         with col2:
-            selfie_img = st.file_uploader("🤳 Upload Selfie", type=["jpg","jpeg","png"], help="A clear photo of your face")
+            selfie_img = st.file_uploader("🤳 Upload Selfie *", type=["jpg","jpeg","png"],
+                help="A clear photo of your face")
         
-        if st.form_submit_button("📤 Submit Verification"):
-            if not full_name or not phone or not state or not lga or not id_img:
-                st.error("Please fill all required fields and upload your ID.")
+        # Submit button
+        submitted = st.form_submit_button("📤 Submit Verification", use_container_width=True)
+        
+        if submitted:
+            # Validate ALL fields
+            errors = []
+            if not full_name or not full_name.strip():
+                errors.append("Full Name is required")
+            if not phone or not phone.strip():
+                errors.append("Phone Number is required")
+            if not state or state == "Select your state":
+                errors.append("State is required")
+            if not lga or not lga.strip():
+                errors.append("LGA is required")
+            if not crops:
+                errors.append("At least one crop must be selected")
+            if not id_img:
+                errors.append("ID Card upload is required")
+            if not selfie_img:
+                errors.append("Selfie upload is required")
+            
+            if errors:
+                for err in errors:
+                    st.error(f"❌ {err}")
             else:
                 with st.spinner("Uploading documents..."):
                     try:
                         id_fn = f"{user.id}/id_{uuid.uuid4().hex[:8]}.jpg"
-                        sf_fn = f"{user.id}/selfie_{uuid.uuid4().hex[:8]}.jpg" if selfie_img else None
+                        sf_fn = f"{user.id}/selfie_{uuid.uuid4().hex[:8]}.jpg"
                         
                         service.storage.from_("message_attachment").upload(id_fn, id_img.getvalue())
-                        if sf_fn and selfie_img:
-                            service.storage.from_("message_attachment").upload(sf_fn, selfie_img.getvalue())
+                        service.storage.from_("message_attachment").upload(sf_fn, selfie_img.getvalue())
                         
                         service.table("farmer_verifications").upsert({
                             "user_id": user.id,
-                            "full_name": full_name,
-                            "phone": phone,
+                            "full_name": full_name.strip(),
+                            "phone": phone.strip(),
                             "state": state,
-                            "lga": lga,
+                            "lga": lga.strip(),
                             "crops": crops,
                             "id_url": id_fn,
                             "selfie_url": sf_fn,
                             "status": "pending",
-                            "payment_status": "pending"
+                            "payment_status": "paid"
                         }).execute()
                         
                         st.success("✅ Verification submitted! An admin will review within 24 hours.")

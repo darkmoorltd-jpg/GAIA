@@ -1,3 +1,4 @@
+
 import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
@@ -35,11 +36,10 @@ res = db.table("user_scans").select("scans_remaining").eq("user_id", user.id).ex
 scans = res.data[0]["scans_remaining"] if res.data else 30
 
 PLANS = {
-    "10":  {"scans": 10,  "price": "N500",   "kobo": 50000},
-    "25":  {"scans": 25,  "price": "N1,000", "kobo": 100000},
-    "60":  {"scans": 60,  "price": "N2,000", "kobo": 200000},
-    "250": {"scans": 250, "price": "N8,000", "kobo": 800000},
-    "unl": {"scans": 9999,"price": "N20,000","kobo": 2000000},
+    "basic":    {"scans": 500,   "price": "₦3,000",   "naira": 3000,   "kobo": 300000},
+    "standard": {"scans": 1000,  "price": "₦5,000",   "naira": 5000,   "kobo": 500000},
+    "pro":      {"scans": 3000,  "price": "₦10,000",  "naira": 10000,  "kobo": 1000000},
+    "max":      {"scans": 15000, "price": "₦25,000",  "naira": 25000,  "kobo": 2500000},
 }
 
 st.markdown("""
@@ -67,20 +67,21 @@ st.markdown("""
     .card.sel { border-color: #2e7d32; background: linear-gradient(160deg, #e8f5e9, #fff); }
     .card-name { font-size: 1.1rem; font-weight: 600; color: #546e7a; }
     .card-price { font-size: 2.4rem; font-weight: 900; color: #1b5e20; margin: .5rem 0; }
+    .card-scans { font-size: 0.95rem; color: #78909c; }
     .banner {
         background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border: 2px solid #2e7d32;
         border-radius: 20px; padding: 1.5rem 2rem; text-align: center; margin: 1.8rem 0;
     }
     .pay-btn {
-        background: linear-gradient(135deg, #2e7d32, #43a047); color: #fff;
+        background: linear-gradient(135deg, #0d6efd, #6610f2); color: #fff;
         border: none; padding: 18px 50px; border-radius: 50px; font-weight: 700;
-        font-size: 1.2rem; cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,.3);
+        font-size: 1.2rem; cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(13,110,253,.3);
     }
     .pay-btn:hover { transform: scale(1.03); }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="title">Buy Scans</div>', unsafe_allow_html=True)
+st.markdown('<div class="title">💳 Buy Scans</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Get more AI-powered diagnoses for your farm</div>', unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns([1, 2, 1])
@@ -95,37 +96,39 @@ if "plan" not in st.session_state:
 cols = st.columns(len(PLANS))
 for i, (key, p) in enumerate(PLANS.items()):
     with cols[i]:
-        label = "Unlimited" if key == "unl" else f"{p['scans']} scans"
+        label = p['price']
+        scans_label = f"{p['scans']:,} scans"
         sel = "sel" if st.session_state.plan == key else ""
-        st.markdown(f'<div class="card {sel}"><div class="card-name">{label}</div><div class="card-price">{p["price"]}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card {sel}"><div class="card-name">{label}</div><div class="card-price">{p["price"]}</div><div class="card-scans">{scans_label}</div></div>', unsafe_allow_html=True)
         if st.button("Select", key=f"btn_{key}", use_container_width=True):
             st.session_state.plan = key
             st.rerun()
 
 if st.session_state.plan:
     p = PLANS[st.session_state.plan]
-    label = "Unlimited" if st.session_state.plan == "unl" else f"{p['scans']} scans"
+    label = f"{p['scans']:,} scans"
     ref = f"GAIA_{user.id[:8]}_{st.session_state.plan}_{uuid.uuid4().hex[:6]}"
 
-    st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} — {p["price"]}</h3></div>', unsafe_allow_html=True)
 
+    # Inline Paystack popup (same as Verify Farmer)
     components.html(f"""
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://js.paystack.co/v1/inline.js"></script>
         <style>
-            body {{ margin:0; padding:0; }}
+            body {{ margin:0; padding:0; display:flex; justify-content:center; }}
             .btn {{
-                background: linear-gradient(135deg, #2e7d32, #43a047); color: #fff;
-                border: none; padding: 18px 50px; border-radius: 50px; font-weight: 700;
-                font-size: 1.2rem; cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,.3);
+                padding: 20px 60px; background: linear-gradient(135deg, #0d6efd, #6610f2); color: #fff;
+                border: none; border-radius: 30px; font-size: 1.3rem;
+                cursor: pointer; font-weight: 600;
             }}
-            .btn:hover {{ transform: scale(1.03); }}
+            .btn:hover {{ background: #0b5ed7; }}
         </style>
     </head>
     <body>
-        <button class="btn" onclick="payWithPaystack()">Pay {p['price']} Now</button>
+        <button class="btn" onclick="payWithPaystack()">💳 Pay {p['price']} Now</button>
         <script>
             function payWithPaystack() {{
                 PaystackPop.setup({{
@@ -144,7 +147,9 @@ if st.session_state.plan:
         </script>
     </body>
     </html>
-    """, height=120)
+    """, height=600)
+
+    st.caption("⏳ A payment popup will appear. If blocked, allow popups for this site.")
 
 st.markdown("---")
 st.markdown("### Already Paid? Enter Your Reference")
@@ -165,7 +170,7 @@ with c2:
                     amt = v["amount"]
                     match = None
                     for k, pd in PLANS.items():
-                        if abs(pd["kobo"] / 100 - amt) < 1:
+                        if abs(pd["naira"] - amt) < 1:
                             match = k
                             break
                     if match:
@@ -175,7 +180,7 @@ with c2:
                         new_total = cur_scans + add
                         db.table("user_scans").update({"scans_remaining": new_total}).eq("user_id", user.id).execute()
                         db.table("payment_history").insert({"user_id": user.id, "amount": amt, "scans_added": add, "plan": match, "reference": ref_input}).execute()
-                        st.success(f"{add} scans added! Balance: {new_total}")
+                        st.success(f"✅ {add:,} scans added! Balance: {new_total:,}")
                         st.rerun()
                     else:
                         st.error("Amount doesn't match any plan.")
@@ -183,7 +188,7 @@ with c2:
                 st.error("Payment not found.")
 
 st.markdown("---")
-st.caption("Secure payments by Paystack . Darkmoor Ltd")
+st.caption("Secure payments by Paystack. Darkmoor Ltd")
 
 cols = st.columns(6)
 cols[0].page_link("pages/1_Dashboard.py", label="Dashboard")

@@ -23,8 +23,8 @@ is_admin = (user.email == ADMIN_EMAIL)
 res = supabase.table("user_profiles").select("*").eq("user_id", user.id).execute()
 profile = res.data[0] if res.data and len(res.data) > 0 else None
 
-has_saved_name = bool(profile and profile.get("first_name"))
-profile_locked = has_saved_name and not is_admin
+has_saved_name = bool(profile and profile.get("profile_locked"))
+profile_locked = bool(profile and profile.get("profile_locked")) and not is_admin
 
 st.markdown("<style>.stApp{background:linear-gradient(135deg,#f5f7fa,#e8f5e9)}.title{font-size:2.5rem;font-weight:800;text-align:center;color:#2e7d32}</style>", unsafe_allow_html=True)
 st.title("👤 My Profile")

@@ -67,18 +67,27 @@ def get_service_client() -> Client:
 def sign_up(email: str, password: str, first_name: str = "", last_name: str = "",
             middle_name: str = "", phone: str = "", country: str = "", state_city: str = "", 
             address: str = "", social_media: dict = None):
+    """Create a new user. Uses service_client to bypass RLS."""
     supabase = init_supabase()
+    service = get_service_client()
     
     # Check phone uniqueness
     if phone:
-        existing_phone = supabase.table("user_profiles").select("user_id").eq("phone", phone).execute()
-        if existing_phone.data and len(existing_phone.data) > 0:
-            return None, "This phone number is already registered."
+        try:
+            existing_phone = service.table("user_profiles").select("user_id").eq("phone", phone).execute()
+            if existing_phone.data and len(existing_phone.data) > 0:
+                return None, "This phone number is already registered."
+        except:
+            pass
     
     # Sign up
-    res = supabase.auth.sign_up({"email": email, "password": password})
+    try:
+        res = supabase.auth.sign_up({"email": email, "password": password})
+    except Exception as e:
+        return None, str(e)
+    
     if not res.user:
-        return None, "Sign up failed. Please try again."
+        return None, "Sign up failed."
     
     user_id = res.user.id
     
@@ -87,10 +96,10 @@ def sign_up(email: str, password: str, first_name: str = "", last_name: str = ""
         supabase.table("user_scans").insert({
             "user_id": user_id, "scans_remaining": 30, "plan": "free"
         }).execute()
-    except Exception as e:
-        print(f"⚠️ user_scans insert failed: {e}")
+    except:
+        pass
     
-    # Create user_profiles row — use upsert to be safe
+    # Create user_profiles row using SERVICE CLIENT (bypasses RLS)
     profile_data = {
         "user_id": user_id,
         "first_name": first_name or "",
@@ -100,55 +109,51 @@ def sign_up(email: str, password: str, first_name: str = "", last_name: str = ""
         "country": country or "",
         "state_city": state_city or "",
         "address": address or "",
-        "social_media": social_media or {}
+        "social_media": social_media or {},
+        "profile_locked": True
     }
     
     try:
-        supabase.table("user_profiles").upsert(profile_data).execute()
-        print(f"✅ Profile saved for {user_id}")
+        service.table("user_profiles").upsert(profile_data).execute()
+        print(f"✅ Profile saved for {phone}")
     except Exception as e:
-        print(f"⚠️ Profile upsert failed: {e}")
-        # Try insert as fallback
+        print(f"⚠️ Profile save failed: {e}")
+        # Fallback: try with anon key
         try:
-            supabase.table("user_profiles").insert(profile_data).execute()
-            print(f"✅ Profile inserted for {user_id}")
-        except Exception as e2:
-            print(f"❌ Both upsert and insert failed: {e2}")
+            supabase.table("user_profiles").upsert(profile_data).execute()
+            print(f"✅ Profile saved via anon key")
+        except:
+            pass
     
     st.session_state.user = res.user
-    return res.user, None
-
-def sign_in(login: str, password: str):
-    """Sign in with email OR phone number. Tries multiple phone formats."""
+    return res.user, Nonedef sign_in(login: str, password: str):
+    """Sign in with email OR phone number."""
     supabase = init_supabase()
+    service = get_service_client()
     
-    # Clean the input
+    # Clean input
     cleaned = login.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     
-    # Detect if input is a phone number
+    # Detect phone
     is_phone = cleaned.startswith("+") or (cleaned.isdigit() and len(cleaned) >= 10)
     
     if is_phone:
         # Try multiple phone formats
-        phone_variants = []
+        variants = [cleaned]
         if cleaned.startswith("+"):
-            phone_variants.append(cleaned)                    # +2347054647903
-            phone_variants.append(cleaned[1:])                # 2347054647903
+            variants.append(cleaned[1:])  # without +
         else:
-            phone_variants.append("+" + cleaned)              # +2347054647903
-            phone_variants.append(cleaned)                    # 2347054647903
-        phone_variants.append(cleaned[-10:])                 # 07054647903
-        phone_variants.append("+234" + cleaned[-10:])         # +2347054647903
+            variants.append("+" + cleaned)  # with +
+        if len(cleaned) >= 10:
+            variants.append("+234" + cleaned[-10:])
+            variants.append("0" + cleaned[-10:])
+        variants = list(set(variants))
         
-        # Remove duplicates
-        phone_variants = list(dict.fromkeys(phone_variants))
-        
-        for phone in phone_variants:
+        for phone in variants:
             try:
-                profile = supabase.table("user_profiles").select("user_id, phone").eq("phone", phone).execute()
+                profile = service.table("user_profiles").select("user_id").eq("phone", phone).execute()
                 if profile.data and len(profile.data) > 0:
                     user_id = profile.data[0]["user_id"]
-                    service = get_service_client()
                     try:
                         auth_resp = service.auth.admin.get_user_by_id(user_id)
                         if auth_resp and auth_resp.user and auth_resp.user.email:
@@ -161,17 +166,15 @@ def sign_in(login: str, password: str):
             except:
                 continue
         
-        return None, "No account found with this phone number. Please check and try again."
+        return None, "No account found with this phone number."
     
-    # Default: treat as email
+    # Email login
     try:
         res = supabase.auth.sign_in_with_password({"email": login, "password": password})
         st.session_state.user = res.user
         return res.user, None
-    except Exception as e:
-        return None, "Invalid login credentials. Check your email/phone and password."
-
-def sign_out():
+    except:
+        return None, "Invalid login credentials."def sign_out():
     init_supabase().auth.sign_out()
     st.session_state.user = None
 

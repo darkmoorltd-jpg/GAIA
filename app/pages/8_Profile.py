@@ -4,11 +4,17 @@ from supabase import create_client, Client
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
+SERVICE_KEY = st.secrets["supabase"]["service_key"]
 ADMIN_EMAIL = "darkmoorltd@gmail.com"
 
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+@st.cache_resource
+def init_service():
+    """Service client that bypasses RLS for inserts."""
+    return create_client(SUPABASE_URL, SERVICE_KEY)
 
 st.set_page_config(page_title="GAIA – My Profile", page_icon="👤", layout="wide")
 
@@ -18,9 +24,10 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 supabase = init_supabase()
+service = init_service()
 is_admin = (user.email == ADMIN_EMAIL)
 
-# Fetch profile on every page load
+# Fetch profile
 res = supabase.table("user_profiles").select("*").eq("user_id", user.id).execute()
 profile = res.data[0] if res.data and len(res.data) > 0 else None
 
@@ -80,15 +87,24 @@ with st.form("profile_form"):
                     "instagram": instagram.strip()
                 }
             }
-            try:
-                supabase.table("user_profiles").update(update_data).eq("user_id", user.id).execute()
-                st.success("✅ Profile updated!")
-                st.rerun()
-            except:
+            
+            if profile:
+                # Update existing profile
+                try:
+                    supabase.table("user_profiles").update(update_data).eq("user_id", user.id).execute()
+                    st.success("✅ Profile updated!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Update failed: {e}")
+            else:
+                # Insert new profile using SERVICE CLIENT (bypasses RLS)
                 update_data["user_id"] = user.id
-                supabase.table("user_profiles").insert(update_data).execute()
-                st.success("✅ Profile created!")
-                st.rerun()
+                try:
+                    service.table("user_profiles").insert(update_data).execute()
+                    st.success("✅ Profile created!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Create failed: {e}")
 
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")

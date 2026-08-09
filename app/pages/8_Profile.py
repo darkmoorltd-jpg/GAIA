@@ -30,7 +30,11 @@ st.markdown("<style>.stApp{background:linear-gradient(135deg,#f5f7fa,#e8f5e9)}.t
 st.title("👤 My Profile")
 
 if profile_locked:
-    st.info("🔒 Your profile has been saved and is now locked. Contact the admin to make changes.")
+    st.info("🔒 Your profile is locked. All sign‑up information is saved and cannot be changed. Contact the admin to make changes.")
+elif has_saved_name and not is_admin:
+    st.info("📝 Fill in your details and save. Once saved, your profile will be locked.")
+else:
+    st.info("📝 Fill in your details and save.")
 elif has_saved_name and is_admin:
     st.info("🔧 Admin mode — you can edit any user's profile.")
 elif not has_saved_name:

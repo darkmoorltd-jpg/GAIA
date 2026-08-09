@@ -4,17 +4,11 @@ from supabase import create_client, Client
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
-SERVICE_KEY = st.secrets["supabase"]["service_key"]
 ADMIN_EMAIL = "darkmoorltd@gmail.com"
 
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
-
-@st.cache_resource
-def init_service():
-    """Service client that bypasses RLS for inserts."""
-    return create_client(SUPABASE_URL, SERVICE_KEY)
 
 st.set_page_config(page_title="GAIA – My Profile", page_icon="👤", layout="wide")
 
@@ -24,30 +18,26 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 supabase = init_supabase()
-service = init_service()
 is_admin = (user.email == ADMIN_EMAIL)
 
 # Fetch profile
 res = supabase.table("user_profiles").select("*").eq("user_id", user.id).execute()
 profile = res.data[0] if res.data and len(res.data) > 0 else None
 
-# Determine locked status from database
+# Determine locked status
 profile_locked = bool(profile and profile.get("profile_locked", False))
-has_saved_name = bool(profile and profile.get("first_name"))
-
-# Admin can always edit
 if is_admin:
     profile_locked = False
 
-st.markdown("<style>.stApp{background:linear-gradient(135deg,#f5f7fa,#e8f5e9)}.title{font-size:2.5rem;font-weight:800;text-align:center;color:#2e7d32}</style>", unsafe_allow_html=True)
+st.markdown("<style>.stApp{background:linear-gradient(135deg,#f5f7fa,#e8f5e9)}</style>", unsafe_allow_html=True)
 st.title("👤 My Profile")
 
 if profile_locked:
-    st.info("🔒 Your profile is locked. All sign‑up information is saved and cannot be changed. Contact the admin to make changes.")
-elif has_saved_name:
-    st.info("📝 Your profile has been saved. Only the admin can make changes.")
+    st.info("🔒 Your profile is locked. Contact admin to make changes.")
+elif profile:
+    st.info("📝 Profile saved. Admin can edit if needed.")
 else:
-    st.info("📝 Fill in your details and save. Once saved, your profile will be locked.")
+    st.info("📝 Fill in your details and save.")
 
 with st.form("profile_form"):
     col1, col2 = st.columns(2)
@@ -64,50 +54,26 @@ with st.form("profile_form"):
     with col2:
         phone = st.text_input("Phone", value=profile.get("phone", "") if profile else "", disabled=profile_locked)
     
-    st.markdown("**Social Media**")
-    social = profile.get("social_media", {}) if profile else {}
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        twitter = st.text_input("Twitter/X", value=social.get("twitter", ""), disabled=profile_locked)
-    with col2:
-        linkedin = st.text_input("LinkedIn", value=social.get("linkedin", ""), disabled=profile_locked)
-    with col3:
-        instagram = st.text_input("Instagram", value=social.get("instagram", ""), disabled=profile_locked)
-    
     if not profile_locked:
         if st.form_submit_button("💾 Save Profile"):
-            update_data = {
+            save_data = {
                 "first_name": first_name.strip(),
                 "last_name": last_name.strip(),
                 "phone": phone.strip(),
                 "country": country.strip(),
-                "social_media": {
-                    "twitter": twitter.strip(),
-                    "linkedin": linkedin.strip(),
-                    "instagram": instagram.strip()
-                }
+                "profile_locked": True
             }
             
             if profile:
-                # Update existing profile
-                try:
-                    supabase.table("user_profiles").update(update_data).eq("user_id", user.id).execute()
-                    st.success("✅ Profile updated!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Update failed: {e}")
+                result = supabase.table("user_profiles").update(save_data).eq("user_id", user.id).execute()
             else:
-                # Insert new profile using SERVICE CLIENT (bypasses RLS)
-                update_data["user_id"] = user.id
-                try:
-                    service.table("user_profiles").insert(update_data).execute()
-                    st.success("✅ Profile created!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Create failed: {e}")
+                save_data["user_id"] = user.id
+                result = supabase.table("user_profiles").insert(save_data).execute()
+            
+            st.success("✅ Profile saved!")
+            st.rerun()
 
 st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(6)
 with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
 with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")

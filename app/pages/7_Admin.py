@@ -222,7 +222,7 @@ with tab4:
     st.subheader("🛡️ Farmer Verifications")
     verifications = supabase.table("farmer_verifications").select("*").order("created_at", desc=True).limit(50).execute()
     if verifications.data:
-        for v in verifications.data:
+        for idx, v in enumerate(verifications.data):
             status = v.get("status", "pending")
             emoji = "✅" if status == "approved" else ("⏳" if status == "pending" else "❌")
             with st.expander(f"{emoji} {v.get('full_name','N/A')} — {status.upper()}"):
@@ -251,33 +251,33 @@ with tab4:
                     st.image(v['selfie_url'], width=200)
                 
                 # Delete button for any verification
-                if st.button("🗑️ Delete Verification", key=f"del_ver_{v['user_id']}"):
+                if st.button("🗑️ Delete Verification", key=f"del_ver_{v['user_id']}_{idx}"):
                     supabase.table("farmer_verifications").delete().eq("user_id", v["user_id"]).execute()
                     st.success("Verification record deleted.")
                     st.rerun()
 
                 if status == "approved":
                     c1, c2 = st.columns(2)
-                    if c1.button("🔄 Revoke Approval", key=f"revoke_{v['user_id']}"):
+                    if c1.button("🔄 Revoke Approval", key=f"revoke_{v['user_id']}_{idx}"):
                         supabase.table("farmer_verifications").update({"status": "pending"}).eq("user_id", v["user_id"]).execute()
                         st.warning("Approval revoked — status set back to pending.")
                         st.rerun()
-                    if c2.button("❌ Reject Farmer", key=f"rej_approved_{v['user_id']}"):
-                        reason = st.text_input("Rejection reason", key=f"reason_app_{v['user_id']}")
-                        if st.button("Confirm Reject", key=f"conf_app_{v['user_id']}"):
+                    if c2.button("❌ Reject Farmer", key=f"rej_approved_{v['user_id']}_{idx}"):
+                        reason = st.text_input("Rejection reason", key=f"reason_app_{v['user_id']}_{idx}")
+                        if st.button("Confirm Reject", key=f"conf_app_{v['user_id']}_{idx}"):
                             supabase.table("farmer_verifications").update({"status": "rejected", "rejection_reason": reason}).eq("user_id", v["user_id"]).execute()
                             st.error("Farmer rejected")
                             st.rerun()
 
                 if status == "pending":
                     c1, c2 = st.columns(2)
-                    if c1.button("✅ Approve", key=f"app_{v['user_id']}"):
+                    if c1.button("✅ Approve", key=f"app_{v['user_id']}_{idx}"):
                         supabase.table("farmer_verifications").update({"status": "approved"}).eq("user_id", v["user_id"]).execute()
                         st.success("Approved!")
                         st.rerun()
-                    if c2.button("❌ Reject", key=f"rej_{v['user_id']}"):
-                        reason = st.text_input("Rejection reason", key=f"reason_{v['user_id']}")
-                        if st.button("Confirm Reject", key=f"conf_{v['user_id']}"):
+                    if c2.button("❌ Reject", key=f"rej_{v['user_id']}_{idx}"):
+                        reason = st.text_input("Rejection reason", key=f"reason_{v['user_id']}_{idx}")
+                        if st.button("Confirm Reject", key=f"conf_{v['user_id']}_{idx}"):
                             supabase.table("farmer_verifications").update({"status": "rejected", "rejection_reason": reason}).eq("user_id", v["user_id"]).execute()
                             st.error("Rejected")
                             st.rerun()

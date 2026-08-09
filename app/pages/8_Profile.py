@@ -1,3 +1,4 @@
+
 import streamlit as st
 from supabase import create_client, Client
 
@@ -23,22 +24,23 @@ is_admin = (user.email == ADMIN_EMAIL)
 res = supabase.table("user_profiles").select("*").eq("user_id", user.id).execute()
 profile = res.data[0] if res.data and len(res.data) > 0 else None
 
-has_saved_name = bool(profile and profile.get("profile_locked"))
-profile_locked = bool(profile and profile.get("profile_locked")) and not is_admin
+# Determine locked status from database
+profile_locked = bool(profile and profile.get("profile_locked", False))
+has_saved_name = bool(profile and profile.get("first_name"))
+
+# Admin can always edit
+if is_admin:
+    profile_locked = False
 
 st.markdown("<style>.stApp{background:linear-gradient(135deg,#f5f7fa,#e8f5e9)}.title{font-size:2.5rem;font-weight:800;text-align:center;color:#2e7d32}</style>", unsafe_allow_html=True)
 st.title("👤 My Profile")
 
 if profile_locked:
     st.info("🔒 Your profile is locked. All sign‑up information is saved and cannot be changed. Contact the admin to make changes.")
-elif has_saved_name and not is_admin:
-    st.info("📝 Fill in your details and save. Once saved, your profile will be locked.")
+elif has_saved_name:
+    st.info("📝 Your profile has been saved. Only the admin can make changes.")
 else:
-    st.info("📝 Fill in your details and save.")
-elif has_saved_name and is_admin:
-    st.info("🔧 Admin mode — you can edit any user's profile.")
-elif not has_saved_name:
-    st.info("📝 Fill in your details and save. Once saved, only the admin can edit it.")
+    st.info("📝 Fill in your details and save. Once saved, your profile will be locked.")
 
 with st.form("profile_form"):
     col1, col2 = st.columns(2)
@@ -65,7 +67,7 @@ with st.form("profile_form"):
     with col3:
         instagram = st.text_input("Instagram", value=social.get("instagram", ""), disabled=profile_locked)
     
-    if not profile_locked or is_admin:
+    if not profile_locked:
         if st.form_submit_button("💾 Save Profile"):
             update_data = {
                 "first_name": first_name.strip(),

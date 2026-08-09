@@ -68,39 +68,55 @@ def sign_up(email: str, password: str, first_name: str = "", last_name: str = ""
             middle_name: str = "", phone: str = "", country: str = "", state_city: str = "", 
             address: str = "", social_media: dict = None):
     supabase = init_supabase()
-    try:
-        # Check phone uniqueness
+    
+    # Check phone uniqueness
+    if phone:
         existing_phone = supabase.table("user_profiles").select("user_id").eq("phone", phone).execute()
         if existing_phone.data and len(existing_phone.data) > 0:
-            return None, "This phone number is already registered. Please use a different number."
-        
-        res = supabase.auth.sign_up({"email": email, "password": password})
-        if res.user:
-            time.sleep(0.5)
-            try:
-                supabase.table("user_scans").insert({
-                    "user_id": res.user.id, "scans_remaining": 30, "plan": "free"
-                }).execute()
-            except:
-                pass
-            try:
-                supabase.table("user_profiles").insert({
-                    "user_id": res.user.id,
-                    "first_name": first_name,
-                    "middle_name": middle_name,
-                    "last_name": last_name,
-                    "phone": phone,
-                    "country": country,
-                    "state_city": state_city,
-                    "address": address,
-                    "social_media": social_media or {}
-                }).execute()
-            except:
-                pass
-            st.session_state.user = res.user
-        return res.user, None
+            return None, "This phone number is already registered."
+    
+    # Sign up
+    res = supabase.auth.sign_up({"email": email, "password": password})
+    if not res.user:
+        return None, "Sign up failed. Please try again."
+    
+    user_id = res.user.id
+    
+    # Create user_scans row
+    try:
+        supabase.table("user_scans").insert({
+            "user_id": user_id, "scans_remaining": 30, "plan": "free"
+        }).execute()
     except Exception as e:
-        return None, str(e)
+        print(f"⚠️ user_scans insert failed: {e}")
+    
+    # Create user_profiles row — use upsert to be safe
+    profile_data = {
+        "user_id": user_id,
+        "first_name": first_name or "",
+        "middle_name": middle_name or "",
+        "last_name": last_name or "",
+        "phone": phone or "",
+        "country": country or "",
+        "state_city": state_city or "",
+        "address": address or "",
+        "social_media": social_media or {}
+    }
+    
+    try:
+        supabase.table("user_profiles").upsert(profile_data).execute()
+        print(f"✅ Profile saved for {user_id}")
+    except Exception as e:
+        print(f"⚠️ Profile upsert failed: {e}")
+        # Try insert as fallback
+        try:
+            supabase.table("user_profiles").insert(profile_data).execute()
+            print(f"✅ Profile inserted for {user_id}")
+        except Exception as e2:
+            print(f"❌ Both upsert and insert failed: {e2}")
+    
+    st.session_state.user = res.user
+    return res.user, None
 
 def sign_in(login: str, password: str):
     """Sign in with email OR phone number. Tries multiple phone formats."""

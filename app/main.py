@@ -106,35 +106,37 @@ def sign_in(login: str, password: str):
     """Sign in with email OR phone number. Phone numbers are looked up first."""
     supabase = init_supabase()
     
-    # Detect if input is a phone number (starts with + or contains mostly digits)
-    is_phone = login.startswith("+") or (login.replace(" ", "").replace("-", "").isdigit() and len(login) >= 10)
+    # Detect if input is a phone number
+    cleaned = login.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    is_phone = cleaned.startswith("+") or (cleaned.isdigit() and len(cleaned) >= 10)
     
     if is_phone:
-        # Clean the phone number
-        phone = login.strip().replace(" ", "").replace("-", "")
+        phone = cleaned
         if not phone.startswith("+"):
             phone = "+" + phone
         
-        # Look up email by phone number
+        # Look up the user_id from user_profiles using phone
         try:
             profile = supabase.table("user_profiles").select("user_id").eq("phone", phone).execute()
             if profile.data and len(profile.data) > 0:
                 user_id = profile.data[0]["user_id"]
-                # Get email from auth
+                
+                # Use the service client to get the user's email
+                service = get_service_client()
                 try:
-                    auth_user = supabase.auth.admin.get_user_by_id(user_id)
-                    if auth_user and auth_user.user:
-                        email = auth_user.user.email
-                        # Now sign in with email
+                    auth_resp = service.auth.admin.get_user_by_id(user_id)
+                    if auth_resp and auth_resp.user and auth_resp.user.email:
+                        email = auth_resp.user.email
+                        # Sign in with the found email
                         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
                         st.session_state.user = res.user
                         return res.user, None
-                except:
+                except Exception:
                     pass
-        except:
+        except Exception:
             pass
         
-        # If phone lookup failed, try as email anyway (might be a phone-format email)
+        return None, "No account found with this phone number. Please check and try again."
     
     # Default: treat as email
     try:
@@ -142,7 +144,10 @@ def sign_in(login: str, password: str):
         st.session_state.user = res.user
         return res.user, None
     except Exception as e:
-        return None, "Invalid login credentials. Check your email/phone and password."
+        error_msg = str(e)
+        if "Invalid login credentials" in error_msg:
+            return None, "Invalid login credentials. Check your email/phone and password."
+        return None, error_msg
 
 def sign_out():
     init_supabase().auth.sign_out()

@@ -65,9 +65,15 @@ def get_service_client() -> Client:
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
 def sign_up(email: str, password: str, first_name: str = "", last_name: str = "",
-            phone: str = "", country: str = "", state_city: str = "", address: str = "", social_media: dict = None):
+            middle_name: str = "", phone: str = "", country: str = "", state_city: str = "", 
+            address: str = "", social_media: dict = None):
     supabase = init_supabase()
     try:
+        # Check phone uniqueness
+        existing_phone = supabase.table("user_profiles").select("user_id").eq("phone", phone).execute()
+        if existing_phone.data and len(existing_phone.data) > 0:
+            return None, "This phone number is already registered. Please use a different number."
+        
         res = supabase.auth.sign_up({"email": email, "password": password})
         if res.user:
             time.sleep(0.5)
@@ -81,6 +87,7 @@ def sign_up(email: str, password: str, first_name: str = "", last_name: str = ""
                 supabase.table("user_profiles").insert({
                     "user_id": res.user.id,
                     "first_name": first_name,
+                    "middle_name": middle_name,
                     "last_name": last_name,
                     "phone": phone,
                     "country": country,
@@ -273,24 +280,34 @@ if st.session_state.user is None:
 
     with tab2:
         with st.form("signup_form"):
+            st.markdown("#### 👤 Personal Information")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                new_first_name = st.text_input("First Name *", placeholder="Your legal first name")
+            with col2:
+                new_middle_name = st.text_input("Middle Name", placeholder="Optional")
+            with col3:
+                new_last_name = st.text_input("Last Name *", placeholder="Your legal last name")
+            
             col1, col2 = st.columns(2)
             with col1:
-                new_first_name = st.text_input("First Name *")
+                new_email = st.text_input("Email *", placeholder="your@email.com")
             with col2:
-                new_last_name = st.text_input("Last Name *")
-            new_email = st.text_input("Email *")
-            new_password = st.text_input("Password (min 6 characters) *", type="password")
+                new_password = st.text_input("Password (min 6 characters) *", type="password", placeholder="Min 6 characters")
+            
             col1, col2 = st.columns(2)
             with col1:
                 new_country = st.selectbox("Country *", options=[""] + countries)
             with col2:
                 new_phone_code = st.selectbox("Country Code *", options=[""] + country_codes)
             new_phone = st.text_input("Phone Number *", placeholder="+2347012345678")
+            
+            st.markdown("#### 🏠 Address")
             col1, col2 = st.columns(2)
             with col1:
                 new_state_city = st.text_input("State/City *", placeholder="e.g., Lagos, London, New York")
             with col2:
-                new_address = st.text_input("Address *", placeholder="e.g., 123 Main Street")
+                new_address = st.text_input("Full Address *", placeholder="e.g., 123 Main Street, Ikeja")
             
             st.markdown("**Social Media (optional)**")
             col1, col2, col3 = st.columns(3)
@@ -302,20 +319,31 @@ if st.session_state.user is None:
                 instagram = st.text_input("Instagram", placeholder="@username")
             
             if st.form_submit_button("Create Account"):
+                import re
+                errors = []
+                
                 if not new_email or not new_password:
-                    st.error("Email and password are required.")
+                    errors.append("Email and password are required.")
                 elif len(new_password) < 6:
-                    st.error("Password must be at least 6 characters.")
-                elif not new_first_name.strip() or not new_last_name.strip():
-                    st.error("First name and last name are required.")
-                elif not new_country:
-                    st.error("Country is required.")
-                elif not new_phone.strip():
-                    st.error("Phone number is required.")
-                elif not new_state_city.strip():
-                    st.error("State/City is required.")
-                elif not new_address.strip():
-                    st.error("Address is required.")
+                    errors.append("Password must be at least 6 characters.")
+                if not new_first_name.strip():
+                    errors.append("First name is required.")
+                if not new_last_name.strip():
+                    errors.append("Last name is required.")
+                if not new_country:
+                    errors.append("Country is required.")
+                if not new_phone.strip():
+                    errors.append("Phone number is required.")
+                elif not re.match(r'^\+?[\d\s\-\(\)]{10,15}$', new_phone.strip()):
+                    errors.append("Enter a valid phone number (e.g., +2348012345678).")
+                if not new_state_city.strip():
+                    errors.append("State/City is required.")
+                if not new_address.strip():
+                    errors.append("Address is required.")
+                
+                if errors:
+                    for err in errors:
+                        st.error(f"❌ {err}")
                 else:
                     full_phone = new_phone.strip()
                     if new_phone_code and not full_phone.startswith("+"):
@@ -326,10 +354,21 @@ if st.session_state.user is None:
                     if linkedin.strip(): social["linkedin"] = linkedin.strip()
                     if instagram.strip(): social["instagram"] = instagram.strip()
                     
+                    # Check phone uniqueness before signup
+                    try:
+                        supabase = init_supabase()
+                        existing = supabase.table("user_profiles").select("user_id").eq("phone", full_phone).execute()
+                        if existing.data and len(existing.data) > 0:
+                            st.error("❌ This phone number is already registered. Please use a different number.")
+                            st.stop()
+                    except:
+                        pass
+                    
                     user, error = sign_up(
                         new_email, new_password,
                         first_name=new_first_name.strip(),
                         last_name=new_last_name.strip(),
+                        middle_name=new_middle_name.strip() if new_middle_name else "",
                         phone=full_phone,
                         country=new_country,
                         state_city=new_state_city.strip(),

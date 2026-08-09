@@ -60,9 +60,21 @@ def get_all_users():
             "user_id": uid,
             "email": u.email,
             "first_name": profile.get("first_name", ""),
+            "middle_name": profile.get("middle_name", ""),
             "last_name": profile.get("last_name", ""),
             "phone": profile.get("phone", ""),
             "country": profile.get("country", ""),
+            "state": profile.get("state", ""),
+            "city": profile.get("city", ""),
+            "lga": profile.get("lga", ""),
+            "bvn": profile.get("bvn", ""),
+            "nin": profile.get("nin", ""),
+            "crops_grown": profile.get("crops_grown", []),
+            "association": profile.get("association", ""),
+            "farm_location": profile.get("farm_location", ""),
+            "farm_size": profile.get("farm_size", ""),
+            "house_address": profile.get("house_address", ""),
+            "date_of_birth": profile.get("date_of_birth", ""),
             "scans_remaining": scan.get("scans_remaining", 0),
             "plan": scan.get("plan", "free"),
             "created_at": u.created_at
@@ -154,8 +166,13 @@ with tab2:
     
     if selected_user:
         uid = selected_user["user_id"]
-        st.write(f"**{selected_user['email']}** — {selected_user.get('first_name','')} {selected_user.get('last_name','')}")
-        st.write(f"Country: {selected_user.get('country','')} | Phone: {selected_user.get('phone','')}")
+        st.write(f"**{selected_user['email']}** — {selected_user.get('first_name','')} {selected_user.get('middle_name','')} {selected_user.get('last_name','')}")
+        st.write(f"📞 {selected_user.get('phone','')} | 🎂 {selected_user.get('date_of_birth','N/A')}")
+        st.write(f"🏠 {selected_user.get('house_address','')}, {selected_user.get('city','')}, {selected_user.get('state','')} {selected_user.get('country','')}")
+        st.write(f"🏷️ BVN: {selected_user.get('bvn','N/A')} | NIN: {selected_user.get('nin','N/A')}")
+        st.write(f"🌾 Farm: {selected_user.get('farm_location','N/A')} | Size: {selected_user.get('farm_size','N/A')}")
+        st.write(f"🌱 Crops: {selected_user.get('crops_grown','N/A')}")
+        st.write(f"🤝 Association: {selected_user.get('association','N/A')}")
         st.metric("Scans Remaining", selected_user["scans_remaining"])
         
         col1, col2, col3, col4 = st.columns(4)

@@ -102,14 +102,47 @@ def sign_up(email: str, password: str, first_name: str = "", last_name: str = ""
     except Exception as e:
         return None, str(e)
 
-def sign_in(email: str, password: str):
+def sign_in(login: str, password: str):
+    """Sign in with email OR phone number. Phone numbers are looked up first."""
     supabase = init_supabase()
+    
+    # Detect if input is a phone number (starts with + or contains mostly digits)
+    is_phone = login.startswith("+") or (login.replace(" ", "").replace("-", "").isdigit() and len(login) >= 10)
+    
+    if is_phone:
+        # Clean the phone number
+        phone = login.strip().replace(" ", "").replace("-", "")
+        if not phone.startswith("+"):
+            phone = "+" + phone
+        
+        # Look up email by phone number
+        try:
+            profile = supabase.table("user_profiles").select("user_id").eq("phone", phone).execute()
+            if profile.data and len(profile.data) > 0:
+                user_id = profile.data[0]["user_id"]
+                # Get email from auth
+                try:
+                    auth_user = supabase.auth.admin.get_user_by_id(user_id)
+                    if auth_user and auth_user.user:
+                        email = auth_user.user.email
+                        # Now sign in with email
+                        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                        st.session_state.user = res.user
+                        return res.user, None
+                except:
+                    pass
+        except:
+            pass
+        
+        # If phone lookup failed, try as email anyway (might be a phone-format email)
+    
+    # Default: treat as email
     try:
-        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        res = supabase.auth.sign_in_with_password({"email": login, "password": password})
         st.session_state.user = res.user
         return res.user, None
     except Exception as e:
-        return None, str(e)
+        return None, "Invalid login credentials. Check your email/phone and password."
 
 def sign_out():
     init_supabase().auth.sign_out()
@@ -253,7 +286,7 @@ if st.session_state.user is None:
 
     with tab1:
         with st.form("login_form"):
-            email = st.text_input("Email")
+            email = st.text_input("Email or Phone Number", placeholder="your@email.com or +2348012345678")
             password = st.text_input("Password", type="password")
             col1, col2 = st.columns(2)
             with col1:

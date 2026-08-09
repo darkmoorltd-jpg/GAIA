@@ -64,7 +64,40 @@ try:
 except:
     pass
 
-# Friends
+# ===== HELPER: Create or get a DM room =====
+def get_or_create_dm(other_user_id):
+    # Check if a DM room already exists between these two users
+    try:
+        my_rooms_res = db.table("chat_members").select("room_id").eq("user_id", user.id).execute()
+        if my_rooms_res.data:
+            my_room_ids = set(r["room_id"] for r in my_rooms_res.data)
+            for rid in my_room_ids:
+                members_res = db.table("chat_members").select("user_id").eq("room_id", rid).execute()
+                if members_res.data:
+                    member_ids = set(m["user_id"] for m in members_res.data)
+                    if other_user_id in member_ids and len(member_ids) == 2:
+                        return rid
+    except:
+        pass
+
+    # Create a new DM room
+    try:
+        room = service.table("chat_rooms").insert({
+            "name": f"DM: {user.id[:6]}-{other_user_id[:6]}",
+            "is_group": False,
+            "created_at": datetime.now().isoformat()
+        }).execute()
+        room_id = room.data[0]["id"]
+        service.table("chat_members").insert([
+            {"room_id": room_id, "user_id": user.id},
+            {"room_id": room_id, "user_id": other_user_id}
+        ]).execute()
+        return room_id
+    except Exception as e:
+        st.error(f"Failed to create chat: {e}")
+        return None
+
+# ===== FRIENDS & ROOMS =====
 friend_ids = set()
 try:
     res = db.table("friendships").select("*").eq("status", "accepted").or_(f"sender_id.eq.{user.id},receiver_id.eq.{user.id}").execute()
@@ -75,7 +108,6 @@ try:
 except:
     pass
 
-# Pending requests
 pending_requests = []
 try:
     res = db.table("friendships").select("*").eq("receiver_id", user.id).eq("status", "pending").execute()
@@ -115,8 +147,33 @@ if "active_chat" not in st.session_state:
     st.session_state.active_chat = None
 if "active_chat_name" not in st.session_state:
     st.session_state.active_chat_name = ""
-if "search_results" not in st.session_state:
-    st.session_state.search_results = []
+if "active_chat_other" not in st.session_state:
+    st.session_state.active_chat_other = None
+
+# ===== ACCEPT/DECLINE HANDLERS =====
+if "accept_clicked" in st.session_state and st.session_state.accept_clicked:
+    sid = st.session_state.accept_clicked
+    try:
+        service.table("friendships").update({"status": "accepted"}).eq("sender_id", sid).eq("receiver_id", user.id).execute()
+        # Create chat room
+        room_id = get_or_create_dm(sid)
+        if room_id:
+            st.session_state.active_chat = room_id
+            prof = all_users.get(sid, {})
+            name = f"{prof.get('first_name','')} {prof.get('last_name','')}".strip() or prof.get('email', 'Unknown')
+            st.session_state.active_chat_name = name
+            st.session_state.active_chat_other = sid
+    except:
+        pass
+    st.session_state.accept_clicked = None
+
+if "decline_clicked" in st.session_state and st.session_state.decline_clicked:
+    sid = st.session_state.decline_clicked
+    try:
+        service.table("friendships").delete().eq("sender_id", sid).eq("receiver_id", user.id).execute()
+    except:
+        pass
+    st.session_state.decline_clicked = None
 
 # ---------- STYLES ----------
 st.markdown("""
@@ -125,7 +182,6 @@ st.markdown("""
     * { font-family: 'Inter', sans-serif; }
     .stApp { background: #0a0f0c; color: #e8f5e9; }
     header, footer { visibility: hidden; }
-    .chat-list { background: #111b15; border-right: 1px solid #1b2e1f; height: calc(100vh - 100px); overflow-y: auto; padding: 10px; }
     .chat-item {
         display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px;
         cursor: pointer; transition: all 0.2s; margin-bottom: 4px;
@@ -137,8 +193,6 @@ st.markdown("""
         display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 1.2rem;
         flex-shrink: 0;
     }
-    .online-dot { width: 10px; height: 10px; border-radius: 50%; background: #4caf50; display: inline-block; margin-right: 4px; }
-    .offline-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; display: inline-block; margin-right: 4px; }
     .message-bubble {
         max-width: 70%; padding: 10px 15px; border-radius: 18px; margin: 4px 0;
         font-size: 0.95rem; line-height: 1.4;
@@ -146,15 +200,13 @@ st.markdown("""
     .message-mine { background: linear-gradient(135deg, #2e7d32, #1b5e20); color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
     .message-other { background: #1e2d22; color: #e8f5e9; border-bottom-left-radius: 4px; }
     .search-input input { background: #1b2e1f !important; border: 1px solid #2e4a34 !important; color: #e8f5e9 !important; border-radius: 20px !important; padding: 10px 16px !important; }
-    .search-input input::placeholder { color: rgba(255,255,255,0.3) !important; }
     .chat-input input { background: #1b2e1f !important; border: 1px solid #2e4a34 !important; color: #e8f5e9 !important; border-radius: 25px !important; padding: 12px 20px !important; }
-    .chat-input input::placeholder { color: rgba(255,255,255,0.3) !important; }
     .stButton button {
         background: #2e7d32 !important; color: #fff !important; border: none !important;
         border-radius: 20px !important; padding: 8px 20px !important; font-weight: 600 !important;
         transition: all 0.2s !important;
     }
-    .stButton button:hover { background: #4caf50 !important; transform: scale(1.03); }
+    .stButton button:hover { background: #4caf50 !important; }
     .divider { border-top: 1px solid #1b2e1f; margin: 8px 0; }
 </style>
 """, unsafe_allow_html=True)
@@ -168,12 +220,31 @@ col_left, col_right = st.columns([1, 2.5])
 with col_left:
     st.markdown("### 📱 Chats")
     
+    # Friend Requests
+    if pending_requests:
+        st.markdown("### 📨 Requests")
+        for req in pending_requests:
+            sender = all_users.get(req["sender_id"], {})
+            name = f"{sender.get('first_name','')} {sender.get('last_name','')}".strip() or sender.get('email', 'Unknown')
+            st.markdown(f'<div class="chat-item"><div class="avatar">{name[0].upper()}</div><div style="flex:1;"><strong>{name}</strong><br><small>wants to chat</small></div></div>', unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("✅ Accept", key=f"acc_{req['sender_id']}"):
+                    st.session_state.accept_clicked = req["sender_id"]
+                    st.rerun()
+            with c2:
+                if st.button("❌ Decline", key=f"dec_{req['sender_id']}"):
+                    st.session_state.decline_clicked = req["sender_id"]
+                    st.rerun()
+            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    
     # Search bar
     search = st.text_input("", placeholder="🔍 Search by name or phone...", key="chat_search", label_visibility="collapsed")
     
     if search:
         s = search.lower().strip()
-        search_results = []
+        st.markdown(f"**Results for '{search}'**")
+        found = False
         for uid, prof in all_users.items():
             if uid == user.id:
                 continue
@@ -182,56 +253,60 @@ with col_left:
             phone = prof.get('phone', '') or ''
             searchable = f"{name} {email} {phone}".lower()
             if s in searchable:
-                search_results.append({"uid": uid, "name": name or email, "is_friend": uid in friend_ids})
-        
-        st.markdown(f"**{len(search_results)} results for '{search}'**")
-        for sr in search_results:
-            is_online = sr["uid"] in online_users
-            st.markdown(f'<div class="chat-item"><div class="avatar">{sr["name"][0].upper()}</div><div style="flex:1;"><strong>{sr["name"]}</strong><br><small style="color:rgba(255,255,255,0.4);">{"🟢 Online" if is_online else "⚫ Offline"}</small></div></div>', unsafe_allow_html=True)
-            if not sr["is_friend"]:
-                if st.button("➕ Add & Chat", key=f"add_{sr['uid']}"):
-                    try:
-                        # Create friendship
-                        service.table("friendships").insert({"sender_id": user.id, "receiver_id": sr["uid"], "status": "accepted"}).execute()
-                        # Create chat room
-                        room = service.table("chat_rooms").insert({"name": f"DM: {user.id[:8]}-{sr['uid'][:8]}", "is_group": False}).execute()
-                        room_id = room.data[0]["id"]
-                        service.table("chat_members").insert([{"room_id": room_id, "user_id": user.id}, {"room_id": room_id, "user_id": sr["uid"]}]).execute()
-                        st.success(f"Chat with {sr['name']} started!")
-                        st.rerun()
-                    except:
-                        st.warning("Already connected.")
-            else:
-                if st.button("💬 Chat", key=f"chat_{sr['uid']}"):
-                    # Find existing room
-                    for room in my_rooms:
-                        if room.get("other_id") == sr["uid"]:
-                            st.session_state.active_chat = room["id"]
-                            st.session_state.active_chat_name = sr["name"]
+                found = True
+                display_name = name if name else (email or 'Unknown')
+                is_online = uid in online_users
+                is_friend = uid in friend_ids
+                
+                st.markdown(f'<div class="chat-item"><div class="avatar">{display_name[0].upper()}</div><div style="flex:1;"><strong>{display_name}</strong><br><small style="color:rgba(255,255,255,0.4);">{"🟢 Online" if is_online else "⚫ Offline"}</small></div></div>', unsafe_allow_html=True)
+                
+                if is_friend:
+                    if st.button("💬 Chat", key=f"chat_{uid}"):
+                        room_id = get_or_create_dm(uid)
+                        if room_id:
+                            st.session_state.active_chat = room_id
+                            st.session_state.active_chat_name = display_name
+                            st.session_state.active_chat_other = uid
                             st.rerun()
-            st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+                else:
+                    if st.button("➕ Add & Chat", key=f"add_{uid}"):
+                        try:
+                            # Create friendship (auto-accept for speed)
+                            existing = db.table("friendships").select("*").or_(f"sender_id.eq.{user.id}.and.receiver_id.eq.{uid},sender_id.eq.{uid}.and.receiver_id.eq.{user.id}").execute()
+                            if not existing.data:
+                                service.table("friendships").insert({"sender_id": user.id, "receiver_id": uid, "status": "accepted"}).execute()
+                            # Create chat room
+                            room_id = get_or_create_dm(uid)
+                            if room_id:
+                                st.session_state.active_chat = room_id
+                                st.session_state.active_chat_name = display_name
+                                st.session_state.active_chat_other = uid
+                                st.success(f"Chat with {display_name} started!")
+                                st.rerun()
+                        except Exception as e:
+                            st.warning(f"Already connected. Opening chat...")
+                            room_id = get_or_create_dm(uid)
+                            if room_id:
+                                st.session_state.active_chat = room_id
+                                st.session_state.active_chat_name = display_name
+                                st.session_state.active_chat_other = uid
+                                st.rerun()
+                st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+        if not found:
+            st.info(f"No farmers found matching '{search}'.")
     else:
         # Show existing chats
-        if pending_requests:
-            st.markdown("### 📨 Requests")
-            for req in pending_requests:
-                sender = all_users.get(req["sender_id"], {})
-                name = f"{sender.get('first_name','')} {sender.get('last_name','')}".strip() or sender.get('email', 'Unknown')
-                st.markdown(f'<div class="chat-item"><div class="avatar">{name[0].upper()}</div><div><strong>{name}</strong><br><small>wants to chat</small></div></div>', unsafe_allow_html=True)
-                c1, c2 = st.columns(2)
-                c1.button("✅", key=f"acc_{req['sender_id']}", on_click=lambda rid=req["sender_id"]: accept_request(rid))
-                c2.button("❌", key=f"dec_{req['sender_id']}", on_click=lambda rid=req["sender_id"]: decline_request(rid))
-        
-        st.markdown("### 💬 All Chats")
         if my_rooms:
+            st.markdown("### 💬 All Chats")
             for room in my_rooms:
                 is_online = room.get("other_id") in online_users
                 is_active = st.session_state.active_chat == room["id"]
                 active_class = " active" if is_active else ""
-                st.markdown(f'<div class="chat-item{active_class}" onclick="document.getElementById(\'btn_{room["id"]}\').click()"><div class="avatar">{room["name"][0].upper()}</div><div style="flex:1;"><strong>{room["name"]}</strong><br><small>{"🟢 Online" if is_online else "⚫ Offline"}</small></div></div>', unsafe_allow_html=True)
-                if st.button("💬", key=f"open_{room['id']}"):
+                st.markdown(f'<div class="chat-item{active_class}"><div class="avatar">{room["name"][0].upper()}</div><div style="flex:1;"><strong>{room["name"]}</strong><br><small>{"🟢 Online" if is_online else "⚫ Offline"}</small></div></div>', unsafe_allow_html=True)
+                if st.button("💬 Open", key=f"open_{room['id']}"):
                     st.session_state.active_chat = room["id"]
                     st.session_state.active_chat_name = room["name"]
+                    st.session_state.active_chat_other = room.get("other_id")
                     st.rerun()
                 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         else:
@@ -242,12 +317,8 @@ with col_right:
     if st.session_state.active_chat:
         room_id = st.session_state.active_chat
         name = st.session_state.active_chat_name
-        is_online = False
-        # Find if the other user is online
-        for room in my_rooms:
-            if room["id"] == room_id:
-                is_online = room.get("other_id") in online_users
-                break
+        other_id = st.session_state.active_chat_other
+        is_online = other_id in online_users if other_id else False
         
         st.markdown(f'<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1b2e1f;"><div class="avatar">{name[0].upper()}</div><div><strong>{name}</strong><br><small>{"🟢 Online" if is_online else "⚫ Offline"}</small></div></div>', unsafe_allow_html=True)
         
@@ -258,7 +329,6 @@ with col_right:
         except:
             msgs_data = []
         
-        # Scrollable messages container
         st.markdown('<div style="height:60vh;overflow-y:auto;padding:10px;">', unsafe_allow_html=True)
         for msg in msgs_data:
             is_mine = msg["sender_id"] == user.id
@@ -273,25 +343,16 @@ with col_right:
             new_msg = st.text_input("", placeholder="Type a message...", key=f"input_{room_id}", label_visibility="collapsed")
         with c2:
             if st.button("📤", key=f"send_{room_id}"):
-                if new_msg:
+                if new_msg.strip():
                     service.table("messages").insert({
                         "room_id": room_id,
                         "sender_id": user.id,
-                        "content": new_msg,
+                        "content": new_msg.strip(),
                         "created_at": datetime.now().isoformat()
                     }).execute()
                     st.rerun()
     else:
         st.markdown('<div style="display:flex;align-items:center;justify-content:center;height:70vh;flex-direction:column;"><div style="font-size:5rem;">💬</div><h2>Welcome to GAIAchat</h2><p style="color:rgba(255,255,255,0.4);">Search for a farmer by name or phone number to start chatting</p></div>', unsafe_allow_html=True)
-
-# Helper functions
-def accept_request(sender_id):
-    service.table("friendships").update({"status": "accepted"}).eq("sender_id", sender_id).eq("receiver_id", user.id).execute()
-    st.rerun()
-
-def decline_request(sender_id):
-    service.table("friendships").delete().eq("sender_id", sender_id).eq("receiver_id", user.id).execute()
-    st.rerun()
 
 # ---------- NAVIGATION BAR ----------
 st.markdown("---")

@@ -66,7 +66,6 @@ except:
 
 # ===== HELPER: Create or get a DM room =====
 def get_or_create_dm(other_user_id):
-    # Check if a DM room already exists between these two users
     try:
         my_rooms_res = db.table("chat_members").select("room_id").eq("user_id", user.id).execute()
         if my_rooms_res.data:
@@ -80,12 +79,10 @@ def get_or_create_dm(other_user_id):
     except:
         pass
 
-    # Create a new DM room
     try:
         room = service.table("chat_rooms").insert({
             "name": f"DM: {user.id[:6]}-{other_user_id[:6]}",
-            "is_group": False,
-            "created_at": datetime.now().isoformat()
+            "is_group": False
         }).execute()
         room_id = room.data[0]["id"]
         service.table("chat_members").insert([
@@ -155,7 +152,6 @@ if "accept_clicked" in st.session_state and st.session_state.accept_clicked:
     sid = st.session_state.accept_clicked
     try:
         service.table("friendships").update({"status": "accepted"}).eq("sender_id", sid).eq("receiver_id", user.id).execute()
-        # Create chat room
         room_id = get_or_create_dm(sid)
         if room_id:
             st.session_state.active_chat = room_id
@@ -175,75 +171,127 @@ if "decline_clicked" in st.session_state and st.session_state.decline_clicked:
         pass
     st.session_state.decline_clicked = None
 
-# ---------- STYLES ----------
+# ---------- STYLES (WhatsApp-inspired light mode) ----------
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * { font-family: 'Inter', sans-serif; }
-    .stApp { background: #0a0f0c; color: #e8f5e9; }
+    .stApp { background: #eae6df; }
     header, footer { visibility: hidden; }
+    
+    /* Chat list panel */
+    [data-testid="stVerticalBlock"] { gap: 0 !important; }
+    
+    .chat-list-header {
+        background: #f0f2f5; padding: 12px 16px; border-bottom: 1px solid #e0e0e0;
+        font-weight: 600; font-size: 1.1rem; color: #111b21;
+    }
     .chat-item {
-        display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px;
-        cursor: pointer; transition: all 0.2s; margin-bottom: 4px;
+        display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+        cursor: pointer; background: white; border-bottom: 1px solid #f0f0f0;
+        transition: all 0.15s;
     }
-    .chat-item:hover { background: rgba(46,125,50,0.1); }
-    .chat-item.active { background: rgba(46,125,50,0.2); }
+    .chat-item:hover { background: #f0f2f5; }
+    .chat-item.active { background: #d9fdd3; }
     .avatar {
-        width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #2e7d32, #4caf50);
-        display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 1.2rem;
-        flex-shrink: 0;
+        width: 49px; height: 49px; border-radius: 50%; background: linear-gradient(135deg, #25d366, #128c7e);
+        display: flex; align-items: center; justify-content: center; font-weight: 600;
+        color: #fff; font-size: 1.2rem; flex-shrink: 0;
     }
+    .chat-info { flex: 1; min-width: 0; }
+    .chat-name { font-weight: 500; font-size: 0.95rem; color: #111b21; }
+    .chat-preview { font-size: 0.8rem; color: #667781; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .online-dot { width: 10px; height: 10px; border-radius: 50%; background: #25d366; display: inline-block; margin-right: 4px; }
+    .offline-dot { width: 10px; height: 10px; border-radius: 50%; background: #bbb; display: inline-block; margin-right: 4px; }
+    
+    /* Chat header */
+    .chat-header {
+        background: #f0f2f5; padding: 10px 16px; border-bottom: 1px solid #e0e0e0;
+        display: flex; align-items: center; gap: 12px;
+    }
+    
+    /* Messages */
     .message-bubble {
-        max-width: 70%; padding: 10px 15px; border-radius: 18px; margin: 4px 0;
-        font-size: 0.95rem; line-height: 1.4;
+        max-width: 65%; padding: 8px 12px; border-radius: 8px; margin: 3px 16px;
+        font-size: 0.92rem; line-height: 1.4; position: relative; box-shadow: 0 1px 0.5px rgba(0,0,0,0.08);
     }
-    .message-mine { background: linear-gradient(135deg, #2e7d32, #1b5e20); color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
-    .message-other { background: #1e2d22; color: #e8f5e9; border-bottom-left-radius: 4px; }
-    .search-input input { background: #1b2e1f !important; border: 1px solid #2e4a34 !important; color: #e8f5e9 !important; border-radius: 20px !important; padding: 10px 16px !important; }
-    .chat-input input { background: #1b2e1f !important; border: 1px solid #2e4a34 !important; color: #e8f5e9 !important; border-radius: 25px !important; padding: 12px 20px !important; }
+    .message-mine { background: #d9fdd3; float: right; border-top-right-radius: 0; }
+    .message-other { background: #fff; float: left; border-top-left-radius: 0; }
+    .message-time { font-size: 0.7rem; color: #667781; float: right; margin-left: 8px; margin-top: 4px; }
+    
+    /* Search bar */
+    .search-box input {
+        background: #f0f2f5 !important; border: none !important; border-radius: 8px !important;
+        padding: 8px 16px !important; font-size: 0.9rem !important; color: #111b21 !important;
+    }
+    .search-box input::placeholder { color: #667781 !important; }
+    
+    /* Input bar */
+    .chat-input input {
+        background: #fff !important; border: none !important; border-radius: 8px !important;
+        padding: 9px 12px !important; font-size: 0.95rem !important;
+    }
+    
+    /* Buttons */
     .stButton button {
-        background: #2e7d32 !important; color: #fff !important; border: none !important;
-        border-radius: 20px !important; padding: 8px 20px !important; font-weight: 600 !important;
-        transition: all 0.2s !important;
+        background: #00a884 !important; color: #fff !important; border: none !important;
+        border-radius: 50% !important; width: 42px !important; height: 42px !important;
+        padding: 0 !important; font-size: 1.2rem !important; transition: all 0.2s !important;
     }
-    .stButton button:hover { background: #4caf50 !important; }
-    .divider { border-top: 1px solid #1b2e1f; margin: 8px 0; }
+    .stButton button:hover { background: #06cf9c !important; }
+    
+    /* Small buttons (Accept/Decline) */
+    .small-btn button {
+        border-radius: 16px !important; width: auto !important; height: auto !important;
+        padding: 4px 16px !important; font-size: 0.8rem !important;
+    }
+    
+    /* Welcome screen */
+    .welcome-screen {
+        background: #f0f2f5; display: flex; align-items: center; justify-content: center;
+        flex-direction: column; height: 100%;
+    }
+    
+    /* Divider */
+    .divider { border-top: 1px solid #e0e0e0; margin: 0; }
+    
+    /* Hide Streamlit elements */
+    .st-emotion-cache-1cypcdb { background: white; }
+    [data-testid="stSidebar"] { background: white !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------- MAIN LAYOUT ----------
-st.markdown('<div style="font-size:1.4rem;font-weight:700;padding:10px 0;color:#4caf50;">💬 GAIAchat</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align:center;padding:8px;background:#00a884;color:white;font-weight:600;font-size:1.1rem;">💬 GAIAchat</div>', unsafe_allow_html=True)
 
-col_left, col_right = st.columns([1, 2.5])
+col_left, col_right = st.columns([1.2, 2.8])
 
 # ===== LEFT PANEL =====
 with col_left:
-    st.markdown("### 📱 Chats")
+    # Search bar
+    search = st.text_input("", placeholder="🔍 Search or start new chat", key="chat_search", label_visibility="collapsed")
     
     # Friend Requests
     if pending_requests:
-        st.markdown("### 📨 Requests")
+        st.markdown('<div style="padding:8px 16px;background:#fff;border-bottom:1px solid #e0e0e0;font-weight:500;color:#111b21;">📨 Friend Requests</div>', unsafe_allow_html=True)
         for req in pending_requests:
             sender = all_users.get(req["sender_id"], {})
             name = f"{sender.get('first_name','')} {sender.get('last_name','')}".strip() or sender.get('email', 'Unknown')
-            st.markdown(f'<div class="chat-item"><div class="avatar">{name[0].upper()}</div><div style="flex:1;"><strong>{name}</strong><br><small>wants to chat</small></div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="chat-item"><div class="avatar">{name[0].upper()}</div><div class="chat-info"><div class="chat-name">{name}</div><div class="chat-preview">wants to be your friend</div></div></div>', unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("✅ Accept", key=f"acc_{req['sender_id']}"):
+                if st.button("✅", key=f"acc_{req['sender_id']}"):
                     st.session_state.accept_clicked = req["sender_id"]
                     st.rerun()
             with c2:
-                if st.button("❌ Decline", key=f"dec_{req['sender_id']}"):
+                if st.button("❌", key=f"dec_{req['sender_id']}"):
                     st.session_state.decline_clicked = req["sender_id"]
                     st.rerun()
             st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    # Search bar
-    search = st.text_input("", placeholder="🔍 Search by name or phone...", key="chat_search", label_visibility="collapsed")
-    
     if search:
         s = search.lower().strip()
-        st.markdown(f"**Results for '{search}'**")
+        st.markdown(f'<div style="padding:8px 16px;background:#fff;font-size:0.85rem;color:#667781;">Results for "{search}"</div>', unsafe_allow_html=True)
         found = False
         for uid, prof in all_users.items():
             if uid == user.id:
@@ -258,10 +306,10 @@ with col_left:
                 is_online = uid in online_users
                 is_friend = uid in friend_ids
                 
-                st.markdown(f'<div class="chat-item"><div class="avatar">{display_name[0].upper()}</div><div style="flex:1;"><strong>{display_name}</strong><br><small style="color:rgba(255,255,255,0.4);">{"🟢 Online" if is_online else "⚫ Offline"}</small></div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="chat-item"><div class="avatar">{display_name[0].upper()}</div><div class="chat-info"><div class="chat-name">{display_name}</div><div class="chat-preview">{"🟢 Online" if is_online else "⚫ Offline"}</div></div></div>', unsafe_allow_html=True)
                 
                 if is_friend:
-                    if st.button("💬 Chat", key=f"chat_{uid}"):
+                    if st.button("💬", key=f"chat_{uid}"):
                         room_id = get_or_create_dm(uid)
                         if room_id:
                             st.session_state.active_chat = room_id
@@ -269,13 +317,9 @@ with col_left:
                             st.session_state.active_chat_other = uid
                             st.rerun()
                 else:
-                    if st.button("➕ Add & Chat", key=f"add_{uid}"):
+                    if st.button("➕", key=f"add_{uid}"):
                         try:
-                            # Create friendship (auto-accept for speed)
-                            existing = db.table("friendships").select("*").or_(f"sender_id.eq.{user.id}.and.receiver_id.eq.{uid},sender_id.eq.{uid}.and.receiver_id.eq.{user.id}").execute()
-                            if not existing.data:
-                                service.table("friendships").insert({"sender_id": user.id, "receiver_id": uid, "status": "accepted"}).execute()
-                            # Create chat room
+                            service.table("friendships").insert({"sender_id": user.id, "receiver_id": uid, "status": "accepted"}).execute()
                             room_id = get_or_create_dm(uid)
                             if room_id:
                                 st.session_state.active_chat = room_id
@@ -284,7 +328,7 @@ with col_left:
                                 st.success(f"Chat with {display_name} started!")
                                 st.rerun()
                         except Exception as e:
-                            st.warning(f"Already connected. Opening chat...")
+                            st.warning("Already connected. Opening chat...")
                             room_id = get_or_create_dm(uid)
                             if room_id:
                                 st.session_state.active_chat = room_id
@@ -295,19 +339,24 @@ with col_left:
         if not found:
             st.info(f"No farmers found matching '{search}'.")
     else:
-        # Show existing chats
+        # Show existing chats (WhatsApp-style chat list)
         if my_rooms:
-            st.markdown("### 💬 All Chats")
+            st.markdown('<div style="padding:8px 16px;background:#fff;border-bottom:1px solid #e0e0e0;font-weight:500;color:#111b21;">💬 Chats</div>', unsafe_allow_html=True)
             for room in my_rooms:
                 is_online = room.get("other_id") in online_users
                 is_active = st.session_state.active_chat == room["id"]
                 active_class = " active" if is_active else ""
-                st.markdown(f'<div class="chat-item{active_class}"><div class="avatar">{room["name"][0].upper()}</div><div style="flex:1;"><strong>{room["name"]}</strong><br><small>{"🟢 Online" if is_online else "⚫ Offline"}</small></div></div>', unsafe_allow_html=True)
-                if st.button("💬 Open", key=f"open_{room['id']}"):
-                    st.session_state.active_chat = room["id"]
-                    st.session_state.active_chat_name = room["name"]
-                    st.session_state.active_chat_other = room.get("other_id")
-                    st.rerun()
+                
+                # Create a clickable chat item
+                col1, col2 = st.columns([5, 1])
+                with col1:
+                    st.markdown(f'<div class="chat-item{active_class}"><div class="avatar">{room["name"][0].upper()}</div><div class="chat-info"><div class="chat-name">{room["name"]}</div><div class="chat-preview">{"🟢 Online" if is_online else "⚫ Offline"}</div></div></div>', unsafe_allow_html=True)
+                with col2:
+                    if st.button("💬", key=f"open_{room['id']}"):
+                        st.session_state.active_chat = room["id"]
+                        st.session_state.active_chat_name = room["name"]
+                        st.session_state.active_chat_other = room.get("other_id")
+                        st.rerun()
                 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
         else:
             st.info("No chats yet. Search for a farmer above!")
@@ -320,7 +369,8 @@ with col_right:
         other_id = st.session_state.active_chat_other
         is_online = other_id in online_users if other_id else False
         
-        st.markdown(f'<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1b2e1f;"><div class="avatar">{name[0].upper()}</div><div><strong>{name}</strong><br><small>{"🟢 Online" if is_online else "⚫ Offline"}</small></div></div>', unsafe_allow_html=True)
+        # Chat header
+        st.markdown(f'<div class="chat-header"><div class="avatar">{name[0].upper()}</div><div><strong style="color:#111b21;">{name}</strong><br><small style="color:#667781;">{"🟢 online" if is_online else "offline"}</small></div></div>', unsafe_allow_html=True)
         
         # Messages area
         try:
@@ -329,30 +379,36 @@ with col_right:
         except:
             msgs_data = []
         
-        st.markdown('<div style="height:60vh;overflow-y:auto;padding:10px;">', unsafe_allow_html=True)
+        st.markdown('<div style="height:55vh;overflow-y:auto;padding:8px;background:#e5ddd5;">', unsafe_allow_html=True)
         for msg in msgs_data:
             is_mine = msg["sender_id"] == user.id
             bubble_class = "message-mine" if is_mine else "message-other"
             time_str = msg.get("created_at", "")[11:16] if msg.get("created_at") else ""
-            st.markdown(f'<div class="message-bubble {bubble_class}">{msg.get("content","")}<br><small style="opacity:0.5;">{time_str}</small></div>', unsafe_allow_html=True)
+            align = "text-align:right;" if is_mine else "text-align:left;"
+            st.markdown(f'<div style="{align}"><div class="message-bubble {bubble_class}">{msg.get("content","")}<span class="message-time">{time_str}</span></div></div><div style="clear:both;"></div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
         # Message input
-        c1, c2 = st.columns([6, 1])
+        st.markdown('<div style="background:#f0f2f5;padding:8px 16px;display:flex;align-items:center;gap:8px;">', unsafe_allow_html=True)
+        c1, c2 = st.columns([9, 1])
         with c1:
-            new_msg = st.text_input("", placeholder="Type a message...", key=f"input_{room_id}", label_visibility="collapsed")
+            new_msg = st.text_input("", placeholder="Type a message", key=f"input_{room_id}", label_visibility="collapsed")
         with c2:
             if st.button("📤", key=f"send_{room_id}"):
                 if new_msg.strip():
-                    service.table("messages").insert({
-                        "room_id": room_id,
-                        "sender_id": user.id,
-                        "content": new_msg.strip(),
-                        "created_at": datetime.now().isoformat()
-                    }).execute()
-                    st.rerun()
+                    try:
+                        service.table("messages").insert({
+                            "room_id": room_id,
+                            "sender_id": user.id,
+                            "content": new_msg.strip()
+                        }).execute()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Send failed: {e}")
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
-        st.markdown('<div style="display:flex;align-items:center;justify-content:center;height:70vh;flex-direction:column;"><div style="font-size:5rem;">💬</div><h2>Welcome to GAIAchat</h2><p style="color:rgba(255,255,255,0.4);">Search for a farmer by name or phone number to start chatting</p></div>', unsafe_allow_html=True)
+        # WhatsApp-style welcome screen
+        st.markdown(f'<div style="display:flex;align-items:center;justify-content:center;height:80vh;flex-direction:column;background:#f0f2f5;"><div style="font-size:4rem;">💬</div><h2 style="color:#41525d;font-weight:300;">GAIAchat</h2><p style="color:#667781;max-width:400px;text-align:center;">Search for a farmer by name or phone number to start chatting. Connect with farmers across Africa.</p></div>', unsafe_allow_html=True)
 
 # ---------- NAVIGATION BAR ----------
 st.markdown("---")

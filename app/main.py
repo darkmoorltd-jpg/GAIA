@@ -126,7 +126,9 @@ def sign_up(email: str, password: str, first_name: str = "", last_name: str = ""
             pass
     
     st.session_state.user = res.user
-    return res.user, Nonedef sign_in(login: str, password: str):
+    return res.user, None
+
+def sign_in(login: str, password: str):
     """Sign in with email OR phone number."""
     supabase = init_supabase()
     service = get_service_client()

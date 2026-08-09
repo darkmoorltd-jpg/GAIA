@@ -98,36 +98,49 @@ def change_user_password(user_id, new_password):
 
 def delete_user(user_id):
     """Comprehensive user deletion — removes ALL related records then the auth user."""
-    tables_to_clear = [
+    errors = []
+    
+    # Tables with 'user_id' column
+    tables_with_user_id = [
         "payment_history",
         "pending_payments", 
         "messages",
         "farmer_verifications",
         "badge_subscriptions",
-        "friendships",
         "chat_members",
         "user_status",
         "user_profiles",
         "user_scans",
     ]
     
-    errors = []
-    
-    # 1. Delete from all related tables
-    for table in tables_to_clear:
+    for table in tables_with_user_id:
         try:
             supabase.table(table).delete().eq("user_id", user_id).execute()
         except Exception as e:
-            # Table might not exist — that's okay
             if "does not exist" not in str(e).lower():
                 errors.append(f"{table}: {str(e)[:80]}")
     
-    # 2. Delete the auth user (this is the critical step)
+    # Friendships uses sender_id and receiver_id (not user_id)
+    try:
+        supabase.table("friendships").delete().eq("sender_id", user_id).execute()
+    except:
+        pass
+    try:
+        supabase.table("friendships").delete().eq("receiver_id", user_id).execute()
+    except:
+        pass
+    
+    # Posts may have user_id
+    try:
+        supabase.table("posts").delete().eq("user_id", user_id).execute()
+    except:
+        pass
+    
+    # Delete the auth user
     try:
         supabase.auth.admin.delete_user(user_id)
         return True, None
     except Exception as e:
-        # If auth deletion fails, return all errors
         all_errors = errors + [f"auth.user: {str(e)[:100]}"]
         return False, " | ".join(all_errors) if all_errors else str(e)[:100]
 

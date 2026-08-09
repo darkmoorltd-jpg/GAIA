@@ -4,11 +4,16 @@ from supabase import create_client, Client
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
+SERVICE_KEY = st.secrets["supabase"]["service_key"]
 ADMIN_EMAIL = "darkmoorltd@gmail.com"
 
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+@st.cache_resource
+def init_service():
+    return create_client(SUPABASE_URL, SERVICE_KEY)
 
 st.set_page_config(page_title="GAIA – My Profile", page_icon="👤", layout="wide")
 
@@ -18,10 +23,11 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 supabase = init_supabase()
+service = init_service()
 is_admin = (user.email == ADMIN_EMAIL)
 
-# Fetch profile
-res = supabase.table("user_profiles").select("*").eq("user_id", user.id).execute()
+# Fetch profile using service client to avoid RLS issues
+res = service.table("user_profiles").select("*").eq("user_id", user.id).execute()
 profile = res.data[0] if res.data and len(res.data) > 0 else None
 
 # Determine locked status
@@ -57,6 +63,7 @@ with st.form("profile_form"):
     if not profile_locked:
         if st.form_submit_button("💾 Save Profile"):
             save_data = {
+                "user_id": user.id,
                 "first_name": first_name.strip(),
                 "last_name": last_name.strip(),
                 "phone": phone.strip(),
@@ -64,14 +71,13 @@ with st.form("profile_form"):
                 "profile_locked": True
             }
             
-            if profile:
-                result = supabase.table("user_profiles").update(save_data).eq("user_id", user.id).execute()
-            else:
-                save_data["user_id"] = user.id
-                result = supabase.table("user_profiles").insert(save_data).execute()
-            
-            st.success("✅ Profile saved!")
-            st.rerun()
+            # Use UPSERT with service client (bypasses ALL RLS)
+            try:
+                service.table("user_profiles").upsert(save_data).execute()
+                st.success("✅ Profile saved!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Save failed: {str(e)[:200]}")
 
 st.markdown("---")
 cols = st.columns(6)

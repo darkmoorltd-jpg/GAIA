@@ -103,38 +103,47 @@ def sign_up(email: str, password: str, first_name: str = "", last_name: str = ""
         return None, str(e)
 
 def sign_in(login: str, password: str):
-    """Sign in with email OR phone number. Phone numbers are looked up first."""
+    """Sign in with email OR phone number. Tries multiple phone formats."""
     supabase = init_supabase()
     
-    # Detect if input is a phone number
+    # Clean the input
     cleaned = login.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    
+    # Detect if input is a phone number
     is_phone = cleaned.startswith("+") or (cleaned.isdigit() and len(cleaned) >= 10)
     
     if is_phone:
-        phone = cleaned
-        if not phone.startswith("+"):
-            phone = "+" + phone
+        # Try multiple phone formats
+        phone_variants = []
+        if cleaned.startswith("+"):
+            phone_variants.append(cleaned)                    # +2347054647903
+            phone_variants.append(cleaned[1:])                # 2347054647903
+        else:
+            phone_variants.append("+" + cleaned)              # +2347054647903
+            phone_variants.append(cleaned)                    # 2347054647903
+        phone_variants.append(cleaned[-10:])                 # 07054647903
+        phone_variants.append("+234" + cleaned[-10:])         # +2347054647903
         
-        # Look up the user_id from user_profiles using phone
-        try:
-            profile = supabase.table("user_profiles").select("user_id").eq("phone", phone).execute()
-            if profile.data and len(profile.data) > 0:
-                user_id = profile.data[0]["user_id"]
-                
-                # Use the service client to get the user's email
-                service = get_service_client()
-                try:
-                    auth_resp = service.auth.admin.get_user_by_id(user_id)
-                    if auth_resp and auth_resp.user and auth_resp.user.email:
-                        email = auth_resp.user.email
-                        # Sign in with the found email
-                        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                        st.session_state.user = res.user
-                        return res.user, None
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        # Remove duplicates
+        phone_variants = list(dict.fromkeys(phone_variants))
+        
+        for phone in phone_variants:
+            try:
+                profile = supabase.table("user_profiles").select("user_id, phone").eq("phone", phone).execute()
+                if profile.data and len(profile.data) > 0:
+                    user_id = profile.data[0]["user_id"]
+                    service = get_service_client()
+                    try:
+                        auth_resp = service.auth.admin.get_user_by_id(user_id)
+                        if auth_resp and auth_resp.user and auth_resp.user.email:
+                            email = auth_resp.user.email
+                            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                            st.session_state.user = res.user
+                            return res.user, None
+                    except:
+                        pass
+            except:
+                continue
         
         return None, "No account found with this phone number. Please check and try again."
     
@@ -144,12 +153,7 @@ def sign_in(login: str, password: str):
         st.session_state.user = res.user
         return res.user, None
     except Exception as e:
-        error_msg = str(e)
-        if "Invalid login credentials" in error_msg:
-            return None, "Invalid login credentials. Check your email/phone and password."
-        return None, error_msg
-
-def sign_out():
+        return None, "Invalid login credentials. Check your email/phone and password."def sign_out():
     init_supabase().auth.sign_out()
     st.session_state.user = None
 
@@ -383,9 +387,14 @@ if st.session_state.user is None:
                     for err in errors:
                         st.error(f"❌ {err}")
                 else:
-                    full_phone = new_phone.strip()
-                    if new_phone_code and not full_phone.startswith("+"):
-                        full_phone = f"{new_phone_code}{full_phone}"
+                    # Standardize phone: always store as +234XXXXXXXXXX
+                    full_phone = new_phone.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+                    if full_phone.startswith("0"):
+                        full_phone = "+234" + full_phone[1:]
+                    elif full_phone.startswith("234") and not full_phone.startswith("+"):
+                        full_phone = "+" + full_phone
+                    elif not full_phone.startswith("+"):
+                        full_phone = new_phone_code.strip() + full_phone
                     
                     social = {}
                     if twitter.strip(): social["twitter"] = twitter.strip()

@@ -11,6 +11,9 @@ SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
+VERIFICATION_FEE = 200000      # in kobo (₦2,000)
+VERIFICATION_FEE_NAIRA = 2000
+
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -39,7 +42,6 @@ def verify_payment(reference):
     return False
 
 def is_unique(service, table, column, value, exclude_user_id=None):
-    """Check if a value is unique across all users."""
     query = service.table(table).select("user_id").eq(column, value)
     if exclude_user_id:
         query = query.neq("user_id", exclude_user_id)
@@ -48,7 +50,7 @@ def is_unique(service, table, column, value, exclude_user_id=None):
 
 st.set_page_config(page_title="GAIA – Farmer Verification", page_icon="🛡️", layout="wide")
 
-# Check if returning from Paystack
+# ── Auto‑verify payment on return from Paystack ──
 query_params = st.query_params
 url_ref = query_params.get("reference", [None])[0]
 if url_ref:
@@ -60,6 +62,7 @@ if url_ref:
             supabase.table("farmer_verifications").update({
                 "payment_status": "paid", "status": "pending"
             }).eq("payment_reference", url_ref).execute()
+            st.session_state.verification_paid = True
             st.success("✅ Payment confirmed! You can now submit your documents.")
             st.query_params.clear()
             st.rerun()
@@ -94,12 +97,33 @@ st.markdown("""
     .verified-badge { background: linear-gradient(135deg, #2e7d32, #4caf50); color: #fff; padding: 10px 25px; border-radius: 30px; font-weight: 700; font-size: 1.2rem; }
     .pending-badge { background: linear-gradient(135deg, #f57f17, #ffb300); color: #fff; padding: 10px 25px; border-radius: 30px; font-weight: 700; font-size: 1.2rem; }
     .rejected-badge { background: linear-gradient(135deg, #c62828, #e53935); color: #fff; padding: 10px 25px; border-radius: 30px; font-weight: 700; font-size: 1.2rem; }
-    .required-field label::after { content: " *"; color: #e53935; font-weight: bold; }
+    .progress-container { display: flex; justify-content: center; gap: 2rem; margin-bottom: 2rem; }
+    .progress-step { text-align: center; padding: 1rem 1.5rem; border-radius: 15px; background: rgba(255,255,255,0.8); }
+    .progress-step.active { background: #2e7d32; color: #fff; }
+    .progress-step.done { background: #c8e6c9; color: #2e7d32; }
+    .progress-step.inactive { background: #f5f5f5; color: #999; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="title">🛡️ Farmer Verification</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Complete your identity verification to unlock digital wallet and marketplace</div>', unsafe_allow_html=True)
+
+# ============================================================
+# PROGRESS INDICATOR
+# ============================================================
+st.markdown('<div class="progress-container">', unsafe_allow_html=True)
+
+if verification and verification.get("status") == "approved":
+    step1, step2, step3 = "done", "done", "done"
+elif st.session_state.verification_paid:
+    step1, step2, step3 = "done", "active", "inactive"
+else:
+    step1, step2, step3 = "active", "inactive", "inactive"
+
+st.markdown(f'<div class="progress-step {step1}">💳 Payment</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="progress-step {step2}">📝 Profile</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="progress-step {step3}">✅ Done</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
 # SHOW CURRENT STATUS IF VERIFICATION EXISTS
@@ -160,13 +184,13 @@ if not st.session_state.verification_paid:
         </style>
     </head>
     <body>
-        <button class="btn" onclick="payWithPaystack()">💳 Pay ₦2,000 to Verify</button>
+        <button class="btn" onclick="payWithPaystack()">💳 Pay ₦{VERIFICATION_FEE_NAIRA:,} to Verify</button>
         <script>
             function payWithPaystack() {{
                 PaystackPop.setup({{
                     key: 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057',
                     email: '{user.email}',
-                    amount: 200000,
+                    amount: {VERIFICATION_FEE},
                     currency: 'NGN',
                     ref: '{ref}',
                     label: 'GAIA Farmer Verification',
@@ -208,7 +232,7 @@ if not st.session_state.verification_paid:
                     st.error("❌ Payment not found.")
                     if st.session_state.verify_attempts >= 3:
                         st.warning("Still having trouble? Contact support with your payment reference.")
-                        st.markdown("[📧 Email Support](mailto:darkmoorltd@gmail.com)")
+                        st.markdown("[📧 Email Support](darkmoorltd@gmail.com)")
     
     st.stop()
 
@@ -352,13 +376,12 @@ if st.session_state.verification_paid:
             
             # ── UNIQUENESS CHECKS ──
             if not errors:
-                # Check phone uniqueness
+                if not is_unique(service, "farmer_verifications", "email", user.email, user.id):
+                    errors.append("❌ This email is already registered for verification.")
                 if not is_unique(service, "farmer_verifications", "phone", phone.strip(), user.id):
                     errors.append("❌ This phone number is already registered by another farmer.")
-                # Check BVN uniqueness
                 if not is_unique(service, "farmer_verifications", "bvn", bvn.strip(), user.id):
                     errors.append("❌ This BVN is already registered by another farmer.")
-                # Check NIN uniqueness
                 if not is_unique(service, "farmer_verifications", "nin", nin.strip(), user.id):
                     errors.append("❌ This NIN is already registered by another farmer.")
             

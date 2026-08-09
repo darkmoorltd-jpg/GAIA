@@ -132,7 +132,7 @@ for i, (key, p) in enumerate(PLANS.items()):
     with cols[i]:
         scans_label = f"{p['scans']:,} scans"
         sel = "sel" if st.session_state.plan == key else ""
-        st.markdown(f'<div class="card {sel}"><div class="card-name">{scans_label}</div><div class="card-price">{p["price"]}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="card {sel}"><div class="card-name">{scans_label}</div><div class="card-price">{p["price"]}</div><div class="card-scans">₦{p["naira"]/p["scans"]:.2f} per scan</div></div>', unsafe_allow_html=True)
         if st.button("Select", key=f"btn_{key}", use_container_width=True):
             st.session_state.plan = key
             st.rerun()
@@ -142,10 +142,44 @@ if st.session_state.plan:
     label = f"{p['scans']:,} scans"
     ref = f"GAIA_{user.id[:8]}_{st.session_state.plan}_{uuid.uuid4().hex[:6]}"
     st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} — {p["price"]}</h3></div>', unsafe_allow_html=True)
-    components.html(f"""
-    <!DOCTYPE html><html><head><script src="https://js.paystack.co/v1/inline.js"></script><style>body{{margin:0;padding:0;display:flex;justify-content:center}}.btn{{padding:20px 60px;background:linear-gradient(135deg,#0d6efd,#6610f2);color:#fff;border:none;border-radius:30px;font-size:1.3rem;cursor:pointer;font-weight:600}}.btn:hover{{background:#0b5ed7}}</style></head><body><button class="btn" onclick="payWithPaystack()">Pay {p['price']} Now</button><script>function payWithPaystack(){{PaystackPop.setup({{key:'{PAYSTACK_PUBLIC}',email:'{user.email}',amount:{p['kobo']},currency:'NGN',ref:'{ref}',label:'GAIA {label}',onClose:function(){{window.location.reload()}},callback:function(response){{window.location.href='/?reference='+response.reference+'&plan={st.session_state.plan}'}}}}).openIframe()}}</script></body></html>
-    """, height=100)
-    st.caption("A payment popup will appear. If blocked, allow popups for this site.")
+    paystack_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://js.paystack.co/v1/inline.js"></script>
+        <style>
+            body {{ margin:0; padding:0; display:flex; justify-content:center; align-items:center; min-height:400px; }}
+            .btn {{
+                padding: 30px 80px; background: linear-gradient(135deg, #0d6efd, #6610f2); color: #fff;
+                border: none; border-radius: 30px; font-size: 1.5rem;
+                cursor: pointer; font-weight: 600; width: 100%;
+            }}
+            .btn:hover {{ background: #0b5ed7; }}
+        </style>
+    </head>
+    <body>
+        <button class="btn" onclick="payWithPaystack()">💳 Pay {p['price']} — {label}</button>
+        <script>
+            function payWithPaystack() {{
+                PaystackPop.setup({{
+                    key: '{PAYSTACK_PUBLIC}',
+                    email: '{user.email}',
+                    amount: {p['kobo']},
+                    currency: 'NGN',
+                    ref: '{ref}',
+                    label: 'GAIA {label}',
+                    onClose: function() {{ window.location.reload(); }},
+                    callback: function(response) {{
+                        window.location.href = '/?reference=' + response.reference + '&plan={st.session_state.plan}';
+                    }}
+                }}).openIframe();
+            }}
+        </script>
+    </body>
+    </html>
+    """
+    components.html(paystack_html, height=500)
+    st.caption("⏳ A payment popup will appear. If blocked, allow popups for this site.")
 
 st.markdown("---")
 st.markdown("### Already Paid? Enter Your Reference")

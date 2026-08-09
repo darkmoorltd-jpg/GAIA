@@ -153,7 +153,9 @@ def sign_in(login: str, password: str):
         st.session_state.user = res.user
         return res.user, None
     except Exception as e:
-        return None, "Invalid login credentials. Check your email/phone and password."def sign_out():
+        return None, "Invalid login credentials. Check your email/phone and password."
+
+def sign_out():
     init_supabase().auth.sign_out()
     st.session_state.user = None
 

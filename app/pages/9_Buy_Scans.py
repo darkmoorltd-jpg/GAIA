@@ -149,12 +149,14 @@ if st.session_state.plan:
 
 st.markdown("---")
 st.markdown("### Already Paid? Enter Your Reference")
-c1, c2 = st.columns([3, 1])
-with c1:
-    ref_input = st.text_input("Reference", placeholder="e.g. GAIA_abc123")
-with c2:
+st.markdown("---")
+st.subheader("✅ Already Paid? Verify Your Payment to Continue")
+col1, col2 = st.columns([3, 1])
+with col1:
+    ref_input = st.text_input("Enter your Paystack reference", placeholder="e.g., GAIA_VERIFY_abc123", key="buy_ref")
+with col2:
     st.write("")
-    if st.button("Verify", use_container_width=True) and ref_input:
+    if st.button("🔍 Verify Payment", use_container_width=True) and ref_input:
         with st.spinner("Checking..."):
             v = verify_payment(ref_input)
             if v["ok"]:

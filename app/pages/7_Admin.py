@@ -97,18 +97,39 @@ def change_user_password(user_id, new_password):
         return False, str(e)
 
 def delete_user(user_id):
+    """Comprehensive user deletion — removes ALL related records then the auth user."""
+    tables_to_clear = [
+        "payment_history",
+        "pending_payments", 
+        "messages",
+        "farmer_verifications",
+        "badge_subscriptions",
+        "friendships",
+        "chat_members",
+        "user_status",
+        "user_profiles",
+        "user_scans",
+    ]
+    
+    errors = []
+    
+    # 1. Delete from all related tables
+    for table in tables_to_clear:
+        try:
+            supabase.table(table).delete().eq("user_id", user_id).execute()
+        except Exception as e:
+            # Table might not exist — that's okay
+            if "does not exist" not in str(e).lower():
+                errors.append(f"{table}: {str(e)[:80]}")
+    
+    # 2. Delete the auth user (this is the critical step)
     try:
-        # 1. Delete related records first (order matters due to foreign keys)
-        supabase.table("payment_history").delete().eq("user_id", user_id).execute()
-        supabase.table("messages").delete().eq("user_id", user_id).execute()
-        supabase.table("farmer_verifications").delete().eq("user_id", user_id).execute()
-        supabase.table("user_profiles").delete().eq("user_id", user_id).execute()
-        supabase.table("user_scans").delete().eq("user_id", user_id).execute()
-        # 2. Finally delete the auth user
         supabase.auth.admin.delete_user(user_id)
         return True, None
     except Exception as e:
-        return False, str(e)
+        # If auth deletion fails, return all errors
+        all_errors = errors + [f"auth.user: {str(e)[:100]}"]
+        return False, " | ".join(all_errors) if all_errors else str(e)[:100]
 
 def create_new_user(email, password, first_name="", last_name=""):
     try:
@@ -202,15 +223,27 @@ with tab2:
                 except Exception as e:
                     st.error(f"Failed: {e}")
         with col4:
+            if "confirm_delete" not in st.session_state:
+                st.session_state.confirm_delete = None
+            
             if st.button("🗑️ Delete User", type="secondary"):
-                if st.session_state.user.email == ADMIN_EMAIL:
+                st.session_state.confirm_delete = uid
+            
+            if st.session_state.confirm_delete == uid:
+                st.error(f"⚠️ Are you sure? This will permanently delete {selected_user['email']} and ALL their data.")
+                c1, c2 = st.columns(2)
+                if c1.button("✅ Yes, Delete", key=f"confirm_del_{uid}"):
                     success, err = delete_user(uid)
                     if success:
-                        st.success("User deleted")
+                        st.success("User permanently deleted")
+                        st.session_state.confirm_delete = None
                         st.cache_data.clear()
                         st.rerun()
                     else:
-                        st.error(f"Failed: {err}")
+                        st.error(f"Delete failed: {err}")
+                if c2.button("❌ Cancel", key=f"cancel_del_{uid}"):
+                    st.session_state.confirm_delete = None
+                    st.rerun()
 
 with tab3:
     st.subheader("➕ Create New User")

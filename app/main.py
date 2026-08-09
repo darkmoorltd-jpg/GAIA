@@ -176,7 +176,9 @@ def sign_in(login: str, password: str):
         st.session_state.user = res.user
         return res.user, None
     except:
-        return None, "Invalid login credentials."def sign_out():
+        return None, "Invalid login credentials."
+
+def sign_out():
     init_supabase().auth.sign_out()
     st.session_state.user = None
 

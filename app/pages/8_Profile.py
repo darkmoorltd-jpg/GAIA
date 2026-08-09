@@ -30,21 +30,21 @@ is_admin = (user.email == ADMIN_EMAIL)
 res = service.table("user_profiles").select("*").eq("user_id", user.id).execute()
 profile = res.data[0] if res.data and len(res.data) > 0 else None
 
-# Check if profile_locked column exists
-has_lock_column = profile and "profile_locked" in profile
-profile_locked = bool(profile and profile.get("profile_locked", False)) if has_lock_column else False
+# PROFILE IS ALWAYS LOCKED after save — only admin can unlock
+profile_locked = True
 if is_admin:
+    profile_locked = False
+# If no profile exists yet, allow first-time save
+if not profile:
     profile_locked = False
 
 st.markdown("<style>.stApp{background:linear-gradient(135deg,#f5f7fa,#e8f5e9)}</style>", unsafe_allow_html=True)
 st.title("👤 My Profile")
 
-if profile_locked:
-    st.info("🔒 Your profile is locked. Contact admin to make changes.")
-elif profile:
-    st.info("📝 Profile saved. Admin can edit if needed.")
-else:
-    st.info("📝 Fill in your details and save.")
+if profile and not is_admin:
+    st.info("🔒 Your profile is permanently locked. All fields are read‑only, just like your email. Contact admin to make changes.")
+elif not profile:
+    st.info("📝 Fill in your details and save. After saving, your profile will be permanently locked.")
 
 with st.form("profile_form"):
     col1, col2 = st.columns(2)
@@ -53,6 +53,7 @@ with st.form("profile_form"):
     with col2:
         last_name = st.text_input("Last Name", value=profile.get("last_name", "") if profile else "", disabled=profile_locked)
     
+    # Email is ALWAYS locked — exactly like before
     st.text_input("Email", value=user.email, disabled=True)
     
     col1, col2 = st.columns(2)
@@ -63,7 +64,6 @@ with st.form("profile_form"):
     
     if not profile_locked:
         if st.form_submit_button("💾 Save Profile"):
-            # Only save columns that exist in the table
             save_data = {
                 "user_id": user.id,
                 "first_name": first_name.strip(),
@@ -71,10 +71,9 @@ with st.form("profile_form"):
                 "phone": phone.strip(),
                 "country": country.strip(),
             }
-            
             try:
                 service.table("user_profiles").upsert(save_data).execute()
-                st.success("✅ Profile saved!")
+                st.success("✅ Profile saved and locked!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Save failed: {str(e)[:200]}")

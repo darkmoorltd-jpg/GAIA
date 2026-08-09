@@ -8,7 +8,7 @@ SERVICE_KEY = st.secrets["supabase"]["service_key"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 
 @st.cache_resource
-def init_service_client():
+def init_supabase_admin():
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
 @st.cache_resource
@@ -31,7 +31,7 @@ if st.session_state.user.email != ADMIN_EMAIL:
     st.stop()
 
 st.title("🔐 GAIA Admin Dashboard")
-supabase = init_service_client()
+supabase = init_supabase_admin()
 anon_client = init_anon_client()
 
 # ---------- Helper functions ----------
@@ -136,13 +136,20 @@ def delete_user(user_id):
     except:
         pass
     
-    # Delete the auth user
+    # Delete the auth user using the service_role client
     try:
-        supabase.auth.admin.delete_user(user_id)
+        admin_client = init_supabase_admin()
+        result = admin_client.auth.admin.delete_user(user_id)
         return True, None
     except Exception as e:
-        all_errors = errors + [f"auth.user: {str(e)[:100]}"]
-        return False, " | ".join(all_errors) if all_errors else str(e)[:100]
+        error_msg = str(e)
+        # Common Supabase auth errors
+        if "User not found" in error_msg:
+            return True, None  # User already deleted — that's fine
+        if "not found" in error_msg.lower():
+            return True, None  # Already gone
+        all_errors = errors + [f"auth.user: {error_msg[:100]}"]
+        return False, " | ".join(all_errors) if all_errors else error_msg[:100]
 
 def create_new_user(email, password, first_name="", last_name=""):
     try:

@@ -26,12 +26,13 @@ supabase = init_supabase()
 service = init_service()
 is_admin = (user.email == ADMIN_EMAIL)
 
-# Fetch profile using service client to avoid RLS issues
+# Fetch profile using service client
 res = service.table("user_profiles").select("*").eq("user_id", user.id).execute()
 profile = res.data[0] if res.data and len(res.data) > 0 else None
 
-# Determine locked status
-profile_locked = bool(profile and profile.get("profile_locked", False))
+# Check if profile_locked column exists
+has_lock_column = profile and "profile_locked" in profile
+profile_locked = bool(profile and profile.get("profile_locked", False)) if has_lock_column else False
 if is_admin:
     profile_locked = False
 
@@ -62,16 +63,15 @@ with st.form("profile_form"):
     
     if not profile_locked:
         if st.form_submit_button("💾 Save Profile"):
+            # Only save columns that exist in the table
             save_data = {
                 "user_id": user.id,
                 "first_name": first_name.strip(),
                 "last_name": last_name.strip(),
                 "phone": phone.strip(),
                 "country": country.strip(),
-                "profile_locked": True
             }
             
-            # Use UPSERT with service client (bypasses ALL RLS)
             try:
                 service.table("user_profiles").upsert(save_data).execute()
                 st.success("✅ Profile saved!")

@@ -295,30 +295,71 @@ with tab4:
         for idx, v in enumerate(verifications.data):
             status = v.get("status", "pending")
             emoji = "✅" if status == "approved" else ("⏳" if status == "pending" else "❌")
-            with st.expander(f"{emoji} {v.get('full_name','N/A')} — {status.upper()}"):
-                # User details
-                st.markdown("### 📋 User Details")
+            with st.expander(f"{emoji} {v.get('first_name','')} {v.get('last_name','')} — {status.upper()}"):
+                # ── PERSONAL INFORMATION ──
+                st.markdown("### 👤 Personal Information")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write(f"**First Name:** {v.get('first_name','N/A')}")
+                    st.write(f"**Date of Birth:** {v.get('dob','N/A')}")
+                with col2:
+                    st.write(f"**Middle Name:** {v.get('middle_name','N/A')}")
+                    st.write(f"**Phone:** {v.get('phone','N/A')}")
+                with col3:
+                    st.write(f"**Last Name:** {v.get('last_name','N/A')}")
+                    st.write(f"**Email:** {v.get('email','N/A')}")
+                
+                # ── ADDRESS ──
+                st.markdown("### 🏠 Address")
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.write(f"**Name:** {v.get('full_name','N/A')}")
-                    st.write(f"**Phone:** {v.get('phone','N/A')}")
-                    st.write(f"**Email:** {v.get('email','N/A')}")
+                    st.write(f"**Home Address:** {v.get('home_address','N/A')}")
+                    st.write(f"**City:** {v.get('city','N/A')}")
                 with col2:
                     st.write(f"**State:** {v.get('state','N/A')}")
                     st.write(f"**LGA:** {v.get('lga','N/A')}")
-                    st.write(f"**Address:** {v.get('address','N/A')}")
                 
-                st.write(f"**Crops:** {safe_crops(v.get('crops'))}")
-                st.write(f"**Payment Reference:** {v.get('payment_reference','N/A')}")
-                st.write(f"**Payment Status:** {v.get('payment_status','N/A')}")
+                # ── FARM INFORMATION ──
+                st.markdown("### 🌾 Farm Information")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**Farm Location:** {v.get('farm_location','N/A')}")
+                    st.write(f"**Farm Size:** {v.get('farm_size','N/A')}")
+                with col2:
+                    st.write(f"**Crops:** {safe_crops(v.get('crops'))}")
+                    st.write(f"**Association:** {v.get('association','N/A')}")
                 
-                # Show ID and selfie if available
-                if v.get('id_url'):
-                    st.markdown("**ID Card:**")
-                    st.image(v['id_url'], width=300)
-                if v.get('selfie_url'):
-                    st.markdown("**Selfie:**")
-                    st.image(v['selfie_url'], width=200)
+                # ── GOVERNMENT ID ──
+                st.markdown("### 🛂 Government Identification")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write(f"**BVN:** {v.get('bvn','N/A')}")
+                with col2:
+                    st.write(f"**NIN:** {v.get('nin','N/A')}")
+                with col3:
+                    st.write(f"**ID Type:** {v.get('id_type','N/A')}")
+                st.write(f"**ID Number:** {v.get('id_number','N/A')}")
+                
+                # ── PAYMENT ──
+                st.markdown("### 💳 Payment")
+                st.write(f"**Reference:** {v.get('payment_reference','N/A')}")
+                st.write(f"**Status:** {v.get('payment_status','N/A')}")
+                
+                # ── DOCUMENTS ──
+                st.markdown("### 📷 Uploaded Documents")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if v.get('nin_slip_url'):
+                        st.markdown("**NIN Slip:**")
+                        st.image(v['nin_slip_url'], width=250)
+                with col2:
+                    if v.get('id_url'):
+                        st.markdown("**ID Card:**")
+                        st.image(v['id_url'], width=250)
+                with col3:
+                    if v.get('selfie_url'):
+                        st.markdown("**Selfie:**")
+                        st.image(v['selfie_url'], width=250)
                 
                 # Delete button for any verification
                 if st.button("🗑️ Delete Verification", key=f"del_ver_{v['user_id']}_{idx}"):

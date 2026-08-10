@@ -1,5 +1,0 @@
-crop: "millet"
-num_classes: 3
-class_names: ["Blast", "Rust", "Healthy"]
-model_type: "vit_pretrained"
-in_channels: 3

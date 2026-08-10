@@ -544,7 +544,6 @@ profile_page = st.Page("pages/8_Profile.py", title="My Profile", icon="👤")
 buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 
 
-early_warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
 badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
 chat_page = st.Page("pages/16_Chat.py", title="Chat", icon="💬")
 video_scan_page = st.Page("pages/17_Video_Scan.py", title="Video Scanner", icon="🎥")

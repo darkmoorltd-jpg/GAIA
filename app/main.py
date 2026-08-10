@@ -555,7 +555,7 @@ wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 gaialens_page = st.Page("pages/17_GaiaLens.py", title="GaiaLens™", icon="🔍")
 pg = st.navigation({
     "GAIA": [dashboard_page, gaialens_page],
-    "Diagnose": [crops_page, pests_page, soil_page, livestock_page, early_warning_page],
+    "Diagnose": [crops_page, pests_page, soil_page, livestock_page, video_scan_page],
     "Account": [payment_history_page, profile_page, buy_scans_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],
     "Admin": [admin_page],
     "Community": [chat_page],

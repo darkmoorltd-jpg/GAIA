@@ -169,7 +169,7 @@ if files:
     confidence = avg_probs[consensus_idx] * 100
     color = SOIL_COLORS.get(consensus_name, "#8d6e63")
 
-    st.markdown(f"""<div class="card" style="border-left:5px solid {color};"><h3>🗳️ Consensus: {vote_count}/{len(files)} photos agree ({agreement_pct:.0f}%)</h3><h2 style="color:{color};">{consensus_name} ({confidence:.1f}%)</h2></div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="card" style="border-left:5px solid {color};"><h3>🗳️ Consensus: {vote_count}/{len(files)} photos agree ({agreement_pct:.0f}%)</h3><h2 style="color:{color};">{consensus_name} ({confidence:.1f}%)</h2></div>""", unsafe_allow_html=True)
 
     if confidence < 70 or agreement_pct < 60:
         st.warning(f"⚠️ Low confidence ({confidence:.0f}%). Try more photos in daylight.")

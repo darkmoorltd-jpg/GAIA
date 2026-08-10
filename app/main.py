@@ -533,32 +533,20 @@ if st.sidebar.button("Logout"):
     st.rerun()
 
 # ---------- Main navigation ----------
+
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")
 soil_page      = st.Page("pages/4_Soil.py", title="Soil Analysis", icon="🏞️")
 livestock_page = st.Page("pages/5_Livestock.py", title="Livestock Health", icon="🐄")
 payment_history_page = st.Page("pages/6_Payment_History.py", title="Payment History", icon="💳")
-admin_page = st.Page("pages/7_Admin.py", title="Admin Dashboard", icon="🔐")
-profile_page = st.Page("pages/8_Profile.py", title="My Profile", icon="👤")
-buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
-
-
-badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
-chat_page = st.Page("pages/16_Chat.py", title="Chat", icon="💬")
+chat_page = st.Page("pages/16_Chat.py", title="GAIAchat", icon="💬")
 video_scan_page = st.Page("pages/17_Video_Scan.py", title="Video Scanner", icon="🎥")
-help_page = st.Page("pages/13_Help.py", title="Help & Support", icon="🆘")
-verify_farmer_page = st.Page("pages/11_Verify_Farmer.py", title="Verify Farmer", icon="🛡️")
-verify_history_page = st.Page("pages/12_Verification_History.py", title="Verification History", icon="📋")
-wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 
-gaialens_page = st.Page("pages/17_GaiaLens.py", title="GaiaLens™", icon="🔍")
 pg = st.navigation({
-    "GAIA": [dashboard_page, gaialens_page],
+    "GAIA": [dashboard_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page, video_scan_page],
-    "Account": [payment_history_page, profile_page, buy_scans_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],
-    "Admin": [admin_page],
-    "Community": [chat_page],
-    "Support": [help_page],
+    "Connect": [chat_page],
+    "Account": [payment_history_page],
 })
 pg.run()

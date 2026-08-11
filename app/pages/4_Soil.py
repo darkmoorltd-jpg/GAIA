@@ -99,7 +99,7 @@ def load_soil_model():
     model = SoilViT(backbone, head); model.eval()
     return model, img_size
 
-def deduct_one_scan()
+def deduct_one_scan():
 
 # ===== DEEPSEEK EXPLANATION + VOICE =====
 if model is not None:

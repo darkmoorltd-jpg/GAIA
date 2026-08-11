@@ -379,23 +379,18 @@ if files:
                 with st.spinner("GAIA is preparing your pest management guide..."):
                     try:
                         from app.utils.deepseek_explainer import explain_diagnosis, text_to_speech
-                        
                         top_pest = PEST_CLASSES[top_idx]
-                        explanation, explain_err = explain_diagnosis(top_pest, probs[top_idx] * 100, "various crops", "pest")
-                        
+                        explanation, err = explain_diagnosis(top_pest, probs[top_idx] * 100, "various crops", "pest")
                         if explanation:
                             with st.expander("Complete Pest Management Guide", expanded=True):
                                 st.markdown(explanation)
-                                
-                                if st.button("Listen to Pest Guide", key="voice_" + f.name):
+                                if st.button("Listen to Guide", key="v_" + f.name):
                                     with st.spinner("Generating voice..."):
-                                        audio_bytes, tts_err = text_to_speech(explanation[:2000])
-                                        if audio_bytes:
-                                            st.audio(audio_bytes, format="audio/mp3")
-                                        else:
-                                            st.warning("Voice unavailable")
+                                        audio, e2 = text_to_speech(explanation[:2000])
+                                        if audio:
+                                            st.audio(audio, format="audio/mp3")
                     except Exception as e:
-                        st.warning("Pest guide unavailable")
+                        st.warning("Guide unavailable")
             
             # Feedback
             col_fb1, col_fb2 = c2.columns(2)

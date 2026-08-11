@@ -1,0 +1,8 @@
+*.pt
+__pycache__/
+*.pyc
+venv/
+.env
+checkpoints/
+
+models/

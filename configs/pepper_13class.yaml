@@ -1,0 +1,5 @@
+crop: "pepper"
+num_classes: 13
+class_names: ["Aphid", "Bacterial spot", "Blossom end rot", "Burn", "Edema", "Healthy", "Leaf curl", "Leaf miners", "Mosaic virus", "Nutrient deficiency", "Powdery mildew", "Spider mite", "Thrips"]
+model_type: "vit_pretrained"
+in_channels: 3

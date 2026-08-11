@@ -1,13 +1,11 @@
 
 import streamlit as st
-import cv2
-import numpy as np
 from PIL import Image
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import os, sys, tempfile, time, hashlib
-from datetime import datetime
+import numpy as np
+import os, sys, tempfile, subprocess, hashlib
 from collections import Counter
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 from timm.models.vision_transformer import VisionTransformer
@@ -96,6 +94,172 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
+# ===== EXTRACT FRAMES WITH FFMPEG (NO OPENCV) =====
+def extract_frames_ffmpeg(video_path, output_dir, fps=5):
+    """Extract frames from video using ffmpeg (already on Streamlit Cloud)."""
+    os.makedirs(output_dir, exist_ok=True)
+    cmd = [
+        "ffmpeg", "-i", video_path,
+        "-vf", f"fps={fps}",
+        "-q:v", "2",
+        f"{output_dir}/frame_%06d.jpg",
+        "-y", "-loglevel", "quiet"
+    ]
+    subprocess.run(cmd, check=True, timeout=120)
+    frames = sorted([f for f in os.listdir(output_dir) if f.endswith('.jpg')])
+    return [os.path.join(output_dir, f) for f in frames]
+
+def is_frame_blurry(image_path):
+    """Check if a frame is blurry using PIL (no OpenCV)."""
+    img = Image.open(image_path).convert('L')
+    arr = np.array(img, dtype=np.float64)
+    # Laplacian variance approximation using numpy
+    laplacian = np.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]])
+    from scipy import ndimage
+    filtered = ndimage.convolve(arr, laplacian)
+    variance = filtered.var()
+    return variance < 100
+
+# ===== LOAD CROP MODEL =====
+def load_crop_model(crop_name):
+    possible_paths = [
+        f"checkpoints/{crop_name}_13class/best_model.pt",
+        f"checkpoints/{crop_name}_8class/best_model.pt",
+        f"checkpoints/{crop_name}_5class/best_model.pt",
+        f"checkpoints/{crop_name}_4class/best_model.pt",
+        f"checkpoints/{crop_name}/best_model.pt",
+        os.path.join("models", crop_name, "model.pt"),
+    ]
+    
+    for checkpoint in possible_paths:
+        if os.path.exists(checkpoint):
+            try:
+                state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+                prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
+                embed_dim = state[f"{prefix}cls_token"].shape[-1]
+                pos_embed = state[f"{prefix}pos_embed"]
+                num_patches = pos_embed.shape[1] - 1
+                grid = int(num_patches ** 0.5)
+                img_size = grid * 16
+                depth = len([k for k in state if k.startswith(f"{prefix}blocks") and k.endswith(".norm1.weight")])
+                num_heads = 6 if embed_dim == 384 else 3
+                
+                backbone = VisionTransformer(
+                    img_size=img_size, patch_size=16, embed_dim=embed_dim,
+                    depth=depth, num_heads=num_heads, num_classes=0, global_pool='token'
+                )
+                backbone_state = {k.replace(prefix, ""): v for k, v in state.items() if k.startswith(prefix)}
+                backbone.load_state_dict(backbone_state, strict=False)
+                
+                n = len(CROP_CLASSES[crop_name])
+                head = nn.Linear(embed_dim, n)
+                head_state = {
+                    "weight": state.get("head.weight"),
+                    "bias": state.get("head.bias", torch.zeros(n))
+                }
+                if head_state["weight"] is not None:
+                    head.load_state_dict({k: v for k, v in head_state.items() if v is not None}, strict=False)
+                
+                class CropViT(torch.nn.Module):
+                    def __init__(self, bb, hd):
+                        super().__init__()
+                        self.backbone = bb
+                        self.head = hd
+                    def forward(self, x):
+                        return self.head(self.backbone(x))
+                
+                model = CropViT(backbone, head)
+                model.eval()
+                return model, img_size
+            except Exception as e:
+                continue
+    
+    return None, None
+
+# ===== ANALYZE VIDEO =====
+def analyze_video(video_path, model, img_size, class_names, fps=5):
+    """Analyze all frames and return aggregated results."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        frame_paths = extract_frames_ffmpeg(video_path, tmpdir, fps)
+    except Exception as e:
+        return None, f"FFmpeg failed: {e}"
+    
+    if not frame_paths:
+        return None, "No frames extracted. Check the video file."
+    
+    transform = Compose([
+        Resize((img_size, img_size)),
+        ToTensor(),
+        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    
+    results = []
+    stats = {"blurry": 0, "low_confidence": 0, "total": len(frame_paths)}
+    
+    for fp in frame_paths:
+        try:
+            if is_frame_blurry(fp):
+                stats["blurry"] += 1
+                continue
+            
+            img = Image.open(fp).convert("RGB")
+            img_tensor = transform(img).unsqueeze(0)
+            
+            with torch.no_grad():
+                logits = model(img_tensor)
+                probs = F.softmax(logits, dim=1)[0].cpu().numpy()
+            
+            top_idx = np.argmax(probs)
+            confidence = float(probs[top_idx])
+            
+            if confidence >= 0.85:
+                results.append({"disease": class_names[top_idx], "confidence": confidence})
+            else:
+                stats["low_confidence"] += 1
+        except Exception as e:
+            continue
+    
+    if not results:
+        return {"error": "No valid frames found. Try better lighting.", "stats": stats}, None
+    
+    # Aggregate
+    counts = Counter()
+    confs = {}
+    for r in results:
+        d = r["disease"]
+        counts[d] += 1
+        confs[d] = confs.get(d, 0) + r["confidence"]
+    
+    total = len(results)
+    top_disease = counts.most_common(1)[0][0]
+    affected_pct = (counts[top_disease] / total) * 100
+    avg_conf = (confs[top_disease] / counts[top_disease]) * 100
+    precision = (total / stats["total"] * 100) if stats["total"] else 0
+    
+    breakdown = {
+        d: {"count": c, "pct": (c / total) * 100, "conf": (confs[d] / c) * 100}
+        for d, c in counts.items()
+    }
+    
+    recommendation = _recommend(top_disease, affected_pct, avg_conf)
+    
+    return None, {
+        "disease": top_disease, "confidence": avg_conf, "affected_pct": affected_pct,
+        "frames_valid": total, "frames_total": stats["total"], "precision_rate": precision,
+        "breakdown": breakdown, "recommendation": recommendation, "stats": stats
+    }
+
+def _recommend(disease, affected, conf):
+    if conf < 90:
+        return "⚠️ Re-scan recommended. Confidence below 90%."
+    if affected < 10:
+        return f"🟢 Low infection ({affected:.0f}%). Spot treatment only."
+    if affected < 30:
+        return f"🟡 Moderate ({affected:.0f}%). Treat within 48 hours."
+    if affected < 60:
+        return f"🟠 Significant ({affected:.0f}%). Full-field treatment now."
+    return f"🔴 Severe ({affected:.0f}%). Full treatment + notify extension officer."
+
 # ===== SCAN DEDUCTION =====
 def deduct_scan():
     if "user" not in st.session_state or st.session_state.user is None:
@@ -119,211 +283,12 @@ def deduct_scan():
     except:
         pass
 
-# ===== LOAD CROP MODEL =====
-def load_crop_model(crop_name):
-    """Load the trained model for a specific crop."""
-    possible_paths = [
-        f"checkpoints/{crop_name}_13class/best_model.pt",
-        f"checkpoints/{crop_name}_8class/best_model.pt",
-        f"checkpoints/{crop_name}_5class/best_model.pt",
-        f"checkpoints/{crop_name}_4class/best_model.pt",
-        f"checkpoints/{crop_name}/best_model.pt",
-        os.path.join("models", crop_name, "model.pt"),
-    ]
-    
-    for checkpoint in possible_paths:
-        if os.path.exists(checkpoint):
-            try:
-                state = torch.load(checkpoint, map_location="cpu", weights_only=False)
-                
-                # Detect architecture
-                prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
-                embed_dim = state[f"{prefix}cls_token"].shape[-1]
-                pos_embed = state[f"{prefix}pos_embed"]
-                num_patches = pos_embed.shape[1] - 1
-                grid = int(num_patches ** 0.5)
-                img_size = grid * 16
-                depth = len([k for k in state if k.startswith(f"{prefix}blocks") and k.endswith(".norm1.weight")])
-                num_heads = 6 if embed_dim == 384 else 3
-                
-                backbone = VisionTransformer(
-                    img_size=img_size, patch_size=16, embed_dim=embed_dim,
-                    depth=depth, num_heads=num_heads, num_classes=0, global_pool='token'
-                )
-                backbone_state = {k.replace(prefix, ""): v for k, v in state.items() if k.startswith(prefix)}
-                backbone.load_state_dict(backbone_state, strict=False)
-                
-                head_keys = [k for k in state if k.startswith("head.")]
-                w_keys = sorted([k for k in head_keys if k.endswith(".weight")], key=lambda x: int(x.split('.')[1]) if any(c.isdigit() for c in x.split('.')[1]) else 0)
-                
-                if len(w_keys) == 1:
-                    n = len(CROP_CLASSES[crop_name])
-                    head = nn.Linear(embed_dim, n)
-                    head_state = {
-                        "weight": state.get("head.weight", state.get(f"{prefix.replace('backbone.','')}head.weight")),
-                        "bias": state.get("head.bias", state.get(f"{prefix.replace('backbone.','')}head.bias", torch.zeros(n)))
-                    }
-                    head.load_state_dict({k: v for k, v in head_state.items() if v is not None}, strict=False)
-                else:
-                    layers = []
-                    in_feat = embed_dim
-                    for wk in w_keys:
-                        w = state[wk]
-                        out_feat = w.shape[0]
-                        layers.append(nn.Linear(in_feat, out_feat))
-                        if wk != w_keys[-1]:
-                            layers.extend([nn.GELU(), nn.Dropout(0.2)])
-                        in_feat = out_feat
-                    head = nn.Sequential(*layers)
-                    head_state = {k.replace("head.", ""): v for k, v in state.items() if k.startswith("head.")}
-                    try:
-                        head.load_state_dict(head_state, strict=False)
-                    except:
-                        pass
-                
-                class CropViT(torch.nn.Module):
-                    def __init__(self, bb, hd):
-                        super().__init__()
-                        self.backbone = bb
-                        self.head = hd
-                    def forward(self, x):
-                        return self.head(self.backbone(x))
-                
-                model = CropViT(backbone, head)
-                model.eval()
-                return model, img_size
-            except Exception as e:
-                st.warning(f"Failed to load model from {checkpoint}: {e}")
-                continue
-    
-    return None, None
-
-# ===== HIGH-PRECISION VIDEO ANALYZER =====
-class VideoAnalyzer:
-    def __init__(self, model, class_names, img_size, conf_threshold=0.85, blur_threshold=100):
-        self.model = model
-        self.class_names = class_names
-        self.img_size = img_size
-        self.conf_threshold = conf_threshold
-        self.blur_threshold = blur_threshold
-        self.transform = Compose([
-            Resize((img_size, img_size)),
-            ToTensor(),
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-
-    def is_blurry(self, frame):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        return cv2.Laplacian(gray, cv2.CV_64F).var() < self.blur_threshold
-
-    def is_similar(self, frame, prev_frame):
-        if prev_frame is None:
-            return False
-        gray1 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray2 = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
-        mse = np.mean((gray1.astype(float) - gray2.astype(float)) ** 2)
-        return mse < 50
-
-    def analyze_frame(self, frame):
-        if self.is_blurry(frame):
-            return None, "blurry"
-        leaf = self._crop_leaf(frame)
-        img_pil = Image.fromarray(cv2.cvtColor(leaf, cv2.COLOR_BGR2RGB))
-        img_tensor = self.transform(img_pil).unsqueeze(0)
-        with torch.no_grad():
-            logits = self.model(img_tensor)
-            probs = F.softmax(logits, dim=1)[0].cpu().numpy()
-        top_idx = np.argmax(probs)
-        confidence = probs[top_idx]
-        if confidence >= self.conf_threshold:
-            return {"disease": self.class_names[top_idx], "confidence": float(confidence)}, "valid"
-        return None, "low_confidence"
-
-    def _crop_leaf(self, frame):
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        lower_green = np.array([25, 40, 40])
-        upper_green = np.array([85, 255, 255])
-        mask = cv2.inRange(hsv, lower_green, upper_green)
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            largest = max(contours, key=cv2.contourArea)
-            if cv2.contourArea(largest) > 1000:
-                x, y, w, h = cv2.boundingRect(largest)
-                return frame[y:y+h, x:x+w]
-        return frame
-
-    def analyze_video(self, video_path, fps_target=5):
-        cap = cv2.VideoCapture(video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        if fps <= 0:
-            fps = 30
-        interval = max(1, int(fps / fps_target))
-        results, stats = [], {"blurry": 0, "low_confidence": 0, "similar": 0, "total": 0}
-        prev_frame, frame_idx = None, 0
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            if frame_idx % interval != 0:
-                frame_idx += 1
-                continue
-            stats["total"] += 1
-            if self.is_similar(frame, prev_frame):
-                stats["similar"] += 1
-                frame_idx += 1
-                continue
-            result, status = self.analyze_frame(frame)
-            if result:
-                results.append(result)
-            else:
-                stats[status] += 1
-            prev_frame = frame.copy()
-            frame_idx += 1
-        cap.release()
-        return results, stats
-
-    def generate_report(self, results, stats):
-        if not results:
-            return {"error": "No valid frames. Try recording in better lighting.", "stats": stats}
-        counts = Counter()
-        confs = {}
-        for r in results:
-            d = r["disease"]
-            counts[d] += 1
-            confs[d] = confs.get(d, 0) + r["confidence"]
-        total = len(results)
-        top_disease = counts.most_common(1)[0][0]
-        affected_pct = (counts[top_disease] / total) * 100
-        avg_conf = (confs[top_disease] / counts[top_disease]) * 100
-        precision = (total / stats["total"] * 100) if stats["total"] else 0
-        breakdown = {
-            d: {"count": c, "pct": (c / total) * 100, "conf": (confs[d] / c) * 100}
-            for d, c in counts.items()
-        }
-        recommendation = self._recommend(top_disease, affected_pct, avg_conf)
-        return {
-            "disease": top_disease, "confidence": avg_conf, "affected_pct": affected_pct,
-            "frames_valid": total, "frames_total": stats["total"], "precision_rate": precision,
-            "breakdown": breakdown, "recommendation": recommendation, "stats": stats
-        }
-
-    def _recommend(self, disease, affected, conf):
-        if conf < 90:
-            return "⚠️ Re-scan recommended. Confidence below 90%."
-        if affected < 10:
-            return f"🟢 Low infection ({affected:.0f}%). Spot treatment only. Monitor for 3 days."
-        if affected < 30:
-            return f"🟡 Moderate ({affected:.0f}%). Apply targeted treatment within 48 hours."
-        if affected < 60:
-            return f"🟠 Significant ({affected:.0f}%). Full-field treatment immediately."
-        return f"🔴 Severe ({affected:.0f}%). Full-field treatment + notify extension officer. Potential yield loss: 30-50%."
-
 # ===== UI =====
 st.markdown('<div class="title">🎥 Video Field Scanner</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Walk through your field recording a video — GAIA scans every frame with high precision</div>', unsafe_allow_html=True)
 
 with st.expander("📸 Tips for best results"):
-    st.markdown("1. 🌿 Walk slowly through your field holding the phone steady\n2. 📱 Keep leaves at 20‑30 cm distance\n3. ☀️ Use natural daylight, avoid shadows\n4. 🎥 15‑30 seconds is enough for a field scan\n5. 🔄 The AI filters out blurry and duplicate frames automatically")
+    st.markdown("1. 🌿 Walk slowly through your field\n2. 📱 Keep leaves at 20‑30 cm\n3. ☀️ Natural daylight, avoid shadows\n4. 🎥 15‑30 seconds is enough\n5. 🔄 Blurry frames are filtered automatically")
 
 crop = st.selectbox("🌾 Select Crop", list(CROP_CLASSES.keys()))
 video_file = st.file_uploader("📤 Upload field video", type=["mp4", "mov", "avi", "mkv"])
@@ -361,16 +326,15 @@ if video_file:
                         "Healthy": {"count": int(valid * (100 - affected_pct) / 100), "pct": 100 - affected_pct, "conf": 95}
                     },
                     "recommendation": f"🟠 Significant ({affected_pct:.0f}%). Full-field treatment recommended.",
-                    "stats": {"blurry": 8, "low_confidence": 5, "similar": 12, "total": total_frames}
+                    "stats": {"blurry": 8, "low_confidence": 5, "total": total_frames}
                 }
             else:
-                analyzer = VideoAnalyzer(model, class_names, img_size)
-                results, stats = analyzer.analyze_video(video_path)
-                report = analyzer.generate_report(results, stats)
+                error, report = analyze_video(video_path, model, img_size, class_names)
+                if error:
+                    st.error(error)
+                    report = None
 
-        if "error" in report:
-            st.error(report["error"])
-        else:
+        if report:
             st.markdown('<div class="report-card">', unsafe_allow_html=True)
             st.markdown(f"### 📊 Field Health Report — {crop.title()}")
 
@@ -388,7 +352,7 @@ if video_file:
                 st.progress(data["pct"] / 100)
 
             st.markdown(f'<div style="background:rgba(255,255,255,0.08);border-radius:15px;padding:1.5rem;margin-top:1rem;"><strong>💡 Recommendation:</strong> {report["recommendation"]}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="margin-top:1rem;color:#90a4ae;font-size:0.85rem;">🖼️ Frames skipped: {report["stats"]["blurry"]} blurry · {report["stats"]["low_confidence"]} low confidence · {report["stats"]["similar"]} similar (duplicates)</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="margin-top:1rem;color:#90a4ae;font-size:0.85rem;">🖼️ Frames skipped: {report["stats"]["blurry"]} blurry · {report["stats"]["low_confidence"]} low confidence</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
             deduct_scan()

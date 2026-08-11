@@ -173,6 +173,30 @@ else:
                     c2.write(f"{class_names[i]}: {probs[i]*100:.1f}%")
                     c2.progress(float(probs[i]))
                 deduct_one_scan()
+                
+                # ===== DEEPSEEK EXPLANATION + VOICE =====
+                if model is not None:
+                    with st.spinner("🧠 GAIA is preparing your complete treatment guide..."):
+                        try:
+                            from app.utils.deepseek_explainer import explain_diagnosis, text_to_speech
+                            
+                            top_disease = class_names[top_idx]
+                            explanation, explain_err = explain_diagnosis(top_disease, probs[top_idx] * 100, crop, "crop")
+                            
+                            if explanation:
+                                with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
+                                    st.markdown(explanation)
+                                    
+                                    if st.button("🔊 Listen to Treatment Guide", key=f"voice_{f.name}"):
+                                        with st.spinner("🔊 Generating voice..."):
+                                            audio_bytes, tts_err = text_to_speech(explanation[:2000])
+                                            if audio_bytes:
+                                                st.audio(audio_bytes, format="audio/mp3")
+                                            else:
+                                                st.warning(f"Voice unavailable: {tts_err}")
+                        except Exception as e:
+                            st.warning(f"Treatment guide unavailable: {str(e)[:100]}")
+                
                 col_fb1, col_fb2 = c2.columns(2)
                 if col_fb1.button("👍 Helpful", key=f"helpful_{f.name}"):
                     save_feedback(f.name, class_names[top_idx], True); col_fb1.success("Thanks!")

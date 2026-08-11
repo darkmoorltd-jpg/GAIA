@@ -7,7 +7,9 @@ import os, sys, tempfile, subprocess, hashlib, json, time
 from collections import Counter
 from datetime import datetime
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+import cv2
 from timm.models.vision_transformer import VisionTransformer
+from scipy import ndimage
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 

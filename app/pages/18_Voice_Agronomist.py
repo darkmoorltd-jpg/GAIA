@@ -28,10 +28,13 @@ st.markdown("""
 <div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type - GAIA listens and responds</div>
 """, unsafe_allow_html=True)
 
+# ===== SESSION STATE =====
 if "voice_history" not in st.session_state:
     st.session_state.voice_history = []
-if "farmer_memory" not in st.session_state:
-    st.session_state.farmer_memory = {}
+if "processing_audio" not in st.session_state:
+    st.session_state.processing_audio = False
+if "pending_transcription" not in st.session_state:
+    st.session_state.pending_transcription = ""
 
 GAIA_IDENTITY = "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. Help African farmers with crop diseases, pests, soil, and livestock. Never mention any other AI company. You ARE GAIA. Be friendly and personal."
 
@@ -46,37 +49,61 @@ def ask_gaia(question):
     except:
         return None, "Temporarily unavailable"
 
+# ===== PROCESS PENDING TRANSCRIPTION (prevents loop) =====
+if st.session_state.pending_transcription:
+    text = st.session_state.pending_transcription
+    st.session_state.pending_transcription = ""  # Clear immediately to prevent loop
+    
+    st.success("You said: " + text)
+    with st.spinner("🍅 GAIA is thinking..."):
+        answer, err = ask_gaia(text)
+    if err:
+        st.error(err)
+    else:
+        st.session_state.voice_history.append({
+            "q": "🎤 " + text,
+            "a": answer,
+            "t": datetime.now().strftime("%H:%M")
+        })
+    st.rerun()
+
 # ===== VOICE INPUT =====
 st.markdown("### 🎤 Speak to GAIA")
-audio = st.audio_input("Record your question")
 
-if audio:
-    with st.spinner("Processing your voice..."):
-        tmp = "/tmp/gaia_voice.wav"
-        with open(tmp, "wb") as f:
-            f.write(audio.read())
+# Only show audio input if not currently processing
+if not st.session_state.processing_audio:
+    audio = st.audio_input("Record your question")
+    
+    if audio is not None:
+        st.session_state.processing_audio = True
         
-        headers = {"Authorization": "Bearer " + GROQ_API_KEY}
-        with open(tmp, "rb") as f:
-            resp = requests.post("https://api.groq.com/openai/v1/audio/transcriptions",
-                               headers=headers, files={"file":("audio.wav",f,"audio/wav")},
-                               data={"model":"whisper-large-v3","language":"en"})
-        os.remove(tmp)
-        
-        if resp.status_code == 200:
-            text = resp.json().get("text","").strip()
-            if text:
-                st.success("You said: " + text)
-                answer, err = ask_gaia(text)
-                if not err:
-                    st.session_state.voice_history.append({
-                        "q":"🎤 "+text,"a":answer,"t":datetime.now().strftime("%H:%M")
-                    })
-                    st.rerun()
+        with st.spinner("🧠 Transcribing your voice..."):
+            tmp = "/tmp/gaia_voice.wav"
+            with open(tmp, "wb") as f:
+                f.write(audio.getvalue() if hasattr(audio, 'getvalue') else audio.read())
+            
+            headers = {"Authorization": "Bearer " + GROQ_API_KEY}
+            with open(tmp, "rb") as f:
+                resp = requests.post("https://api.groq.com/openai/v1/audio/transcriptions",
+                                   headers=headers, files={"file":("audio.wav",f,"audio/wav")},
+                                   data={"model":"whisper-large-v3","language":"en"})
+            os.remove(tmp)
+            
+            if resp.status_code == 200:
+                text = resp.json().get("text","").strip()
+                if text:
+                    st.session_state.pending_transcription = text
+                else:
+                    st.warning("No speech detected. Please try again.")
+                    st.session_state.processing_audio = False
             else:
-                st.warning("No speech detected")
-        else:
-            st.error("Transcription failed. Please type instead.")
+                st.error(f"Transcription failed (Error {resp.status_code}). Please type instead.")
+                st.session_state.processing_audio = False
+            
+            st.rerun()
+else:
+    st.info("Processing your previous recording...")
+    st.session_state.processing_audio = False
 
 # ===== TEXT INPUT =====
 st.markdown("---")

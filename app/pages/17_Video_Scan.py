@@ -7,7 +7,12 @@ import os, sys, tempfile, subprocess, hashlib, json, time
 from collections import Counter
 from datetime import datetime
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
-import cv2
+try:
+    import cv2
+    HAS_CV2 = True
+except ImportError:
+    HAS_CV2 = False
+    print("OpenCV not available — video pre‑check will use ffmpeg")
 from timm.models.vision_transformer import VisionTransformer
 from scipy import ndimage
 
@@ -101,6 +106,8 @@ else:
 # ===== VIDEO PRE-CHECK =====
 def pre_check_video(video_path):
     """Quick check: is this a crop field video?"""
+    if not HAS_CV2:
+        return True, "OpenCV unavailable — skipping pre‑check (ffmpeg will extract frames directly)"
     cap = cv2.VideoCapture(video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     if total_frames < 30:
@@ -144,6 +151,8 @@ def is_frame_blurry(image_path):
 
 def validate_leaf_content(frame):
     """Check if frame actually contains a real leaf (not just green weeds/soil)."""
+    if not HAS_CV2:
+        return True, 0.5, "OpenCV unavailable — skipping leaf validation"
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, np.array([35, 40, 40]), np.array([85, 255, 255]))
     green_pct = (mask > 0).sum() / mask.size
@@ -159,6 +168,8 @@ def validate_leaf_content(frame):
     return True, green_pct, "Valid leaf detected"
 
 def detect_lighting_condition(frame):
+    if not HAS_CV2:
+        return "optimal", 0.85
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     brightness = hsv[:,:,2].mean()
     if brightness < 60: return "low_light", 0.90
@@ -233,7 +244,11 @@ def analyze_video(video_path, model, img_size, class_names, fps=DEFAULT_FPS):
         status_text.text(f"🔍 Analyzing frame {i+1} of {len(frame_paths)}...")
         
         try:
-            frame_bgr = cv2.imread(fp)
+            if HAS_CV2:
+                frame_bgr = cv2.imread(fp)
+            else:
+                frame_bgr = np.array(Image.open(fp).convert('RGB'))
+                frame_bgr = frame_bgr[:, :, ::-1].copy()  # RGB to BGR
             if frame_bgr is None: continue
             
             # Layer 1: Blur check

@@ -179,8 +179,9 @@ def load_crop_model(crop_name):
 # ===== ANALYZE VIDEO =====
 def analyze_video(video_path, model, img_size, class_names, fps=5):
     """Analyze all frames and return aggregated results."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        frame_paths = extract_frames_ffmpeg(video_path, tmpdir, fps)
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            frame_paths = extract_frames_ffmpeg(video_path, tmpdir, fps)
     except Exception as e:
         return None, f"FFmpeg failed: {e}"
     

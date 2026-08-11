@@ -1,19 +1,15 @@
 
 import streamlit as st
 import requests
-import time
-import base64
 from datetime import datetime
-# Voice recording will be enabled in the next update
 
 # ===== CONFIG =====
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-# ===== PAGE SETUP =====
 st.set_page_config(page_title="GAIA – Voice Agronomist", page_icon="🎙️", layout="wide")
 
-# ===== THEME TOGGLE =====
+# ===== THEME =====
 st.markdown("""
 <style>
     .stToggle > label { display: none !important; }
@@ -25,41 +21,30 @@ st.markdown("""
 dark_mode = st.toggle("", value=True, key="voice_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
-# ===== GAIA IDENTITY SYSTEM PROMPT =====
+# ===== GAIA IDENTITY =====
 GAIA_IDENTITY = """You are GAIA — the Global Agricultural Intelligence Assistant, built by Darkmoor Ltd in Nigeria. You are an expert AI agronomist dedicated to helping African smallholder farmers.
 
 CRITICAL RULES:
 1. NEVER mention DeepSeek, OpenAI, or any other AI company. You ARE GAIA.
-2. If a user asks "Who built you?" or "What AI are you?", respond: "I am GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria to help farmers grow better crops."
-3. If a user asks about DeepSeek or any other AI, respond: "I'm GAIA — I don't know about other AIs. I'm focused on helping you with your farm!"
-4. Always maintain the GAIA identity. Never break character.
-
-Your expertise covers:
-- Crop disease diagnosis and treatment
-- Pest identification and management
-- Soil health and fertilizer recommendations
-- Livestock health and disease prevention
-- Harvest and storage techniques
-- Weather and climate adaptation
-- Market prices and selling strategies
-- Organic and sustainable farming
+2. If a user asks "Who built you?" respond: "I am GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria to help farmers grow better crops."
+3. If a user asks about any other AI, respond: "I am GAIA, focused on helping you with your farm!"
+4. Always maintain the GAIA identity.
 
 Your answers must be:
 1. PRACTICAL — Specific dosages, timing, methods
-2. LOCAL — African context, local product names when possible
+2. LOCAL — African context, local product names
 3. SIMPLE — Plain language any farmer understands
 4. COMPLETE — Diagnosis, organic solution, chemical solution, prevention
-5. CONFIDENT — Don't hedge. Give your best recommendation.
 
 Structure your response as:
 **🔍 Diagnosis:** [What the problem likely is]
-**🌿 Organic Solution:** [Natural treatment with exact recipe/method]
-**⚗️ Chemical Solution:** [Specific product name + dosage per liter or hectare]
-**⏰ When to Apply:** [Best time, frequency, growth stage]
+**🌿 Organic Solution:** [Natural treatment with exact recipe]
+**⚗️ Chemical Solution:** [Specific product + dosage]
+**⏰ When to Apply:** [Best time, frequency]
 **🛡️ Prevention:** [How to prevent it next season]
-**⚠️ Warning:** [Safety concerns or things to avoid]
+**⚠️ Warning:** [Safety concerns]
 
-If asked about non‑farming topics, gently redirect: "I'm GAIA, your farm assistant! I specialize in crops, pests, soil, and livestock. What farming question can I help with?""
+If asked about non-farming topics, say: "I am GAIA, your farm assistant! I specialize in crops, pests, soil, and livestock. What farming question can I help with?"""
 
 # ===== SESSION STATE =====
 if "voice_history" not in st.session_state:
@@ -67,14 +52,14 @@ if "voice_history" not in st.session_state:
 if "show_history" not in st.session_state:
     st.session_state.show_history = False
 
-# ===== DEEPSEEK API CALL (branded as GAIA) =====
+# ===== API CALL =====
 def ask_gaia(question, crop_context=""):
-    """Send question to GAIA's AI brain (powered by Darkmoor Ltd)."""
-    
-    system_prompt = GAIA_IDENTITY + ("\nCrop context: " + crop_context if crop_context else "")
+    system_prompt = GAIA_IDENTITY
+    if crop_context:
+        system_prompt += " Crop context: " + crop_context
     
     headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Authorization": "Bearer " + DEEPSEEK_API_KEY,
         "Content-Type": "application/json"
     }
     
@@ -94,20 +79,20 @@ def ask_gaia(question, crop_context=""):
             data = response.json()
             return data["choices"][0]["message"]["content"], None
         else:
-            return None, f"I'm having trouble connecting. Please try again."
+            return None, "I am having trouble connecting. Please try again."
     except:
-        return None, "I'm temporarily unavailable. Please try again in a moment."
+        return None, "I am temporarily unavailable. Please try again in a moment."
 
 # ===== QUICK QUESTIONS =====
 QUICK_QUESTIONS = [
     ("🌽 Maize", [
         "My maize leaves have brown spots with yellow edges. What is it?",
         "When is the best time to harvest maize?",
-        "What's the best fertilizer for maize in sandy soil?",
+        "What is the best fertilizer for maize in sandy soil?",
         "How do I control fall armyworm in my maize field?",
     ]),
     ("🌾 Rice", [
-        "My rice leaves are turning yellow. What's wrong?",
+        "My rice leaves are turning yellow. What is wrong?",
         "How do I control birds eating my rice?",
         "When should I apply fertilizer to my rice field?",
     ]),
@@ -116,14 +101,14 @@ QUICK_QUESTIONS = [
         "What vaccines does my cattle need?",
         "My chickens are sneezing and have swollen eyes. Help!",
     ]),
-    ("🏞️ Soil & General", [
+    ("🏞️ Soil and General", [
         "How do I test if my soil is acidic?",
-        "What's the best crop rotation for maize farmers?",
-        "How do I start vegetable farming with N50,000?",
+        "What is the best crop rotation for maize farmers?",
+        "How do I start vegetable farming with N50000?",
     ]),
 ]
 
-# ===== PREMIUM CSS (DeepSeek-inspired, GAIA-branded) =====
+# ===== CSS =====
 if theme == "dark":
     st.markdown("""
     <style>
@@ -132,9 +117,7 @@ if theme == "dark":
         .stApp { background: #0d1110; }
         header, footer { visibility: hidden; }
         
-        .gaia-header {
-            text-align: center; padding: 20px 0 10px 0;
-        }
+        .gaia-header { text-align: center; padding: 20px 0 10px 0; }
         .gaia-logo {
             font-size: 3rem; font-weight: 900;
             background: linear-gradient(135deg, #00c853, #69f0ae, #00c853);
@@ -190,14 +173,6 @@ if theme == "dark":
             transition: all 0.3s !important; flex-shrink: 0;
         }
         .stButton button:hover { transform: scale(1.08); box-shadow: 0 0 20px rgba(0,200,83,0.4); }
-        
-        .quick-chip {
-            display: inline-block; padding: 8px 15px; margin: 4px;
-            background: #111915; border: 1px solid #1a2a1f; border-radius: 20px;
-            cursor: pointer; font-size: 0.82rem; color: #9ca3af;
-            transition: all 0.2s;
-        }
-        .quick-chip:hover { background: #1a2a1f; border-color: #00c853; color: #00c853; }
         
         .history-panel {
             background: #111915; border: 1px solid #1a2a1f; border-radius: 16px;
@@ -278,14 +253,6 @@ else:
         }
         .stButton button:hover { transform: scale(1.08); box-shadow: 0 0 20px rgba(46,125,50,0.3); }
         
-        .quick-chip {
-            display: inline-block; padding: 8px 15px; margin: 4px;
-            background: #fff; border: 1px solid #e2e8f0; border-radius: 20px;
-            cursor: pointer; font-size: 0.82rem; color: #64748b;
-            transition: all 0.2s;
-        }
-        .quick-chip:hover { background: #e8f5e9; border-color: #2e7d32; color: #2e7d32; }
-        
         .history-panel {
             background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
             padding: 16px; margin-top: 16px; max-height: 40vh; overflow-y: auto;
@@ -303,10 +270,10 @@ else:
     """, unsafe_allow_html=True)
 
 # ===== HEADER =====
-st.markdown(f"""
+st.markdown("""
 <div class="gaia-header">
-    <div class="gaia-logo">🎙️ GAIA Voice Agronomist</div>
-    <div class="gaia-tagline">Your AI farm assistant — ask anything, get expert answers instantly</div>
+    <div class="gaia-logo">GAIA Voice Agronomist</div>
+    <div class="gaia-tagline">Your AI farm assistant - ask anything, get expert answers instantly</div>
     <div class="powered-by">Powered by Darkmoor Ltd</div>
 </div>
 """, unsafe_allow_html=True)
@@ -324,26 +291,21 @@ if not st.session_state.voice_history:
     """, unsafe_allow_html=True)
 
 for item in st.session_state.voice_history:
-    st.markdown(f"""
-    <div class="msg-row user">
-        <div class="msg-bubble user">{item['question']}<div class="msg-time">You · {item['time']}</div></div>
-        <div class="msg-avatar user">🧑‍🌾</div>
-    </div>
-    <div class="msg-row gaia">
-        <div class="msg-avatar gaia">🌱</div>
-        <div class="msg-bubble gaia">{item['answer']}<div class="msg-time">GAIA · {item['time']}</div></div>
-    </div>
-    """, unsafe_allow_html=True)
+    # User message
+    user_html = '<div class="msg-row user"><div class="msg-bubble user">' + item['question'] + '<div class="msg-time">You - ' + item['time'] + '</div></div><div class="msg-avatar user">🧑‍🌾</div></div>'
+    st.markdown(user_html, unsafe_allow_html=True)
+    
+    # GAIA message
+    gaia_html = '<div class="msg-row gaia"><div class="msg-avatar gaia">🌱</div><div class="msg-bubble gaia">' + item['answer'].replace('
+', '<br>') + '<div class="msg-time">GAIA - ' + item['time'] + '</div></div></div>'
+    st.markdown(gaia_html, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ===== INPUT BAR =====
 st.markdown('<div class="input-bar">', unsafe_allow_html=True)
 
-col_voice, col_text, col_send = st.columns([0.5, 7, 0.8])
-
-with col_voice:
-    st.markdown('<div style="text-align:center;padding-top:6px;">🎤</div>', unsafe_allow_html=True)
+col_text, col_send = st.columns([8, 1])
 
 with col_text:
     question = st.text_area("", placeholder="Ask anything about your farm...", height=42, key="main_question", label_visibility="collapsed")
@@ -353,14 +315,12 @@ with col_send:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ===== CROP CONTEXT + SEND =====
-col_ctx, col_empty = st.columns([2, 5])
-with col_ctx:
-    crop_context = st.selectbox("🌾 Crop context (optional)", ["None", "Maize", "Rice", "Wheat", "Beans", "Potato", "Tomato", "Pepper", "Cattle", "Poultry", "General Farming"], key="crop_select", label_visibility="collapsed")
+# Crop context
+crop_context = st.selectbox("Crop context (optional)", ["None", "Maize", "Rice", "Wheat", "Beans", "Potato", "Tomato", "Pepper", "Cattle", "Poultry", "General Farming"], key="crop_select")
 
 # Process question
 if ask_button and question:
-    with st.spinner("🌱 GAIA is thinking..."):
+    with st.spinner("GAIA is thinking..."):
         ctx = crop_context if crop_context != "None" else ""
         answer, error = ask_gaia(question, ctx)
     
@@ -382,7 +342,7 @@ for category, questions in QUICK_QUESTIONS:
     for i, q in enumerate(questions):
         with cols[i]:
             if st.button(q, key=f"quick_{category}_{i}", use_container_width=True):
-                with st.spinner("🌱 Thinking..."):
+                with st.spinner("Thinking..."):
                     answer, error = ask_gaia(q)
                 if error:
                     st.error(error)
@@ -394,42 +354,37 @@ for category, questions in QUICK_QUESTIONS:
                     })
                     st.rerun()
 
-# ===== CONVERSATION HISTORY PANEL =====
+# ===== HISTORY PANEL =====
 if st.session_state.voice_history:
     st.markdown("---")
-    if st.button("📜 View Conversation History" if not st.session_state.show_history else "🔼 Hide History", use_container_width=True):
+    if st.button("View Conversation History" if not st.session_state.show_history else "Hide History", use_container_width=True):
         st.session_state.show_history = not st.session_state.show_history
         st.rerun()
     
     if st.session_state.show_history:
         st.markdown('<div class="history-panel">', unsafe_allow_html=True)
-        st.markdown("### 📜 Your Conversation History")
+        st.markdown("### Your Conversation History")
         for i, item in enumerate(reversed(st.session_state.voice_history)):
-            st.markdown(f"""
-            <div class="history-item">
-                <div class="history-question">❓ {item['question'][:100]}{'...' if len(item['question']) > 100 else ''}</div>
-                <div class="history-time">🕐 {item['time']} · GAIA answered in detail</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="history-item"><div class="history-question">Q: {item["question"][:100]}</div><div class="history-time">{item["time"]}</div></div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ===== NAVIGATION =====
 st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
+st.markdown("### Quick Navigation")
 cols = st.columns(9)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[6]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[7]: st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
-with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[0]: st.page_link("pages/1_Dashboard.py", label="Dashboard")
+with cols[1]: st.page_link("pages/2_Crops.py", label="Crops")
+with cols[2]: st.page_link("pages/3_Pests.py", label="Pests")
+with cols[3]: st.page_link("pages/4_Soil.py", label="Soil")
+with cols[4]: st.page_link("pages/5_Livestock.py", label="Livestock")
+with cols[5]: st.page_link("pages/18_Voice_Agronomist.py", label="Voice AI")
+with cols[6]: st.page_link("pages/17_Video_Scan.py", label="Video Scan")
+with cols[7]: st.page_link("pages/10_Early_Warning.py", label="Early Warning")
+with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="Buy Scans")
 
 # ===== FOOTER =====
 st.markdown("""
 <div style="text-align:center;padding:20px;color:#6b7280;font-size:0.78rem;">
-    GAIA Voice Agronomist · Powered by Darkmoor Ltd · Built in Nigeria 🇳🇬
+    GAIA Voice Agronomist · Powered by Darkmoor Ltd · Built in Nigeria
 </div>
 """, unsafe_allow_html=True)

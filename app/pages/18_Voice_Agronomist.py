@@ -4,7 +4,7 @@ import requests
 import time
 import base64
 from datetime import datetime
-from streamlit_mic_recorder import mic_recorder
+# Voice recording will be enabled in the next update
 
 # ===== CONFIG =====
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]

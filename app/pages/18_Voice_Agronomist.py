@@ -5,10 +5,39 @@ from datetime import datetime
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-st.set_page_config(page_title="GAIA - Voice Agronomist", page_icon=":studio_microphone:", layout="wide")
+st.set_page_config(page_title="GAIA - Voice Agronomist", page_icon="🍅", layout="wide")
 
-st.markdown("<h1 style=\"text-align:center;color:#00c853;\">GAIA Voice Agronomist</h1>", unsafe_allow_html=True)
-st.markdown("<p style=\"text-align:center;color:#6b7280;\">Your AI farm assistant - powered by Darkmoor Ltd</p>", unsafe_allow_html=True)
+# ----- custom CSS for beautiful conversation cards -----
+st.markdown("""
+<style>
+    .stApp { background: #0d1110; color: #e8f5e9; }
+    header, footer { visibility: hidden; }
+    .gaia-header { text-align: center; padding: 20px 0 10px 0; }
+    .gaia-logo {
+        font-size: 3rem; font-weight: 900;
+        background: linear-gradient(135deg, #00c853, #69f0ae, #00c853);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .gaia-tagline { color: #6b7280; font-size: 0.95rem; }
+    .answer-card {
+        background: #111915; border: 1px solid #1a2a1f; border-radius: 20px;
+        padding: 24px; margin: 16px 0;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .answer-card h3 { color: #00c853; margin-top: 16px; margin-bottom: 8px; }
+    .answer-card p, .answer-card li { color: #d1d5db; line-height: 1.7; }
+    .stButton button {
+        background: linear-gradient(135deg, #00c853, #4caf50) !important;
+        color: #fff !important; border: none !important;
+        border-radius: 12px !important; padding: 12px 30px !important;
+        font-weight: 600 !important;
+    }
+    .stButton button:hover { box-shadow: 0 0 20px rgba(0,200,83,0.4); }
+</style>
+""", unsafe_allow_html=True)
+
+# ----- header -----
+st.markdown('<div class="gaia-header"><div class="gaia-logo">🍅 GAIA Voice Agronomist</div><div class="gaia-tagline">Your AI farm assistant - powered by Darkmoor Ltd</div></div>', unsafe_allow_html=True)
 
 if "voice_history" not in st.session_state:
     st.session_state.voice_history = []
@@ -28,7 +57,7 @@ def ask_gaia(question):
 
 question = st.text_area("Ask anything about your farm:", placeholder="e.g., My maize leaves have brown spots. What should I do?", height=80, key="q")
 
-if st.button("Ask GAIA", type="primary") and question:
+if st.button("🍅 Ask GAIA", type="primary") and question:
     with st.spinner("GAIA is thinking..."):
         answer, error = ask_gaia(question)
     if error:
@@ -37,6 +66,7 @@ if st.button("Ask GAIA", type="primary") and question:
         st.session_state.voice_history.append({"question": question, "answer": answer, "time": datetime.now().strftime("%H:%M")})
         st.rerun()
 
+# ----- conversation history (beautiful cards) -----
 if st.session_state.voice_history:
     st.markdown("---")
     st.markdown("### Conversation")
@@ -44,8 +74,8 @@ if st.session_state.voice_history:
         with st.chat_message("user"):
             st.write(item["question"])
             st.caption(item["time"])
-        with st.chat_message("assistant"):
-            st.markdown(item["answer"])
+        with st.chat_message("assistant", avatar="🍅"):
+            st.markdown('<div class="answer-card">' + item["answer"].replace("\n", "<br>") + '</div>', unsafe_allow_html=True)
             st.caption("GAIA - " + item["time"])
 
 st.markdown("---")

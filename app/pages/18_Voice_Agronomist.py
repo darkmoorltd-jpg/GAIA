@@ -4,6 +4,7 @@ import requests
 import base64
 from datetime import datetime
 import uuid
+import os
 import tempfile
 import time
 
@@ -98,6 +99,7 @@ audio_base64 = query_params.get("audio", [None])[0]
 
 # ===== PROCESS AUDIO FROM VOICE RECORDING =====
 if audio_base64:
+    st.write('DEBUG: Audio detected, processing...')
     st.info("🍅 Processing your voice recording...")
     
     try:
@@ -120,7 +122,7 @@ if audio_base64:
                                files={"file": ("audio.webm", f, "audio/webm")},
                                data={"model": "whisper-large-v3", "language": "en"})
         
-        os.unlink(tmp_path)
+        os.remove(tmp_path)
         
         if resp.status_code == 200:
             text = resp.json().get("text", "").strip()
@@ -174,7 +176,7 @@ if uploaded_audio:
                                    files={"file": ("audio.webm", f, "audio/webm")},
                                    data={"model": "whisper-large-v3", "language": "en"})
             
-            os.unlink(tmp_path)
+            os.remove(tmp_path)
             
             if resp.status_code == 200:
                 text = resp.json().get("text", "").strip()

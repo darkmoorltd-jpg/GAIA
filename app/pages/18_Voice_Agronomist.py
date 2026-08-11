@@ -96,73 +96,102 @@ else{mediaRecorder.stop();isRecording=false;micBtn.classList.remove("recording")
 query_params = st.query_params
 audio_base64 = query_params.get("audio", [None])[0]
 
+# ===== PROCESS AUDIO FROM VOICE RECORDING =====
 if audio_base64:
-    status_placeholder = st.empty()
-    status_placeholder.info("🍅 GAIA is listening to your voice...")
+    st.info("🍅 Processing your voice recording...")
     
     try:
-        # Decode audio
+        # Decode the base64 audio
         audio_bytes = base64.b64decode(audio_base64)
         
-        # Save to temp file
-        tmp_path = "/tmp/gaia_recording.webm"
+        # Save to a file
+        tmp_path = "/tmp/gaia_voice.webm"
         with open(tmp_path, "wb") as f:
             f.write(audio_bytes)
         
-        status_placeholder.info("🧠 Transcribing with Groq Whisper...")
+        st.info("🧠 Transcribing with Whisper...")
         
-        # Send to Groq
+        # Send to Groq for transcription
         groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
-        groq_headers = {"Authorization": "Bearer " + GROQ_API_KEY}
+        headers = {"Authorization": "Bearer " + GROQ_API_KEY}
         
         with open(tmp_path, "rb") as f:
-            groq_resp = requests.post(
-                groq_url, 
-                headers=groq_headers, 
-                files={"file": ("recording.webm", f, "audio/webm")}, 
-                data={"model": "whisper-large-v3", "language": "en", "temperature": 0}
-            )
+            resp = requests.post(groq_url, headers=headers, 
+                               files={"file": ("audio.webm", f, "audio/webm")},
+                               data={"model": "whisper-large-v3", "language": "en"})
         
-        # Clean up
         os.unlink(tmp_path)
         
-        if groq_resp.status_code == 200:
-            result = groq_resp.json()
-            transcribed = result.get("text", "").strip()
-            
-            if transcribed:
-                status_placeholder.success("Transcribed: " + transcribed)
-                
-                # Ask GAIA with transcribed text
-                with st.spinner("🍅 GAIA is thinking..."):
-                    answer, error = ask_gaia(transcribed)
-                
-                if error:
-                    st.error(error)
-                else:
-                    # Add to conversation
+        if resp.status_code == 200:
+            text = resp.json().get("text", "").strip()
+            if text:
+                st.success("You said: " + text)
+                answer, error = ask_gaia(text)
+                if not error:
                     st.session_state.voice_history.append({
                         "id": str(uuid.uuid4())[:8],
-                        "question": "🎤 " + transcribed,
+                        "question": "🎤 " + text,
                         "answer": answer,
                         "time": datetime.now().strftime("%H:%M"),
                         "hidden": False
                     })
-                    update_farmer_memory(transcribed, answer)
-                    status_placeholder.empty()
+                    update_farmer_memory(text, answer)
+                else:
+                    st.error(error)
             else:
-                status_placeholder.warning("No speech detected. Please try speaking louder or closer to the mic.")
+                st.warning("No speech detected in recording.")
         else:
-            status_placeholder.error(f"Groq API error: {groq_resp.status_code} - {groq_resp.text[:200]}")
+            st.error(f"Transcription failed (Error {resp.status_code}). Please type your question instead.")
+            st.write("Debug:", resp.text[:300])
         
-        # Clear query params and refresh
+        # Clear the URL and refresh
         st.query_params.clear()
-        time.sleep(1)
         st.rerun()
         
     except Exception as e:
-        status_placeholder.error(f"Error: {str(e)[:200]}")
+        st.error(f"Voice processing error: {str(e)[:200]}")
         st.query_params.clear()
+
+# ===== DIRECT AUDIO FILE UPLOAD (FALLBACK) =====
+st.markdown("---")
+st.markdown("### 📁 Or Upload an Audio File")
+uploaded_audio = st.file_uploader("Upload voice recording", type=["mp3", "wav", "webm", "ogg", "m4a"], key="audio_upload")
+
+if uploaded_audio:
+    st.audio(uploaded_audio)
+    if st.button("Transcribe Uploaded Audio"):
+        with st.spinner("Transcribing..."):
+            audio_bytes = uploaded_audio.read()
+            tmp_path = "/tmp/gaia_upload.webm"
+            with open(tmp_path, "wb") as f:
+                f.write(audio_bytes)
+            
+            groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
+            headers = {"Authorization": "Bearer " + GROQ_API_KEY}
+            
+            with open(tmp_path, "rb") as f:
+                resp = requests.post(groq_url, headers=headers,
+                                   files={"file": ("audio.webm", f, "audio/webm")},
+                                   data={"model": "whisper-large-v3", "language": "en"})
+            
+            os.unlink(tmp_path)
+            
+            if resp.status_code == 200:
+                text = resp.json().get("text", "").strip()
+                if text:
+                    st.success("Transcribed: " + text)
+                    answer, error = ask_gaia(text)
+                    if not error:
+                        st.session_state.voice_history.append({
+                            "id": str(uuid.uuid4())[:8],
+                            "question": "🎤 " + text,
+                            "answer": answer,
+                            "time": datetime.now().strftime("%H:%M"),
+                            "hidden": False
+                        })
+                        st.rerun()
+            else:
+                st.error(f"Transcription failed: {resp.text[:200]}")
 
 # ===== TEXT INPUT =====
 st.markdown("---")

@@ -448,11 +448,11 @@ warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon=
 buy_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 
 pg = st.navigation({
-    "GAIA": [dashboard_page],
-    "Diagnose": [crops_page, pests_page, soil_page, livestock_page, video_page, early_warning_page],
-    "Account": [payment_history_page, profile_page, buy_scans_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],
-    "Admin": [admin_page],
-    "Community": [chat_page],
-    "Support": [help_page],
+    "🏠 GAIA": [dashboard_page, chat_page],
+    "🔬 Diagnose": [crops_page, pests_page, soil_page, livestock_page],
+    "🤖 AI Tools": [voice_page, video_scan_page, early_warning_page],
+    "💳 Account": [buy_scans_page, payment_history_page, profile_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],
+    "🔐 Admin": [admin_page],
+    "🆘 Support": [help_page],
 })
 pg.run()

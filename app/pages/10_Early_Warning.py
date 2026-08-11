@@ -317,8 +317,6 @@ if st.button("🔍 Get Disease Risk Forecast"):
     else:
         st.error("Unable to fetch weather data. Please check your coordinates.")
 
-
-# ---------- Universal Bottom Navigation (safe) ----------
 # ---------- Quick Navigation ----------
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
@@ -334,8 +332,8 @@ with cols[3]:
 with cols[4]:
     st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
 with cols[5]:
-    st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
+    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
 with cols[6]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+    st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
 with cols[7]:
-    st.page_link("pages/13_Help.py", label="💬 Help")
+    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

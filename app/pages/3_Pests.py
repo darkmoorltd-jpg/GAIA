@@ -374,28 +374,28 @@ if files:
                 c2.progress(float(probs[i]))
             deduct_one_scan()
                 
-                # ===== DEEPSEEK EXPLANATION + VOICE =====
-                if model is not None:
-                    with st.spinner("🧠 GAIA is preparing your pest management guide..."):
-                        try:
-                            from app.utils.deepseek_explainer import explain_diagnosis, text_to_speech
-                            
-                            top_pest = PEST_CLASSES[top_idx]
-                            explanation, explain_err = explain_diagnosis(top_pest, probs[top_idx] * 100, "various crops", "pest")
-                            
-                            if explanation:
-                                with st.expander("📋 Complete Pest Management Guide (AI-Generated)", expanded=True):
-                                    st.markdown(explanation)
-                                    
-                                    if st.button("🔊 Listen to Pest Guide", key=f"voice_{f.name}"):
-                                        with st.spinner("🔊 Generating voice..."):
-                                            audio_bytes, tts_err = text_to_speech(explanation[:2000])
-                                            if audio_bytes:
-                                                st.audio(audio_bytes, format="audio/mp3")
-                                            else:
-                                                st.warning(f"Voice unavailable: {tts_err}")
-                        except Exception as e:
-                            st.warning(f"Pest guide unavailable: {str(e)[:100]}")
+            # ===== DEEPSEEK EXPLANATION + VOICE =====
+            if model is not None:
+                with st.spinner("🧠 GAIA is preparing your pest management guide..."):
+                    try:
+                        from app.utils.deepseek_explainer import explain_diagnosis, text_to_speech
+                        
+                        top_pest = PEST_CLASSES[top_idx]
+                        explanation, explain_err = explain_diagnosis(top_pest, probs[top_idx] * 100, "various crops", "pest")
+                        
+                        if explanation:
+                            with st.expander("📋 Complete Pest Management Guide (AI-Generated)", expanded=True):
+                                st.markdown(explanation)
+                                
+                                if st.button("🔊 Listen to Pest Guide", key=f"voice_{f.name}"):
+                                    with st.spinner("🔊 Generating voice..."):
+                                        audio_bytes, tts_err = text_to_speech(explanation[:2000])
+                                        if audio_bytes:
+                                            st.audio(audio_bytes, format="audio/mp3")
+                                        else:
+                                            st.warning(f"Voice unavailable: {tts_err}")
+                    except Exception as e:
+                        st.warning(f"Pest guide unavailable: {str(e)[:100]}")
             
             # Feedback
             col_fb1, col_fb2 = c2.columns(2)

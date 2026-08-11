@@ -10,23 +10,17 @@ GROQ_API_KEY = st.secrets["groq"]["api_key"]
 
 st.set_page_config(page_title="GAIA - Voice Agronomist", page_icon="🍅", layout="wide")
 
+# ===== THEME TOGGLE =====
 st.markdown("""
 <style>
-    @keyframes bounce { 0%,100%{transform:translateY(0) rotate(0deg)} 25%{transform:translateY(-20px) rotate(15deg)} 50%{transform:translateY(0) rotate(0deg)} 75%{transform:translateY(-10px) rotate(-15deg)} }
-    @keyframes glow { 0%,100%{text-shadow:0 0 20px rgba(0,200,83,.6)} 50%{text-shadow:0 0 40px rgba(0,200,83,1),0 0 80px rgba(0,200,83,.8)} }
-    @keyframes slideIn { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
-    .dancing-tomato { font-size:5rem;text-align:center;animation:bounce 1.5s infinite ease-in-out;display:inline-block }
-    .gaia-title { font-size:2.5rem;font-weight:900;text-align:center;background:linear-gradient(135deg,#00c853,#69f0ae,#00c853);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:glow 2s ease-in-out infinite alternate }
-    .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
-    .msg-user { background:linear-gradient(135deg,#1a5c30,#0d3320);color:#e8f5e9;margin-left:60px;border-bottom-right-radius:4px }
-    .msg-gaia { background:#151d18;color:#d1d5db;border:1px solid #1e2d23;margin-right:60px;border-bottom-left-radius:4px }
-    .stApp { background:#0d1110 }
-    header,footer { visibility:hidden }
+    .stToggle > label { display: none !important; }
+    .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
+    .stToggle > div { transform: scale(1.3); }
 </style>
-<div style="text-align:center;padding:10px 0;"><span class="dancing-tomato">🍅</span></div>
-<div class="gaia-title">GAIA Voice Agronomist</div>
-<div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type - GAIA listens and responds</div>
 """, unsafe_allow_html=True)
+
+dark_mode = st.toggle("", value=True, key="voice_theme_toggle")
+theme = "dark" if dark_mode else "light"
 
 # ===== SESSION STATE =====
 if "voice_history" not in st.session_state:
@@ -35,12 +29,36 @@ if "processing_audio" not in st.session_state:
     st.session_state.processing_audio = False
 if "pending_transcription" not in st.session_state:
     st.session_state.pending_transcription = ""
+if "farmer_memory" not in st.session_state:
+    st.session_state.farmer_memory = {}
 
 GAIA_IDENTITY = "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. Help African farmers with crop diseases, pests, soil, and livestock. Never mention any other AI company. You ARE GAIA. Be friendly and personal."
 
+def build_memory_context():
+    if not st.session_state.farmer_memory:
+        return ""
+    ctx = "You know this about the farmer: "
+    for k, v in st.session_state.farmer_memory.items():
+        ctx += k + ": " + str(v) + ". "
+    return ctx
+
+def update_farmer_memory(question, answer):
+    q = question.lower()
+    if "my name is" in q:
+        st.session_state.farmer_memory["name"] = q.split("my name is")[-1].strip().split()[0].title()
+    for crop in ["maize","rice","wheat","beans","cassava","yam","tomato"]:
+        if crop in q:
+            st.session_state.farmer_memory["crop"] = crop
+            break
+    for loc in ["kaduna","kano","lagos","abuja","ibadan","enugu"]:
+        if loc in q:
+            st.session_state.farmer_memory["location"] = loc.title()
+            break
+
 def ask_gaia(question):
+    system_prompt = GAIA_IDENTITY + " " + build_memory_context()
     headers = {"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"}
-    payload = {"model":"deepseek-chat","messages":[{"role":"system","content":GAIA_IDENTITY},{"role":"user","content":question}],"temperature":0.7,"max_tokens":1000}
+    payload = {"model":"deepseek-chat","messages":[{"role":"system","content":system_prompt},{"role":"user","content":question}],"temperature":0.7,"max_tokens":1000}
     try:
         r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
         if r.status_code == 200:
@@ -49,10 +67,51 @@ def ask_gaia(question):
     except:
         return None, "Temporarily unavailable"
 
-# ===== PROCESS PENDING TRANSCRIPTION (prevents loop) =====
+# ===== THEME CSS =====
+if theme == "dark":
+    st.markdown("""
+    <style>
+        @keyframes bounce { 0%,100%{transform:translateY(0) rotate(0deg)} 25%{transform:translateY(-20px) rotate(15deg)} 50%{transform:translateY(0) rotate(0deg)} 75%{transform:translateY(-10px) rotate(-15deg)} }
+        @keyframes glow { 0%,100%{text-shadow:0 0 20px rgba(0,200,83,.6)} 50%{text-shadow:0 0 40px rgba(0,200,83,1),0 0 80px rgba(0,200,83,.8)} }
+        @keyframes slideIn { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
+        .dancing-tomato { font-size:5rem;text-align:center;animation:bounce 1.5s infinite ease-in-out;display:inline-block }
+        .gaia-title { font-size:2.5rem;font-weight:900;text-align:center;background:linear-gradient(135deg,#00c853,#69f0ae,#00c853);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:glow 2s ease-in-out infinite alternate }
+        .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
+        .msg-user { background:linear-gradient(135deg,#1a5c30,#0d3320);color:#e8f5e9;margin-left:60px;border-bottom-right-radius:4px }
+        .msg-gaia { background:#151d18;color:#d1d5db;border:1px solid #1e2d23;margin-right:60px;border-bottom-left-radius:4px }
+        .stApp { background:#0d1110 }
+        header,footer { visibility:hidden }
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <style>
+        @keyframes bounce { 0%,100%{transform:translateY(0) rotate(0deg)} 25%{transform:translateY(-20px) rotate(15deg)} 50%{transform:translateY(0) rotate(0deg)} 75%{transform:translateY(-10px) rotate(-15deg)} }
+        @keyframes glowLight { 0%,100%{text-shadow:0 0 15px rgba(46,125,50,.5)} 50%{text-shadow:0 0 30px rgba(46,125,50,1),0 0 60px rgba(46,125,50,.7)} }
+        @keyframes slideIn { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
+        .dancing-tomato { font-size:5rem;text-align:center;animation:bounce 1.5s infinite ease-in-out;display:inline-block }
+        .gaia-title { font-size:2.5rem;font-weight:900;text-align:center;background:linear-gradient(135deg,#2e7d32,#66bb6a,#2e7d32);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:glowLight 2s ease-in-out infinite alternate }
+        .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
+        .msg-user { background:#2e7d32;color:#fff;margin-left:60px;border-bottom-right-radius:4px }
+        .msg-gaia { background:#f1f5f9;color:#1e293b;border:1px solid #e2e8f0;margin-right:60px;border-bottom-left-radius:4px }
+        .stApp { background:#f8fafc }
+        header,footer { visibility:hidden }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ===== HEADER =====
+st.markdown(f"""
+<div style="text-align:center;padding:10px 0;">
+    <span class="dancing-tomato">🍅</span>
+</div>
+<div class="gaia-title">GAIA Voice Agronomist</div>
+<div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type - GAIA listens and responds</div>
+""", unsafe_allow_html=True)
+
+# ===== PROCESS PENDING TRANSCRIPTION =====
 if st.session_state.pending_transcription:
     text = st.session_state.pending_transcription
-    st.session_state.pending_transcription = ""  # Clear immediately to prevent loop
+    st.session_state.pending_transcription = ""
     
     st.success("You said: " + text)
     with st.spinner("🍅 GAIA is thinking..."):
@@ -61,16 +120,18 @@ if st.session_state.pending_transcription:
         st.error(err)
     else:
         st.session_state.voice_history.append({
+            "id": str(uuid.uuid4())[:8],
             "q": "🎤 " + text,
             "a": answer,
-            "t": datetime.now().strftime("%H:%M")
+            "t": datetime.now().strftime("%H:%M"),
+            "hidden": False
         })
+        update_farmer_memory(text, answer)
     st.rerun()
 
 # ===== VOICE INPUT =====
 st.markdown("### 🎤 Speak to GAIA")
 
-# Only show audio input if not currently processing
 if not st.session_state.processing_audio:
     audio = st.audio_input("Record your question")
     
@@ -118,23 +179,72 @@ with c2:
         if err:
             st.error(err)
         else:
-            st.session_state.voice_history.append({"q":q,"a":answer,"t":datetime.now().strftime("%H:%M")})
+            st.session_state.voice_history.append({
+                "id": str(uuid.uuid4())[:8],
+                "q": q,
+                "a": answer,
+                "t": datetime.now().strftime("%H:%M"),
+                "hidden": False
+            })
+            update_farmer_memory(q, answer)
             st.rerun()
 
 # ===== CONVERSATION =====
 st.markdown("---")
 if st.session_state.voice_history:
     c1, c2 = st.columns([5,2])
-    with c1: st.markdown("### 🍅 Conversation")
+    with c1:
+        st.markdown("### 🍅 Conversation")
     with c2:
-        if st.button("Clear All"): st.session_state.voice_history = []; st.rerun()
-    for i, item in enumerate(reversed(st.session_state.voice_history)):
+        if st.button("🗑️ Clear All", use_container_width=True):
+            st.session_state.voice_history = []
+            st.rerun()
+    
+    visible_msgs = [item for item in st.session_state.voice_history if not item.get("hidden", False)]
+    
+    if not visible_msgs:
+        st.info("All messages are hidden. Clear history to reset.")
+        if st.button("Show All Messages"):
+            for item in st.session_state.voice_history:
+                item["hidden"] = False
+            st.rerun()
+    
+    for item in reversed(st.session_state.voice_history):
+        idx = st.session_state.voice_history.index(item)
+        
+        if item.get("hidden", False):
+            with st.expander(f"🙈 Hidden message - {item['t']}", expanded=False):
+                if st.button("👁️ Show", key=f"show_{idx}"):
+                    st.session_state.voice_history[idx]["hidden"] = False
+                    st.rerun()
+            continue
+        
         st.markdown(f'<div style="text-align:right;font-size:.7rem;color:#6b7280;">You - {item["t"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="msg-bubble msg-user">{item["q"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="margin:4px 0;"><span>🍅</span><span style="font-size:.7rem;color:#6b7280;"> GAIA - {item["t"]}</span></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="msg-bubble msg-gaia">{item["a"]}</div>', unsafe_allow_html=True)
+        
+        cd, ch, ce = st.columns([1, 1, 8])
+        with cd:
+            if st.button("🗑️", key=f"del_{idx}", help="Delete this message"):
+                st.session_state.voice_history.pop(idx)
+                st.rerun()
+        with ch:
+            if st.button("🙈", key=f"hide_{idx}", help="Hide this message"):
+                st.session_state.voice_history[idx]["hidden"] = True
+                st.rerun()
 else:
-    st.markdown('<div style="text-align:center;padding:40px;color:#6b7280;"><div style="font-size:4rem;">🍅</div><h3>Start a Conversation</h3><p>Click the mic button above to speak, or type below</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:center;padding:40px;color:#6b7280;"><div style="font-size:4rem;">🍅</div><h3>Start a Conversation</h3><p>Click the mic button above to speak, or type below</p></div>', unsafe_allow_html=True)
+
+# ===== FARMER MEMORY =====
+if st.session_state.farmer_memory:
+    st.markdown("---")
+    with st.expander("🧠 What GAIA remembers about you", expanded=False):
+        for k, v in st.session_state.farmer_memory.items():
+            st.write(k.replace("_", " ").title() + ": **" + str(v) + "**")
+        if st.button("Clear Memory"):
+            st.session_state.farmer_memory = {}
+            st.rerun()
 
 # ===== NAVIGATION =====
 st.markdown("---")

@@ -8,7 +8,7 @@ DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 GROQ_API_KEY = st.secrets["groq"]["api_key"]
 
-st.set_page_config(page_title="GAIA - Voice Agronomist", page_icon="🍅", layout="wide")
+st.set_page_config(page_title="GAIA - Chat & Voice Agronomist", page_icon="🍅", layout="wide")
 
 # ===== THEME TOGGLE =====
 st.markdown("""
@@ -19,7 +19,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-dark_mode = st.toggle("", value=True, key="voice_theme_toggle")
+dark_mode = st.toggle("", value=False, key="voice_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
 # ===== SESSION STATE =====
@@ -104,7 +104,7 @@ st.markdown(f"""
 <div style="text-align:center;padding:10px 0;">
     <span class="dancing-tomato">🍅</span>
 </div>
-<div class="gaia-title">GAIA Voice Agronomist</div>
+<div class="gaia-title">GAIA Chat & Voice Agronomist</div>
 <div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type - GAIA listens and responds</div>
 """, unsafe_allow_html=True)
 

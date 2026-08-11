@@ -442,6 +442,11 @@ verify_farmer_page = st.Page("pages/11_Verify_Farmer.py", title="Verify Farmer",
 verify_history_page = st.Page("pages/12_Verification_History.py", title="Verification History", icon="📋")
 wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 
+voice_page = st.Page("pages/18_Voice_Agronomist.py", title="Voice Agronomist", icon="🎙️")
+video_page = st.Page("pages/17_Video_Scan.py", title="Video Scanner", icon="🎥")
+warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
+buy_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
+
 pg = st.navigation({
     "GAIA": [dashboard_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page, video_page, early_warning_page],

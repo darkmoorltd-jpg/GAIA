@@ -1,12 +1,8 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import requests
-import base64
+import os
 from datetime import datetime
 import uuid
-import os
-import tempfile
-import time
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
@@ -17,222 +13,101 @@ st.set_page_config(page_title="GAIA - Voice Agronomist", page_icon="🍅", layou
 st.markdown("""
 <style>
     @keyframes bounce { 0%,100%{transform:translateY(0) rotate(0deg)} 25%{transform:translateY(-20px) rotate(15deg)} 50%{transform:translateY(0) rotate(0deg)} 75%{transform:translateY(-10px) rotate(-15deg)} }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
     @keyframes glow { 0%,100%{text-shadow:0 0 20px rgba(0,200,83,.6)} 50%{text-shadow:0 0 40px rgba(0,200,83,1),0 0 80px rgba(0,200,83,.8)} }
-    @keyframes pulse { 0%,100%{transform:scale(1);box-shadow:0 0 30px rgba(255,0,0,.5)} 50%{transform:scale(1.08);box-shadow:0 0 60px rgba(255,0,0,.8)} }
     @keyframes slideIn { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
     .dancing-tomato { font-size:5rem;text-align:center;animation:bounce 1.5s infinite ease-in-out;display:inline-block }
-    .gaia-title { font-size:2.8rem;font-weight:900;text-align:center;background:linear-gradient(135deg,#00c853,#69f0ae,#00c853);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:glow 2s ease-in-out infinite alternate }
-    .gaia-subtitle { text-align:center;color:#6b7280;font-size:1rem;animation:blink 3s ease-in-out infinite }
+    .gaia-title { font-size:2.5rem;font-weight:900;text-align:center;background:linear-gradient(135deg,#00c853,#69f0ae,#00c853);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:glow 2s ease-in-out infinite alternate }
     .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
     .msg-user { background:linear-gradient(135deg,#1a5c30,#0d3320);color:#e8f5e9;margin-left:60px;border-bottom-right-radius:4px }
     .msg-gaia { background:#151d18;color:#d1d5db;border:1px solid #1e2d23;margin-right:60px;border-bottom-left-radius:4px }
-    .msg-time { font-size:.68rem;color:#6b7280;margin-top:6px }
     .stApp { background:#0d1110 }
     header,footer { visibility:hidden }
-    .stButton button { background:linear-gradient(135deg,#00c853,#4caf50)!important;color:#fff!important;border:none!important;border-radius:12px!important;padding:10px 24px!important;font-weight:600!important }
 </style>
 <div style="text-align:center;padding:10px 0;"><span class="dancing-tomato">🍅</span></div>
 <div class="gaia-title">GAIA Voice Agronomist</div>
-<div class="gaia-subtitle">Speak or type - GAIA listens and responds</div>
-<div class="gaia-subtitle" style="font-size:.75rem;color:#3b82f6;">Powered by Darkmoor Ltd</div>
+<div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type - GAIA listens and responds</div>
 """, unsafe_allow_html=True)
 
-if "voice_history" not in st.session_state: st.session_state.voice_history = []
-if "farmer_memory" not in st.session_state: st.session_state.farmer_memory = {}
+if "voice_history" not in st.session_state:
+    st.session_state.voice_history = []
+if "farmer_memory" not in st.session_state:
+    st.session_state.farmer_memory = {}
 
-GAIA_BASE_IDENTITY = "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. Help African farmers with crop diseases, pests, soil, and livestock. Never mention any other AI company. You ARE GAIA. Be friendly and personal."
-
-def build_memory_context():
-    if not st.session_state.farmer_memory: return ""
-    ctx = "You know: "
-    for k, v in st.session_state.farmer_memory.items(): ctx += k + ": " + str(v) + ". "
-    return ctx
-
-def update_farmer_memory(question, answer):
-    q = question.lower()
-    if "my name is" in q: st.session_state.farmer_memory["farmer_name"] = q.split("my name is")[-1].strip().split()[0].title()
-    for crop in ["maize","rice","wheat","beans","cassava","yam","tomato"]:
-        if crop in q: st.session_state.farmer_memory["main_crop"] = crop; break
-    for loc in ["kaduna","kano","lagos","abuja","ibadan","enugu"]:
-        if loc in q: st.session_state.farmer_memory["location"] = loc.title(); break
+GAIA_IDENTITY = "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. Help African farmers with crop diseases, pests, soil, and livestock. Never mention any other AI company. You ARE GAIA. Be friendly and personal."
 
 def ask_gaia(question):
-    system_prompt = GAIA_BASE_IDENTITY + " " + build_memory_context()
     headers = {"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"}
-    payload = {"model":"deepseek-chat","messages":[{"role":"system","content":system_prompt},{"role":"user","content":question}],"temperature":0.7,"max_tokens":1000}
+    payload = {"model":"deepseek-chat","messages":[{"role":"system","content":GAIA_IDENTITY},{"role":"user","content":question}],"temperature":0.7,"max_tokens":1000}
     try:
         r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
-        if r.status_code == 200: return r.json()["choices"][0]["message"]["content"], None
-        return None, "Connection error."
-    except: return None, "I am temporarily unavailable."
+        if r.status_code == 200:
+            return r.json()["choices"][0]["message"]["content"], None
+        return None, "Connection error"
+    except:
+        return None, "Temporarily unavailable"
 
-# ===== VOICE RECORDING =====
+# ===== VOICE INPUT =====
 st.markdown("### 🎤 Speak to GAIA")
-components.html("""
-<!DOCTYPE html><html><head><style>
-body{margin:0;padding:0;background:#0d1110;display:flex;justify-content:center;align-items:center;min-height:150px}
-.mic-btn{width:70px;height:70px;border-radius:50%;border:none;background:linear-gradient(135deg,#f00,#c00);color:#fff;font-size:28px;cursor:pointer;transition:all .3s;box-shadow:0 0 30px rgba(255,0,0,.5)}
-.mic-btn:hover{transform:scale(1.1)}
-.mic-btn.recording{animation:pulse 1s infinite;background:#333;box-shadow:0 0 50px rgba(255,0,0,.9)}
-@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 30px rgba(255,0,0,.5)}50%{transform:scale(1.1);box-shadow:0 0 60px rgba(255,0,0,1)}}
-.status{color:#6b7280;margin-top:10px;font-family:sans-serif;text-align:center}
-</style></head><body><div style="text-align:center">
-<button id="micBtn" class="mic-btn" title="Click to record">🎤</button>
-<div class="status" id="status">Click the mic to speak</div></div>
-<script>
-let mediaRecorder,audioChunks=[],isRecording=false;
-const micBtn=document.getElementById("micBtn"),statusDiv=document.getElementById("status");
-micBtn.addEventListener("click",async()=>{
-if(!isRecording){try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});mediaRecorder=new MediaRecorder(stream);audioChunks=[];
-mediaRecorder.ondataavailable=(e)=>audioChunks.push(e.data);
-mediaRecorder.onstop=()=>{const blob=new Blob(audioChunks,{type:"audio/webm"});const reader=new FileReader();reader.readAsDataURL(blob);reader.onloadend=()=>{const b64=reader.result.split(",")[1];window.location.href=window.location.href.split("?")[0]+"?audio="+encodeURIComponent(b64)}};
-mediaRecorder.start();isRecording=true;micBtn.classList.add("recording");micBtn.textContent="⏹️";statusDiv.textContent="Recording... Click to stop"}
-catch(err){statusDiv.textContent="Microphone access denied. Please allow mic access."}}
-else{mediaRecorder.stop();isRecording=false;micBtn.classList.remove("recording");micBtn.textContent="🎤";statusDiv.textContent="Processing..."}})
-</script></body></html>
-""", height=200)
+audio = st.audio_input("Record your question")
 
-# ===== HANDLE AUDIO =====
-query_params = st.query_params
-audio_base64 = query_params.get("audio", [None])[0]
-
-# ===== PROCESS AUDIO FROM VOICE RECORDING =====
-if audio_base64:
-    st.write('DEBUG: Audio detected, processing...')
-    st.info("🍅 Processing your voice recording...")
-    
-    try:
-        # Decode the base64 audio
-        audio_bytes = base64.b64decode(audio_base64)
+if audio:
+    with st.spinner("Processing your voice..."):
+        tmp = "/tmp/gaia_voice.wav"
+        with open(tmp, "wb") as f:
+            f.write(audio.read())
         
-        # Save to a file
-        tmp_path = "/tmp/gaia_voice.webm"
-        with open(tmp_path, "wb") as f:
-            f.write(audio_bytes)
-        
-        st.info("🧠 Transcribing with Whisper...")
-        
-        # Send to Groq for transcription
-        groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
         headers = {"Authorization": "Bearer " + GROQ_API_KEY}
-        
-        with open(tmp_path, "rb") as f:
-            resp = requests.post(groq_url, headers=headers, 
-                               files={"file": ("audio.webm", f, "audio/webm")},
-                               data={"model": "whisper-large-v3", "language": "en"})
-        
-        os.remove(tmp_path)
+        with open(tmp, "rb") as f:
+            resp = requests.post("https://api.groq.com/openai/v1/audio/transcriptions",
+                               headers=headers, files={"file":("audio.wav",f,"audio/wav")},
+                               data={"model":"whisper-large-v3","language":"en"})
+        os.remove(tmp)
         
         if resp.status_code == 200:
-            text = resp.json().get("text", "").strip()
+            text = resp.json().get("text","").strip()
             if text:
                 st.success("You said: " + text)
-                answer, error = ask_gaia(text)
-                if not error:
+                answer, err = ask_gaia(text)
+                if not err:
                     st.session_state.voice_history.append({
-                        "id": str(uuid.uuid4())[:8],
-                        "question": "🎤 " + text,
-                        "answer": answer,
-                        "time": datetime.now().strftime("%H:%M"),
-                        "hidden": False
+                        "q":"🎤 "+text,"a":answer,"t":datetime.now().strftime("%H:%M")
                     })
-                    update_farmer_memory(text, answer)
-                else:
-                    st.error(error)
+                    st.rerun()
             else:
-                st.warning("No speech detected in recording.")
+                st.warning("No speech detected")
         else:
-            st.error(f"Transcription failed (Error {resp.status_code}). Please type your question instead.")
-            st.write("Debug:", resp.text[:300])
-        
-        # Clear the URL and refresh
-        st.query_params.clear()
-        st.rerun()
-        
-    except Exception as e:
-        st.error(f"Voice processing error: {str(e)[:200]}")
-        st.query_params.clear()
-
-# ===== DIRECT AUDIO FILE UPLOAD (FALLBACK) =====
-st.markdown("---")
-st.markdown("### 📁 Or Upload an Audio File")
-uploaded_audio = st.file_uploader("Upload voice recording", type=["mp3", "wav", "webm", "ogg", "m4a"], key="audio_upload")
-
-if uploaded_audio:
-    st.audio(uploaded_audio)
-    if st.button("Transcribe Uploaded Audio"):
-        with st.spinner("Transcribing..."):
-            audio_bytes = uploaded_audio.read()
-            tmp_path = "/tmp/gaia_upload.webm"
-            with open(tmp_path, "wb") as f:
-                f.write(audio_bytes)
-            
-            groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
-            headers = {"Authorization": "Bearer " + GROQ_API_KEY}
-            
-            with open(tmp_path, "rb") as f:
-                resp = requests.post(groq_url, headers=headers,
-                                   files={"file": ("audio.webm", f, "audio/webm")},
-                                   data={"model": "whisper-large-v3", "language": "en"})
-            
-            os.remove(tmp_path)
-            
-            if resp.status_code == 200:
-                text = resp.json().get("text", "").strip()
-                if text:
-                    st.success("Transcribed: " + text)
-                    answer, error = ask_gaia(text)
-                    if not error:
-                        st.session_state.voice_history.append({
-                            "id": str(uuid.uuid4())[:8],
-                            "question": "🎤 " + text,
-                            "answer": answer,
-                            "time": datetime.now().strftime("%H:%M"),
-                            "hidden": False
-                        })
-                        st.rerun()
-            else:
-                st.error(f"Transcription failed: {resp.text[:200]}")
+            st.error("Transcription failed. Please type instead.")
 
 # ===== TEXT INPUT =====
 st.markdown("---")
 st.markdown("### ⌨️ Or Type")
-col1, col2 = st.columns([7, 1])
-with col1: question = st.text_area("", placeholder="Ask anything about your farm...", height=60, key="q", label_visibility="collapsed")
-with col2: st.write(""); ask_btn = st.button("Ask 🍅", type="primary", use_container_width=True)
-if ask_btn and question:
-    with st.spinner("🍅 GAIA is thinking..."): answer, error = ask_gaia(question)
-    if error: st.error(error)
-    else: st.session_state.voice_history.append({"id":str(uuid.uuid4())[:8],"question":question,"answer":answer,"time":datetime.now().strftime("%H:%M"),"hidden":False}); update_farmer_memory(question, answer); st.rerun()
+c1, c2 = st.columns([7,1])
+with c1:
+    q = st.text_area("", placeholder="Ask anything about your farm...", height=60, label_visibility="collapsed")
+with c2:
+    st.write("")
+    if st.button("Ask 🍅", type="primary", use_container_width=True) and q:
+        answer, err = ask_gaia(q)
+        if err:
+            st.error(err)
+        else:
+            st.session_state.voice_history.append({"q":q,"a":answer,"t":datetime.now().strftime("%H:%M")})
+            st.rerun()
 
 # ===== CONVERSATION =====
 st.markdown("---")
 if st.session_state.voice_history:
-    c1, c2 = st.columns([5, 2])
+    c1, c2 = st.columns([5,2])
     with c1: st.markdown("### 🍅 Conversation")
     with c2:
-        if st.button("🗑️ Clear All"): st.session_state.voice_history = []; st.rerun()
+        if st.button("Clear All"): st.session_state.voice_history = []; st.rerun()
     for i, item in enumerate(reversed(st.session_state.voice_history)):
-        if item.get("hidden"): continue
-        idx = len(st.session_state.voice_history) - 1 - i
-        st.markdown('<div style="text-align:right;font-size:.7rem;color:#6b7280;">You - '+item["time"]+'</div>', unsafe_allow_html=True)
-        st.markdown('<div class="msg-bubble msg-user">'+item["question"]+'</div>', unsafe_allow_html=True)
-        st.markdown('<div style="margin:4px 0;"><span>🍅</span><span style="font-size:.7rem;color:#6b7280;"> GAIA - '+item["time"]+'</span></div>', unsafe_allow_html=True)
-        st.markdown('<div class="msg-bubble msg-gaia">'+item["answer"].replace("\n","<br>")+'</div>', unsafe_allow_html=True)
-        cd, ch, ce = st.columns([1,1,8])
-        with cd:
-            if st.button("🗑️", key="d"+str(idx)): st.session_state.voice_history.pop(idx); st.rerun()
-        with ch:
-            if st.button("👁️", key="h"+str(idx)): st.session_state.voice_history[idx]["hidden"] = True; st.rerun()
+        st.markdown(f'<div style="text-align:right;font-size:.7rem;color:#6b7280;">You - {item["t"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="msg-bubble msg-user">{item["q"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="margin:4px 0;"><span>🍅</span><span style="font-size:.7rem;color:#6b7280;"> GAIA - {item["t"]}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="msg-bubble msg-gaia">{item["a"]}</div>', unsafe_allow_html=True)
 else:
-    st.markdown('<div style="text-align:center;padding:40px;color:#6b7280;"><div style="font-size:4rem;">🍅</div><h3>Start a Conversation</h3><p>Click the microphone to speak, or type below</p></div>', unsafe_allow_html=True)
-
-# ===== MEMORY =====
-if st.session_state.farmer_memory:
-    with st.expander("🧠 What GAIA remembers about you", expanded=False):
-        for k, v in st.session_state.farmer_memory.items(): st.write(k.replace("_"," ").title()+": **"+str(v)+"**")
-        if st.button("Clear Memory"): st.session_state.farmer_memory = {}; st.rerun()
+    st.markdown('<div style="text-align:center;padding:40px;color:#6b7280;"><div style="font-size:4rem;">🍅</div><h3>Start a Conversation</h3><p>Click the mic button above to speak, or type below</p></div>', unsafe_allow_html=True)
 
 # ===== NAVIGATION =====
 st.markdown("---")

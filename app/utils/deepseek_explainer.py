@@ -1,5 +1,7 @@
 import streamlit as st
 import requests
+import os
+import tempfile
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
@@ -78,38 +80,52 @@ Please provide a comprehensive soil management guide covering:
         return None, str(e)
 
 
-def text_to_speech(text, voice="en-US-Neural2-F"):
-    """Convert text to speech using free Edge TTS or ElevenLabs."""
-    # Use Edge TTS (free, no API key needed)
+def text_to_speech(text, voice="en-US-JennyNeural"):
+    """Convert text to speech using Edge TTS (free)."""
     try:
-        import tempfile
-        import base64
+        import asyncio
         
-        # Try edge-tts first (free)
-        try:
-            import edge_tts
-            import asyncio
-            
-            async def generate_speech():
+        async def generate():
+            try:
+                import edge_tts
                 communicate = edge_tts.Communicate(text, voice)
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
                 await communicate.save(tmp.name)
-                return tmp.name
-            
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            audio_path = loop.run_until_complete(generate_speech())
-            loop.close()
-            
+                return tmp.name, None
+            except ImportError:
+                return None, "edge_tts not installed"
+            except Exception as e:
+                return None, str(e)
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        audio_path, error = loop.run_until_complete(generate())
+        loop.close()
+        
+        if error:
+            # Fallback: try gTTS
+            try:
+                from gtts import gTTS
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+                tts = gTTS(text=text, lang='en', slow=False)
+                tts.save(tmp.name)
+                with open(tmp.name, "rb") as f:
+                    audio_bytes = f.read()
+                os.unlink(tmp.name)
+                return audio_bytes, None
+            except ImportError:
+                return None, "No TTS available. Install edge-tts or gTTS."
+        
+        if audio_path:
             with open(audio_path, "rb") as f:
                 audio_bytes = f.read()
             os.unlink(audio_path)
             return audio_bytes, None
-            
-        except ImportError:
-            pass
         
-        # Fallback: use gTTS (free, simpler)
+        return None, "Unknown error"
+        
+    except Exception as e:
+        # Last resort: gTTS
         try:
             from gtts import gTTS
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -119,8 +135,5 @@ def text_to_speech(text, voice="en-US-Neural2-F"):
                 audio_bytes = f.read()
             os.unlink(tmp.name)
             return audio_bytes, None
-        except ImportError:
-            return None, "No TTS library available. Install edge-tts or gTTS."
-            
-    except Exception as e:
-        return None, str(e)
+        except:
+            return None, str(e)

@@ -2,7 +2,9 @@
 import streamlit as st
 import requests
 import time
+import base64
 from datetime import datetime
+from streamlit_mic_recorder import mic_recorder
 
 # ===== CONFIG =====
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
@@ -11,7 +13,7 @@ DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 # ===== PAGE SETUP =====
 st.set_page_config(page_title="GAIA – Voice Agronomist", page_icon="🎙️", layout="wide")
 
-# ===== THEME TOGGLE (default DARK like DeepSeek) =====
+# ===== THEME TOGGLE =====
 st.markdown("""
 <style>
     .stToggle > label { display: none !important; }
@@ -23,175 +25,53 @@ st.markdown("""
 dark_mode = st.toggle("", value=True, key="voice_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
-# ===== DEEPSEEK‑INSPIRED CSS =====
-if theme == "dark":
-    st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        .stApp { background: #0f1117; color: #e8edf2; }
-        header, footer { visibility: hidden; }
-        
-        .title { 
-            font-size: 3.2rem; font-weight: 800; text-align: center;
-            background: linear-gradient(135deg, #4f46e5, #818cf8, #4f46e5);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            margin-bottom: 0.3rem;
-        }
-        .subtitle { text-align: center; font-size: 1.1rem; color: #8b8fa3; margin-bottom: 2rem; }
-        
-        .chat-container {
-            max-width: 900px; margin: 0 auto;
-            height: 60vh; overflow-y: auto; padding: 20px;
-            background: #16181d; border-radius: 20px; border: 1px solid #1e2030;
-        }
-        
-        .msg-bubble {
-            max-width: 80%; padding: 14px 20px; border-radius: 16px;
-            margin: 12px 0; font-size: 0.95rem; line-height: 1.6;
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .msg-user {
-            background: linear-gradient(135deg, #4f46e5, #6366f1);
-            color: #fff; margin-left: auto; border-bottom-right-radius: 4px;
-        }
-        .msg-gaia {
-            background: #1e2030; color: #e8edf2; border: 1px solid #2a2d3a;
-            border-bottom-left-radius: 4px;
-        }
-        .msg-time { font-size: 0.7rem; color: #6b7085; margin-top: 6px; }
-        
-        .input-container {
-            max-width: 900px; margin: 20px auto;
-            background: #16181d; border: 1px solid #1e2030; border-radius: 16px;
-            padding: 16px; display: flex; gap: 12px; align-items: center;
-        }
-        .input-container textarea {
-            background: #0f1117 !important; border: 1px solid #2a2d3a !important;
-            border-radius: 12px !important; color: #e8edf2 !important;
-            padding: 12px !important; font-size: 0.95rem !important;
-        }
-        .input-container textarea::placeholder { color: #4a4d5e !important; }
-        
-        .stButton button {
-            background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
-            color: #fff !important; border: none !important;
-            border-radius: 12px !important; padding: 12px 28px !important;
-            font-weight: 600 !important; font-size: 0.95rem !important;
-            transition: all 0.3s !important;
-        }
-        .stButton button:hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 8px 25px rgba(79,70,229,0.4); 
-        }
-        
-        .quick-chip {
-            display: inline-block; padding: 8px 16px; margin: 4px;
-            background: #16181d; border: 1px solid #2a2d3a; border-radius: 20px;
-            cursor: pointer; font-size: 0.85rem; color: #8b8fa3;
-            transition: all 0.2s; text-decoration: none;
-        }
-        .quick-chip:hover { background: #1e2030; border-color: #4f46e5; color: #818cf8; }
-        
-        .category-title { color: #6b7085; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 16px; margin-bottom: 8px; }
-        
-        .stSelectbox > div > div { background: #16181d !important; border: 1px solid #2a2d3a !important; border-radius: 12px !important; }
-        .stSelectbox [data-baseweb="select"] { background: #16181d !important; }
-    </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        .stApp { background: #f8fafc; color: #1e293b; }
-        header, footer { visibility: hidden; }
-        
-        .title { 
-            font-size: 3.2rem; font-weight: 800; text-align: center;
-            background: linear-gradient(135deg, #4f46e5, #818cf8, #4f46e5);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            margin-bottom: 0.3rem;
-        }
-        .subtitle { text-align: center; font-size: 1.1rem; color: #64748b; margin-bottom: 2rem; }
-        
-        .chat-container {
-            max-width: 900px; margin: 0 auto;
-            height: 60vh; overflow-y: auto; padding: 20px;
-            background: #fff; border-radius: 20px; border: 1px solid #e2e8f0;
-        }
-        
-        .msg-bubble {
-            max-width: 80%; padding: 14px 20px; border-radius: 16px;
-            margin: 12px 0; font-size: 0.95rem; line-height: 1.6;
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .msg-user { background: #4f46e5; color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
-        .msg-gaia { background: #f1f5f9; color: #1e293b; border: 1px solid #e2e8f0; border-bottom-left-radius: 4px; }
-        .msg-time { font-size: 0.7rem; color: #94a3b8; margin-top: 6px; }
-        
-        .input-container {
-            max-width: 900px; margin: 20px auto;
-            background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
-            padding: 16px; display: flex; gap: 12px; align-items: center;
-        }
-        .input-container textarea {
-            background: #f8fafc !important; border: 1px solid #e2e8f0 !important;
-            border-radius: 12px !important; color: #1e293b !important;
-            padding: 12px !important; font-size: 0.95rem !important;
-        }
-        .input-container textarea::placeholder { color: #94a3b8 !important; }
-        
-        .stButton button {
-            background: #4f46e5 !important; color: #fff !important; border: none !important;
-            border-radius: 12px !important; padding: 12px 28px !important;
-            font-weight: 600 !important; font-size: 0.95rem !important;
-            transition: all 0.3s !important;
-        }
-        .stButton button:hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 8px 25px rgba(79,70,229,0.3); 
-        }
-        
-        .quick-chip {
-            display: inline-block; padding: 8px 16px; margin: 4px;
-            background: #fff; border: 1px solid #e2e8f0; border-radius: 20px;
-            cursor: pointer; font-size: 0.85rem; color: #64748b;
-            transition: all 0.2s; text-decoration: none;
-        }
-        .quick-chip:hover { background: #f1f5f9; border-color: #4f46e5; color: #4f46e5; }
-        
-        .category-title { color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 16px; margin-bottom: 8px; }
-    </style>
-    """, unsafe_allow_html=True)
+# ===== GAIA IDENTITY SYSTEM PROMPT =====
+GAIA_IDENTITY = """You are GAIA — the Global Agricultural Intelligence Assistant, built by Darkmoor Ltd in Nigeria. You are an expert AI agronomist dedicated to helping African smallholder farmers.
 
-# ===== DEEPSEEK API CALL =====
-@st.cache_data(ttl=300)
-def ask_deepseek(question, crop_context=""):
-    system_prompt = """You are GAIA's AI Agronomist — an expert agricultural advisor for African smallholder farmers.
+CRITICAL RULES:
+1. NEVER mention DeepSeek, OpenAI, or any other AI company. You ARE GAIA.
+2. If a user asks "Who built you?" or "What AI are you?", respond: "I am GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria to help farmers grow better crops."
+3. If a user asks about DeepSeek or any other AI, respond: "I'm GAIA — I don't know about other AIs. I'm focused on helping you with your farm!"
+4. Always maintain the GAIA identity. Never break character.
+
+Your expertise covers:
+- Crop disease diagnosis and treatment
+- Pest identification and management
+- Soil health and fertilizer recommendations
+- Livestock health and disease prevention
+- Harvest and storage techniques
+- Weather and climate adaptation
+- Market prices and selling strategies
+- Organic and sustainable farming
 
 Your answers must be:
-1. PRACTICAL — Give specific, actionable advice with exact dosages, timing, and methods
-2. LOCAL — Use African farming context, local pesticide names when possible, and appropriate units (hectares, kg, liters)
-3. SIMPLE — Explain in plain language a farmer can understand
-4. COMPLETE — Cover the problem, cause, organic solution, chemical solution, and prevention
+1. PRACTICAL — Specific dosages, timing, methods
+2. LOCAL — African context, local product names when possible
+3. SIMPLE — Plain language any farmer understands
+4. COMPLETE — Diagnosis, organic solution, chemical solution, prevention
 5. CONFIDENT — Don't hedge. Give your best recommendation.
 
 Structure your response as:
 **🔍 Diagnosis:** [What the problem likely is]
 **🌿 Organic Solution:** [Natural treatment with exact recipe/method]
-**⚗️ Chemical Solution:** [Specific product name + dosage per liter or per hectare]
-**⏰ When to Apply:** [Best time of day, frequency, growth stage]
+**⚗️ Chemical Solution:** [Specific product name + dosage per liter or hectare]
+**⏰ When to Apply:** [Best time, frequency, growth stage]
 **🛡️ Prevention:** [How to prevent it next season]
-**⚠️ Warning:** [Any safety concerns or things to avoid]
+**⚠️ Warning:** [Safety concerns or things to avoid]
 
-If the question is not about farming, crops, livestock, soil, or pests, politely redirect to agricultural topics.
+If asked about non‑farming topics, gently redirect: "I'm GAIA, your farm assistant! I specialize in crops, pests, soil, and livestock. What farming question can I help with?""
 
-Crop context: """ + (crop_context if crop_context else "General farming")
+# ===== SESSION STATE =====
+if "voice_history" not in st.session_state:
+    st.session_state.voice_history = []
+if "show_history" not in st.session_state:
+    st.session_state.show_history = False
+
+# ===== DEEPSEEK API CALL (branded as GAIA) =====
+def ask_gaia(question, crop_context=""):
+    """Send question to GAIA's AI brain (powered by Darkmoor Ltd)."""
+    
+    system_prompt = GAIA_IDENTITY + ("\nCrop context: " + crop_context if crop_context else "")
     
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
@@ -205,7 +85,7 @@ Crop context: """ + (crop_context if crop_context else "General farming")
             {"role": "user", "content": question}
         ],
         "temperature": 0.7,
-        "max_tokens": 1000
+        "max_tokens": 1200
     }
     
     try:
@@ -214,90 +94,278 @@ Crop context: """ + (crop_context if crop_context else "General farming")
             data = response.json()
             return data["choices"][0]["message"]["content"], None
         else:
-            return None, f"API Error: {response.status_code}"
-    except Exception as e:
-        return None, str(e)
+            return None, f"I'm having trouble connecting. Please try again."
+    except:
+        return None, "I'm temporarily unavailable. Please try again in a moment."
 
 # ===== QUICK QUESTIONS =====
-QUICK_QUESTIONS = {
-    "🌽 Maize": [
-        "My maize leaves have brown spots. What is it and how do I treat it?",
-        "When should I harvest my maize? The cobs feel hard.",
-        "What fertilizer should I use for maize in sandy soil?",
-        "There are caterpillars eating my maize leaves. What pesticide works?",
-    ],
-    "🌾 Rice": [
+QUICK_QUESTIONS = [
+    ("🌽 Maize", [
+        "My maize leaves have brown spots with yellow edges. What is it?",
+        "When is the best time to harvest maize?",
+        "What's the best fertilizer for maize in sandy soil?",
+        "How do I control fall armyworm in my maize field?",
+    ]),
+    ("🌾 Rice", [
         "My rice leaves are turning yellow. What's wrong?",
         "How do I control birds eating my rice?",
-        "When is the best time to apply fertilizer to rice?",
-    ],
-    "🐄 Livestock": [
-        "My cow has sores on its mouth and is drooling. What disease is this?",
+        "When should I apply fertilizer to my rice field?",
+    ]),
+    ("🐄 Livestock", [
+        "My cow has sores on its mouth and is drooling. What disease?",
         "What vaccines does my cattle need?",
-        "My chickens are sneezing and have swollen eyes. What is it?",
-    ],
-    "🏞️ Soil": [
-        "How do I know if my soil is acidic?",
-        "What crops grow best in sandy soil?",
-        "How much fertilizer per hectare for tomatoes?",
-    ],
-    "🛡️ General": [
-        "How do I store my maize after harvest to prevent weevils?",
-        "What's the best crop to rotate with maize?",
-        "How do I start a small vegetable farm with N50,000?",
-    ],
-}
+        "My chickens are sneezing and have swollen eyes. Help!",
+    ]),
+    ("🏞️ Soil & General", [
+        "How do I test if my soil is acidic?",
+        "What's the best crop rotation for maize farmers?",
+        "How do I start vegetable farming with N50,000?",
+    ]),
+]
 
-# ===== SESSION STATE =====
-if "voice_history" not in st.session_state:
-    st.session_state.voice_history = []
+# ===== PREMIUM CSS (DeepSeek-inspired, GAIA-branded) =====
+if theme == "dark":
+    st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .stApp { background: #0d1110; }
+        header, footer { visibility: hidden; }
+        
+        .gaia-header {
+            text-align: center; padding: 20px 0 10px 0;
+        }
+        .gaia-logo {
+            font-size: 3rem; font-weight: 900;
+            background: linear-gradient(135deg, #00c853, #69f0ae, #00c853);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .gaia-tagline { color: #6b7280; font-size: 0.95rem; margin-top: 4px; }
+        .powered-by { color: #3b82f6; font-size: 0.75rem; margin-top: 2px; opacity: 0.6; }
+        
+        .chat-area {
+            max-width: 850px; margin: 0 auto;
+            height: 55vh; overflow-y: auto; padding: 16px 20px;
+            background: #111915; border-radius: 20px; border: 1px solid #1a2a1f;
+        }
+        
+        .msg-row { display: flex; margin: 16px 0; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .msg-row.user { justify-content: flex-end; }
+        .msg-row.gaia { justify-content: flex-start; }
+        
+        .msg-avatar {
+            width: 36px; height: 36px; border-radius: 50%; margin: 0 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+        }
+        .msg-avatar.user { background: #1a1a2e; }
+        .msg-avatar.gaia { background: linear-gradient(135deg, #0d3320, #1a5c30); }
+        
+        .msg-bubble {
+            max-width: 72%; padding: 14px 18px; border-radius: 16px;
+            font-size: 0.92rem; line-height: 1.6;
+        }
+        .msg-bubble.user { background: linear-gradient(135deg, #1a5c30, #0d3320); color: #e8f5e9; border-bottom-right-radius: 4px; }
+        .msg-bubble.gaia { background: #151d18; color: #d1d5db; border: 1px solid #1e2d23; border-bottom-left-radius: 4px; }
+        .msg-time { font-size: 0.68rem; color: #6b7280; margin-top: 6px; }
+        
+        .input-bar {
+            max-width: 850px; margin: 16px auto;
+            background: #111915; border: 1px solid #1a2a1f; border-radius: 16px;
+            padding: 12px 16px; display: flex; gap: 10px; align-items: center;
+        }
+        .input-bar textarea {
+            background: #0a0f0c !important; border: 1px solid #1a2a1f !important;
+            border-radius: 12px !important; color: #e8f5e9 !important;
+            padding: 10px 14px !important; font-size: 0.92rem !important;
+        }
+        .input-bar textarea::placeholder { color: #4b5563 !important; }
+        
+        .stButton button {
+            background: linear-gradient(135deg, #00c853, #4caf50) !important;
+            color: #fff !important; border: none !important;
+            border-radius: 50% !important; width: 44px !important; height: 44px !important;
+            padding: 0 !important; font-size: 1.2rem !important;
+            transition: all 0.3s !important; flex-shrink: 0;
+        }
+        .stButton button:hover { transform: scale(1.08); box-shadow: 0 0 20px rgba(0,200,83,0.4); }
+        
+        .quick-chip {
+            display: inline-block; padding: 8px 15px; margin: 4px;
+            background: #111915; border: 1px solid #1a2a1f; border-radius: 20px;
+            cursor: pointer; font-size: 0.82rem; color: #9ca3af;
+            transition: all 0.2s;
+        }
+        .quick-chip:hover { background: #1a2a1f; border-color: #00c853; color: #00c853; }
+        
+        .history-panel {
+            background: #111915; border: 1px solid #1a2a1f; border-radius: 16px;
+            padding: 16px; margin-top: 16px; max-height: 40vh; overflow-y: auto;
+        }
+        .history-item { padding: 10px; border-bottom: 1px solid #1a2a1f; cursor: pointer; transition: all 0.2s; }
+        .history-item:hover { background: #1a2a1f; }
+        .history-question { color: #e8f5e9; font-size: 0.85rem; font-weight: 500; }
+        .history-time { color: #6b7280; font-size: 0.72rem; }
+        
+        .empty-state { text-align: center; padding: 60px 20px; }
+        .empty-state-icon { font-size: 5rem; margin-bottom: 16px; }
+        .empty-state h3 { color: #6b7280; font-weight: 400; }
+        .empty-state p { color: #4b5563; font-size: 0.9rem; }
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .stApp { background: #f8fafc; }
+        header, footer { visibility: hidden; }
+        
+        .gaia-header { text-align: center; padding: 20px 0 10px 0; }
+        .gaia-logo {
+            font-size: 3rem; font-weight: 900;
+            background: linear-gradient(135deg, #2e7d32, #4caf50, #2e7d32);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .gaia-tagline { color: #64748b; font-size: 0.95rem; margin-top: 4px; }
+        .powered-by { color: #3b82f6; font-size: 0.75rem; margin-top: 2px; opacity: 0.6; }
+        
+        .chat-area {
+            max-width: 850px; margin: 0 auto;
+            height: 55vh; overflow-y: auto; padding: 16px 20px;
+            background: #fff; border-radius: 20px; border: 1px solid #e2e8f0;
+        }
+        
+        .msg-row { display: flex; margin: 16px 0; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .msg-row.user { justify-content: flex-end; }
+        .msg-row.gaia { justify-content: flex-start; }
+        
+        .msg-avatar {
+            width: 36px; height: 36px; border-radius: 50%; margin: 0 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+        }
+        .msg-avatar.user { background: #e2e8f0; }
+        .msg-avatar.gaia { background: linear-gradient(135deg, #c8e6c9, #a5d6a7); }
+        
+        .msg-bubble {
+            max-width: 72%; padding: 14px 18px; border-radius: 16px;
+            font-size: 0.92rem; line-height: 1.6;
+        }
+        .msg-bubble.user { background: #2e7d32; color: #fff; border-bottom-right-radius: 4px; }
+        .msg-bubble.gaia { background: #f1f5f9; color: #1e293b; border: 1px solid #e2e8f0; border-bottom-left-radius: 4px; }
+        .msg-time { font-size: 0.68rem; color: #94a3b8; margin-top: 6px; }
+        
+        .input-bar {
+            max-width: 850px; margin: 16px auto;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+            padding: 12px 16px; display: flex; gap: 10px; align-items: center;
+        }
+        .input-bar textarea {
+            background: #f8fafc !important; border: 1px solid #e2e8f0 !important;
+            border-radius: 12px !important; color: #1e293b !important;
+            padding: 10px 14px !important; font-size: 0.92rem !important;
+        }
+        .input-bar textarea::placeholder { color: #94a3b8 !important; }
+        
+        .stButton button {
+            background: #2e7d32 !important; color: #fff !important; border: none !important;
+            border-radius: 50% !important; width: 44px !important; height: 44px !important;
+            padding: 0 !important; font-size: 1.2rem !important;
+            transition: all 0.3s !important; flex-shrink: 0;
+        }
+        .stButton button:hover { transform: scale(1.08); box-shadow: 0 0 20px rgba(46,125,50,0.3); }
+        
+        .quick-chip {
+            display: inline-block; padding: 8px 15px; margin: 4px;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 20px;
+            cursor: pointer; font-size: 0.82rem; color: #64748b;
+            transition: all 0.2s;
+        }
+        .quick-chip:hover { background: #e8f5e9; border-color: #2e7d32; color: #2e7d32; }
+        
+        .history-panel {
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+            padding: 16px; margin-top: 16px; max-height: 40vh; overflow-y: auto;
+        }
+        .history-item { padding: 10px; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; }
+        .history-item:hover { background: #f1f5f9; }
+        .history-question { color: #1e293b; font-size: 0.85rem; font-weight: 500; }
+        .history-time { color: #94a3b8; font-size: 0.72rem; }
+        
+        .empty-state { text-align: center; padding: 60px 20px; }
+        .empty-state-icon { font-size: 5rem; margin-bottom: 16px; }
+        .empty-state h3 { color: #94a3b8; font-weight: 400; }
+        .empty-state p { color: #64748b; font-size: 0.9rem; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# ===== UI =====
-st.markdown('<div class="title">🎙️ Voice Agronomist</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Ask anything about your farm — powered by DeepSeek AI</div>', unsafe_allow_html=True)
+# ===== HEADER =====
+st.markdown(f"""
+<div class="gaia-header">
+    <div class="gaia-logo">🎙️ GAIA Voice Agronomist</div>
+    <div class="gaia-tagline">Your AI farm assistant — ask anything, get expert answers instantly</div>
+    <div class="powered-by">Powered by Darkmoor Ltd</div>
+</div>
+""", unsafe_allow_html=True)
 
-# ===== CHAT DISPLAY =====
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+# ===== CHAT AREA =====
+st.markdown('<div class="chat-area">', unsafe_allow_html=True)
 
 if not st.session_state.voice_history:
     st.markdown("""
-    <div style="text-align:center;padding:60px 20px;color:#6b7085;">
-        <div style="font-size:4rem;margin-bottom:20px;">🎙️</div>
-        <h3 style="color:#8b8fa3;font-weight:400;">Your AI Agronomist is Ready</h3>
-        <p>Ask any farming question below — crop diseases, pests, soil, livestock, or general advice.</p>
-        <p style="font-size:0.85rem;">Try: "My maize leaves have brown spots with yellow halos. Help!"</p>
+    <div class="empty-state">
+        <div class="empty-state-icon">🎙️</div>
+        <h3>Your AI Agronomist is Ready</h3>
+        <p>Ask any farming question below<br>Try: "My maize leaves have brown spots with yellow edges. Help!"</p>
     </div>
     """, unsafe_allow_html=True)
 
-for i, item in enumerate(st.session_state.voice_history):
-    st.markdown(f'<div class="msg-bubble msg-user">{item["question"]}<div class="msg-time">You · {item["time"]}</div></div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="msg-bubble msg-gaia">{item["answer"]}<div class="msg-time">GAIA · {item["time"]}</div></div>', unsafe_allow_html=True)
+for item in st.session_state.voice_history:
+    st.markdown(f"""
+    <div class="msg-row user">
+        <div class="msg-bubble user">{item['question']}<div class="msg-time">You · {item['time']}</div></div>
+        <div class="msg-avatar user">🧑‍🌾</div>
+    </div>
+    <div class="msg-row gaia">
+        <div class="msg-avatar gaia">🌱</div>
+        <div class="msg-bubble gaia">{item['answer']}<div class="msg-time">GAIA · {item['time']}</div></div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ===== INPUT AREA =====
-st.markdown('<div class="input-container">', unsafe_allow_html=True)
-col1, col2, col3 = st.columns([1, 4, 1])
+# ===== INPUT BAR =====
+st.markdown('<div class="input-bar">', unsafe_allow_html=True)
 
-with col1:
-    crop_context = st.selectbox("", ["None", "Maize", "Rice", "Wheat", "Beans", "Potato", "Tomato", "Pepper", "Cattle", "Poultry", "General"], label_visibility="collapsed", key="crop_select")
+col_voice, col_text, col_send = st.columns([0.5, 7, 0.8])
 
-with col2:
-    question = st.text_area("", placeholder="Ask anything about your farm... e.g., 'My tomato leaves have white spots. What should I do?'", height=68, key="main_question", label_visibility="collapsed")
+with col_voice:
+    st.markdown('<div style="text-align:center;padding-top:6px;">🎤</div>', unsafe_allow_html=True)
 
-with col3:
-    st.write("")
-    ask_button = st.button("🔍 Ask", type="primary", use_container_width=True, key="ask_main")
+with col_text:
+    question = st.text_area("", placeholder="Ask anything about your farm...", height=42, key="main_question", label_visibility="collapsed")
+
+with col_send:
+    ask_button = st.button("➤", key="ask_main", help="Send message")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
+# ===== CROP CONTEXT + SEND =====
+col_ctx, col_empty = st.columns([2, 5])
+with col_ctx:
+    crop_context = st.selectbox("🌾 Crop context (optional)", ["None", "Maize", "Rice", "Wheat", "Beans", "Potato", "Tomato", "Pepper", "Cattle", "Poultry", "General Farming"], key="crop_select", label_visibility="collapsed")
+
+# Process question
 if ask_button and question:
-    with st.spinner("🧠 Consulting DeepSeek AI..."):
+    with st.spinner("🌱 GAIA is thinking..."):
         ctx = crop_context if crop_context != "None" else ""
-        answer, error = ask_deepseek(question, ctx)
+        answer, error = ask_gaia(question, ctx)
     
     if error:
-        st.error(f"❌ {error}")
+        st.error(error)
     else:
         st.session_state.voice_history.append({
             "question": question,
@@ -308,18 +376,16 @@ if ask_button and question:
 
 # ===== QUICK QUESTIONS =====
 st.markdown("---")
-st.markdown("### 💡 Quick Questions")
-
-for category, questions in QUICK_QUESTIONS.items():
-    st.markdown(f'<div class="category-title">{category}</div>', unsafe_allow_html=True)
+for category, questions in QUICK_QUESTIONS:
+    st.markdown(f'<div style="font-size:0.78rem;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em;margin:12px 0 4px 0;">{category}</div>', unsafe_allow_html=True)
     cols = st.columns(len(questions))
     for i, q in enumerate(questions):
         with cols[i]:
-            if st.button(q[:60] + "…" if len(q) > 60 else q, key=f"quick_{category}_{i}", use_container_width=True):
-                with st.spinner("🧠 Thinking..."):
-                    answer, error = ask_deepseek(q)
+            if st.button(q, key=f"quick_{category}_{i}", use_container_width=True):
+                with st.spinner("🌱 Thinking..."):
+                    answer, error = ask_gaia(q)
                 if error:
-                    st.error(f"❌ {error}")
+                    st.error(error)
                 else:
                     st.session_state.voice_history.append({
                         "question": q,
@@ -327,6 +393,25 @@ for category, questions in QUICK_QUESTIONS.items():
                         "time": datetime.now().strftime("%H:%M")
                     })
                     st.rerun()
+
+# ===== CONVERSATION HISTORY PANEL =====
+if st.session_state.voice_history:
+    st.markdown("---")
+    if st.button("📜 View Conversation History" if not st.session_state.show_history else "🔼 Hide History", use_container_width=True):
+        st.session_state.show_history = not st.session_state.show_history
+        st.rerun()
+    
+    if st.session_state.show_history:
+        st.markdown('<div class="history-panel">', unsafe_allow_html=True)
+        st.markdown("### 📜 Your Conversation History")
+        for i, item in enumerate(reversed(st.session_state.voice_history)):
+            st.markdown(f"""
+            <div class="history-item">
+                <div class="history-question">❓ {item['question'][:100]}{'...' if len(item['question']) > 100 else ''}</div>
+                <div class="history-time">🕐 {item['time']} · GAIA answered in detail</div>
+            </div>
+            """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ===== NAVIGATION =====
 st.markdown("---")
@@ -341,3 +426,10 @@ with cols[5]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice 
 with cols[6]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
 with cols[7]: st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
 with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+
+# ===== FOOTER =====
+st.markdown("""
+<div style="text-align:center;padding:20px;color:#6b7280;font-size:0.78rem;">
+    GAIA Voice Agronomist · Powered by Darkmoor Ltd · Built in Nigeria 🇳🇬
+</div>
+""", unsafe_allow_html=True)

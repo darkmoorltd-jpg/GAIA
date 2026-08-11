@@ -20,3 +20,6 @@ geopy
 reportlab
 
 scipy
+
+edge-tts
+gTTS

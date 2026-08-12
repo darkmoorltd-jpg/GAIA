@@ -20,7 +20,7 @@ def get_db():
 def get_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
-st.set_page_config(page_title="GAIA Marketplace", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="GAIA Market", page_icon="🌍", layout="wide")
 
 if "user" not in st.session_state or not st.session_state.user:
     st.warning("Please log in first.")
@@ -33,317 +33,247 @@ service = get_service()
 # ===== SESSION STATE =====
 if "cart" not in st.session_state:
     st.session_state.cart = []
-if "marketplace_tab" not in st.session_state:
-    st.session_state.marketplace_tab = "browse"
+if "market_view" not in st.session_state:
+    st.session_state.market_view = "browse"
+if "selected_listing" not in st.session_state:
+    st.session_state.selected_listing = None
 
-# ===== FETCH REAL LISTINGS FROM SUPABASE =====
+# ===== FETCH REAL LISTINGS =====
 try:
     real_listings = db.table("marketplace_listings").select("*").eq("status", "active").order("created_at", desc=True).execute()
     REAL_LISTINGS = real_listings.data if real_listings.data else []
 except:
     REAL_LISTINGS = []
 
-# ===== DEMO DATA (shown when no real listings exist) =====
+# ===== DEMO DATA =====
 DEMO_LISTINGS = [
-    {"id":"demo1","crop":"Maize","variety":"SAMMAZ 15","quantity":20,"unit":"tonnes","price":220000,"location":"Kaduna","state":"Kaduna","farmer":"Ibrahim Musa","rating":4.8,"image":"🌽","harvest_date":"2025-10-15","organic":True,"description":"High-yield hybrid maize. Drought resistant. Germination 98%."},
-    {"id":"demo2","crop":"Rice","variety":"FARO 44","quantity":15,"unit":"tonnes","price":350000,"location":"Kano","state":"Kano","farmer":"Aisha Bello","rating":4.9,"image":"🌾","harvest_date":"2025-09-28","organic":False,"description":"Premium long-grain rice. Milled and polished."},
-    {"id":"demo3","crop":"Beans","variety":"IT89KD-288","quantity":8,"unit":"tonnes","price":480000,"location":"Jos","state":"Plateau","farmer":"David Okonkwo","rating":4.7,"image":"🫘","harvest_date":"2025-08-20","organic":True,"description":"Organic honey beans. High protein."},
-    {"id":"demo4","crop":"Tomatoes","variety":"Roma VF","quantity":5,"unit":"tonnes","price":180000,"location":"Zaria","state":"Kaduna","farmer":"Fatima Yusuf","rating":4.6,"image":"🍅","harvest_date":"2025-10-05","organic":False,"description":"Fresh Roma tomatoes. Firm and red."},
-    {"id":"demo5","crop":"Groundnuts","variety":"SAMNUT 23","quantity":12,"unit":"tonnes","price":380000,"location":"Katsina","state":"Katsina","farmer":"Usman Sani","rating":4.5,"image":"🥜","harvest_date":"2025-11-01","organic":True,"description":"High-oil content groundnuts. Grade A."},
-    {"id":"demo6","crop":"Yam","variety":"Dioscorea rotundata","quantity":25,"unit":"tonnes","price":550000,"location":"Makurdi","state":"Benue","farmer":"John Tarka","rating":4.9,"image":"🍠","harvest_date":"2025-12-10","organic":True,"description":"Premium white yam tubers. Large size."},
-    {"id":"demo7","crop":"Sorghum","variety":"SAMSORG 17","quantity":30,"unit":"tonnes","price":160000,"location":"Bauchi","state":"Bauchi","farmer":"Musa Abubakar","rating":4.4,"image":"🌱","harvest_date":"2025-11-20","organic":False,"description":"Drought-resistant sorghum."},
-    {"id":"demo8","crop":"Cassava","variety":"TME 419","quantity":40,"unit":"tonnes","price":120000,"location":"Ondo","state":"Ondo","farmer":"Grace Adeyemi","rating":4.6,"image":"🥔","harvest_date":"2025-10-30","organic":True,"description":"High-starch cassava."},
+    {"id":"1","crop":"Maize","variety":"SAMMAZ 15","quantity":20,"unit":"tonnes","price":220000,"location":"Kaduna","state":"Kaduna","farmer":"Ibrahim Musa","rating":4.8,"image":"🌽","harvest_date":"2025-10-15","organic":True,"description":"High-yield hybrid maize. Drought resistant. Germination 98%. Suitable for flour and feed. Ready for immediate delivery.","seller_type":"Verified Farmer","featured":True},
+    {"id":"2","crop":"Rice","variety":"FARO 44","quantity":15,"unit":"tonnes","price":350000,"location":"Kano","state":"Kano","farmer":"Aisha Bello","rating":4.9,"image":"🌾","harvest_date":"2025-09-28","organic":False,"description":"Premium long-grain rice. Milled and polished. Perfect for restaurants and households.","seller_type":"Premium Seller","featured":True},
+    {"id":"3","crop":"Beans","variety":"IT89KD-288","quantity":8,"unit":"tonnes","price":480000,"location":"Jos","state":"Plateau","farmer":"David Okonkwo","rating":4.7,"image":"🫘","harvest_date":"2025-08-20","organic":True,"description":"Organic honey beans. High protein. No pesticides. Export quality.","seller_type":"Organic Certified","featured":False},
+    {"id":"4","crop":"Tomatoes","variety":"Roma VF","quantity":5,"unit":"tonnes","price":180000,"location":"Zaria","state":"Kaduna","farmer":"Fatima Yusuf","rating":4.6,"image":"🍅","harvest_date":"2025-10-05","organic":False,"description":"Fresh Roma tomatoes. Firm, red, perfect for paste and sauce. Harvested this week.","seller_type":"Verified Farmer","featured":False},
+    {"id":"5","crop":"Groundnuts","variety":"SAMNUT 23","quantity":12,"unit":"tonnes","price":380000,"location":"Katsina","state":"Katsina","farmer":"Usman Sani","rating":4.5,"image":"🥜","harvest_date":"2025-11-01","organic":True,"description":"High-oil content groundnuts. Grade A. Suitable for oil processing and snacks.","seller_type":"Organic Certified","featured":False},
+    {"id":"6","crop":"Yam","variety":"Dioscorea rotundata","quantity":25,"unit":"tonnes","price":550000,"location":"Makurdi","state":"Benue","farmer":"John Tarka","rating":4.9,"image":"🍠","harvest_date":"2025-12-10","organic":True,"description":"Premium white yam tubers. Large size. Disease-free. Benue's finest.","seller_type":"Premium Seller","featured":True},
+    {"id":"7","crop":"Sorghum","variety":"SAMSORG 17","quantity":30,"unit":"tonnes","price":160000,"location":"Bauchi","state":"Bauchi","farmer":"Musa Abubakar","rating":4.4,"image":"🌱","harvest_date":"2025-11-20","organic":False,"description":"Drought-resistant sorghum. Ideal for brewing and animal feed.","seller_type":"Verified Farmer","featured":False},
+    {"id":"8","crop":"Cassava","variety":"TME 419","quantity":40,"unit":"tonnes","price":120000,"location":"Ondo","state":"Ondo","farmer":"Grace Adeyemi","rating":4.6,"image":"🥔","harvest_date":"2025-10-30","organic":True,"description":"High-starch cassava. Perfect for garri and flour processing.","seller_type":"Organic Certified","featured":False},
+    {"id":"9","crop":"Onions","variety":"Red Creole","quantity":10,"unit":"tonnes","price":250000,"location":"Sokoto","state":"Sokoto","farmer":"Alhaji Bello","rating":4.3,"image":"🧅","harvest_date":"2025-11-05","organic":False,"description":"Large red onions. Well-cured. Long shelf life.","seller_type":"Verified Farmer","featured":False},
+    {"id":"10","crop":"Pepper","variety":"Scotch Bonnet","quantity":3,"unit":"tonnes","price":600000,"location":"Jos","state":"Plateau","farmer":"Sarah Luka","rating":4.8,"image":"🌶️","harvest_date":"2025-10-20","organic":True,"description":"Hot scotch bonnet peppers. Organic. Perfect for spice markets.","seller_type":"Premium Seller","featured":True},
 ]
 
-# Use real listings if available, otherwise demo
 LISTINGS = REAL_LISTINGS if REAL_LISTINGS else DEMO_LISTINGS
 
-CATEGORIES = ["All","Grains","Legumes","Vegetables","Tubers","Oil Seeds","Fruits"]
-STATES = ["All States","Kaduna","Kano","Plateau","Katsina","Benue","Bauchi","Ondo","Lagos","Abuja"]
-
-# ===== STYLING =====
+# ===== JIJI-STYLE CSS =====
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     * { font-family: 'Inter', sans-serif; }
-    .stApp { background: linear-gradient(160deg, #f4faf5 0%, #eaf5ee 50%, #fdfefb 100%); color: #1b5e20; }
+    
+    .stApp { background: #f5f5f5; color: #222; }
     header, footer { visibility: hidden; }
     
-    .marketplace-title {
-        font-size: 3rem; font-weight: 800; text-align: center;
-        background: linear-gradient(135deg, #1b5e20, #4caf50, #1b5e20);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        margin-bottom: 0.3rem;
+    /* Top search bar */
+    .search-bar {
+        background: #fff; border-radius: 12px; padding: 12px 20px;
+        display: flex; align-items: center; gap: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px;
     }
-    .marketplace-subtitle {
-        text-align: center; color: #607d8b; font-size: 1.1rem; margin-bottom: 2rem;
-    }
-    
-    .product-card {
-        background: #fff; border-radius: 20px; padding: 1.5rem; margin: 0.8rem 0;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.06); border: 1px solid #e8f5e9;
-        transition: all 0.3s ease;
-    }
-    .product-card:hover {
-        transform: translateY(-6px); box-shadow: 0 16px 40px rgba(46,125,50,0.15);
-        border-color: #4caf50;
+    .search-bar input {
+        border: none; outline: none; font-size: 1rem; flex: 1; background: transparent;
     }
     
-    .product-emoji { font-size: 3rem; text-align: center; margin-bottom: 0.5rem; }
-    .product-crop { font-size: 1.3rem; font-weight: 700; color: #1b5e20; }
-    .product-variety { font-size: 0.9rem; color: #78909c; }
-    .product-price { font-size: 1.5rem; font-weight: 800; color: #2e7d32; margin: 0.5rem 0; }
-    .product-location { font-size: 0.85rem; color: #607d8b; }
-    .product-farmer { font-size: 0.85rem; color: #546e7a; font-weight: 500; }
-    .product-quantity { font-size: 0.9rem; color: #1b5e20; font-weight: 600; }
-    
-    .badge-organic { background: #c8e6c9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
-    .badge-rating { background: #fff9c4; color: #f57f17; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: inline-block; }
-    
-    .cart-sidebar {
-        background: #fff; border-radius: 20px; padding: 1.5rem;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.06); position: sticky; top: 20px;
+    /* Category pills */
+    .category-pill {
+        display: inline-block; padding: 8px 16px; border-radius: 20px;
+        background: #fff; color: #555; font-size: 0.85rem; font-weight: 500;
+        margin: 4px; cursor: pointer; border: 1px solid #e0e0e0;
+        transition: all 0.2s; white-space: nowrap;
     }
-    .cart-item {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 0.8rem 0; border-bottom: 1px solid #e8f5e9;
-    }
-    .cart-total { font-size: 1.3rem; font-weight: 800; color: #1b5e20; margin-top: 1rem; }
+    .category-pill.active { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+    .category-pill:hover { background: #e8f5e9; }
     
-    .search-box input {
-        background: #fff !important; border: 2px solid #e8f5e9 !important;
-        border-radius: 16px !important; padding: 14px 20px !important;
-        font-size: 1rem !important; transition: all 0.3s !important;
+    /* Product card – Jiji style */
+    .jiji-card {
+        background: #fff; border-radius: 12px; overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s;
+        cursor: pointer; position: relative;
     }
-    .search-box input:focus { border-color: #4caf50 !important; box-shadow: 0 0 0 3px rgba(76,175,80,0.1) !important; }
+    .jiji-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
     
+    .jiji-card .image-area {
+        height: 160px; background: #f0f0f0; display: flex; align-items: center;
+        justify-content: center; font-size: 3rem; position: relative;
+    }
+    .jiji-card .featured-badge {
+        position: absolute; top: 8px; left: 8px;
+        background: #ff9800; color: #fff; padding: 4px 10px;
+        border-radius: 4px; font-size: 0.7rem; font-weight: 700;
+    }
+    .jiji-card .organic-badge {
+        position: absolute; top: 8px; right: 8px;
+        background: #4caf50; color: #fff; padding: 4px 8px;
+        border-radius: 4px; font-size: 0.65rem; font-weight: 600;
+    }
+    
+    .jiji-card .info-area { padding: 12px; }
+    .jiji-card .crop-name { font-size: 1rem; font-weight: 600; color: #222; margin-bottom: 4px; }
+    .jiji-card .price { font-size: 1.2rem; font-weight: 800; color: #2e7d32; }
+    .jiji-card .price small { font-size: 0.75rem; color: #999; font-weight: 400; }
+    .jiji-card .location { font-size: 0.8rem; color: #888; margin-top: 4px; }
+    .jiji-card .seller { font-size: 0.75rem; color: #aaa; margin-top: 2px; }
+    
+    /* Stars */
+    .stars { color: #ffc107; font-size: 0.85rem; }
+    
+    /* Bottom nav */
+    .bottom-nav {
+        position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+        display: flex; justify-content: space-around; padding: 10px 0;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.08); z-index: 1000;
+    }
+    .bottom-nav a {
+        text-align: center; color: #888; text-decoration: none;
+        font-size: 0.7rem; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .bottom-nav a.active { color: #2e7d32; }
+    .bottom-nav .icon { font-size: 1.3rem; }
+    
+    /* Listing detail modal */
+    .detail-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.6); z-index: 999;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .detail-card {
+        background: #fff; border-radius: 16px; padding: 24px;
+        max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+    }
+    
+    /* Seller badge */
+    .seller-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 4px;
+        font-size: 0.65rem; font-weight: 600;
+    }
+    .seller-badge.verified { background: #e3f2fd; color: #1565c0; }
+    .seller-badge.premium { background: #fff3e0; color: #e65100; }
+    .seller-badge.organic { background: #e8f5e9; color: #2e7d32; }
+    
+    /* Chat button */
+    .chat-btn {
+        background: #25d366; color: #fff; border: none; padding: 10px 20px;
+        border-radius: 8px; font-weight: 600; cursor: pointer; width: 100%;
+    }
+    
+    /* Hide Streamlit elements */
     .stButton button {
-        background: linear-gradient(135deg, #2e7d32, #4caf50) !important; color: #fff !important;
-        border: none !important; border-radius: 14px !important; padding: 12px 28px !important;
-        font-weight: 600 !important; transition: all 0.3s !important;
+        background: #2e7d32 !important; color: #fff !important;
+        border: none !important; border-radius: 8px !important;
+        font-weight: 600 !important; width: 100% !important;
     }
-    .stButton button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(46,125,50,0.3); }
+    .stButton button:hover { background: #1b5e20 !important; }
     
-    .stats-card {
-        background: linear-gradient(135deg, #1b5e20, #2e7d32); color: #fff;
-        border-radius: 20px; padding: 2rem; text-align: center; margin: 0.5rem 0;
+    /* Cart floating button */
+    .cart-float {
+        position: fixed; bottom: 80px; right: 20px;
+        background: #2e7d32; color: #fff; width: 56px; height: 56px;
+        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; box-shadow: 0 4px 12px rgba(46,125,50,0.4);
+        cursor: pointer; z-index: 998;
     }
-    .stats-number { font-size: 2.5rem; font-weight: 800; }
-    .stats-label { font-size: 0.9rem; opacity: 0.8; margin-top: 4px; }
+    .cart-badge {
+        position: absolute; top: -4px; right: -4px;
+        background: #f44336; color: #fff; width: 22px; height: 22px;
+        border-radius: 50%; font-size: 0.7rem; display: flex;
+        align-items: center; justify-content: center; font-weight: 700;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ===== HEADER =====
-st.markdown('<div class="marketplace-title">🌍 GAIA Marketplace</div>', unsafe_allow_html=True)
-st.markdown('<div class="marketplace-subtitle">Africa\'s Agricultural Commodity Exchange — Buy & Sell Directly from Verified Farmers</div>', unsafe_allow_html=True)
+# ===== TOP SEARCH BAR =====
+col1, col2 = st.columns([5, 1])
+with col1:
+    search = st.text_input("", placeholder="🔍 Search crops, varieties, or locations...", label_visibility="collapsed", key="jiji_search")
+with col2:
+    location_filter = st.selectbox("", ["📍 All Nigeria"] + sorted(list(set(l.get("state","") for l in LISTINGS if l.get("state")))), label_visibility="collapsed", key="jiji_location")
 
-# ===== STATS BAR =====
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.markdown(f'<div class="stats-card"><div class="stats-number">{len(LISTINGS)}</div><div class="stats-label">Active Listings</div></div>', unsafe_allow_html=True)
-with c2:
-    st.markdown('<div class="stats-card"><div class="stats-number">₦2.8B</div><div class="stats-label">Total Traded</div></div>', unsafe_allow_html=True)
-with c3:
-    st.markdown('<div class="stats-card"><div class="stats-number">8,500+</div><div class="stats-label">Verified Farmers</div></div>', unsafe_allow_html=True)
-with c4:
-    st.markdown('<div class="stats-card"><div class="stats-number">36</div><div class="stats-label">States Covered</div></div>', unsafe_allow_html=True)
+# ===== CATEGORY PILLS =====
+CATEGORIES = ["All", "Grains", "Legumes", "Vegetables", "Tubers", "Oil Seeds", "Fruits"]
+category_map = {
+    "Grains": ["Maize","Rice","Sorghum","Millet"],
+    "Legumes": ["Beans","Groundnuts","Soybean"],
+    "Vegetables": ["Tomatoes","Onions","Pepper","Cabbage"],
+    "Tubers": ["Yam","Cassava","Potato"],
+    "Oil Seeds": ["Groundnuts","Soybean"],
+    "Fruits": ["Mango","Orange","Banana"]
+}
 
-# ===== MAIN LAYOUT =====
-tab1, tab2, tab3, tab4 = st.tabs(["🛒 Browse Market", "📊 My Orders", "📝 List Produce", "👤 My Store"])
+selected_cat = st.session_state.get("selected_category", "All")
+cols = st.columns(len(CATEGORIES))
+for i, cat in enumerate(CATEGORIES):
+    with cols[i]:
+        if st.button(cat, key=f"cat_{cat}", use_container_width=True,
+                     type="primary" if selected_cat == cat else "secondary"):
+            st.session_state.selected_category = cat
+            st.rerun()
 
-# ===== TAB 1: BROWSE MARKET =====
-with tab1:
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
-        search = st.text_input("🔍 Search crops, varieties, or locations...", placeholder="e.g., Maize in Kaduna", key="market_search", label_visibility="collapsed")
-    with col2:
-        category = st.selectbox("Category", CATEGORIES, key="cat_filter")
-    with col3:
-        state_filter = st.selectbox("State", STATES, key="state_filter")
-    
-    filtered = LISTINGS
-    if search:
-        s = search.lower()
-        filtered = [l for l in filtered if s in str(l.get('crop','')).lower() or s in str(l.get('variety','')).lower() or s in str(l.get('location','')).lower() or s in str(l.get('farmer','')).lower()]
-    if state_filter != "All States":
-        filtered = [l for l in filtered if l.get('state') == state_filter]
-    
-    if filtered:
-        cols = st.columns(3)
-        for i, listing in enumerate(filtered):
-            with cols[i % 3]:
-                crop_name = listing.get('crop', 'Unknown')
-                variety = listing.get('variety', '')
-                price = listing.get('price', 0)
-                quantity = listing.get('quantity', 0)
-                unit = listing.get('unit', 'tonnes')
-                location = listing.get('location', 'Unknown')
-                state = listing.get('state', '')
-                farmer = listing.get('farmer', 'Unknown')
-                rating = listing.get('rating', 4.5)
-                organic = listing.get('organic', False)
-                description = listing.get('description', '')[:120]
-                image_emoji = listing.get('image', '🌱')
-                
-                st.markdown(f"""
-                <div class="product-card">
-                    <div class="product-emoji">{image_emoji}</div>
-                    <div class="product-crop">{crop_name}</div>
-                    <div class="product-variety">{variety}</div>
-                    <div class="product-price">₦{price:,} <span style="font-size:0.9rem;color:#78909c;">/ {unit}</span></div>
-                    <div class="product-quantity">📦 {quantity} {unit} available</div>
-                    <div class="product-location">📍 {location}, {state}</div>
-                    <div class="product-farmer">👨‍🌾 {farmer}</div>
-                    <div style="display:flex;gap:8px;margin:8px 0;">
-                        <span class="badge-organic">{'🌿 Organic' if organic else '⚗️ Conventional'}</span>
-                        <span class="badge-rating">⭐ {rating}</span>
-                    </div>
-                    <p style="font-size:0.85rem;color:#78909c;margin:8px 0;">{description}...</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("🛒 Add to Cart", key=f"add_{listing.get('id','')}_{i}", use_container_width=True):
-                        st.session_state.cart.append(listing)
-                        st.success(f"Added {crop_name} to cart!")
-                        st.rerun()
-                with col_btn2:
-                    if st.button("📞 Contact", key=f"contact_{listing.get('id','')}_{i}", use_container_width=True):
-                        seller_id = listing.get('user_id', '')
-                        if seller_id:
-                            try:
-                                profile = db.table("user_profiles").select("phone").eq("user_id", seller_id).execute()
-                                phone = profile.data[0].get("phone", "N/A") if profile.data else "N/A"
-                                st.info(f"📞 Contact {farmer} at {phone}")
-                            except:
-                                st.info(f"📞 Contact {farmer} via GAIA Chat")
-                        else:
-                            st.info(f"📞 Contact {farmer} via GAIA Chat")
-    else:
-        st.info("No listings match your search criteria.")
+selected_cat = st.session_state.get("selected_category", "All")
 
-# ===== TAB 2: MY ORDERS =====
-with tab2:
-    st.markdown("### 📊 My Orders")
-    
-    try:
-        my_orders = db.table("marketplace_orders").select("*").eq("buyer_id", user.id).order("created_at", desc=True).execute()
-        orders = my_orders.data if my_orders.data else []
-    except:
-        orders = []
-    
-    if not orders:
-        # Demo orders
-        orders = [
-            {"id":"ORD-001","crop":"Maize","variety":"SAMMAZ 15","quantity":5,"unit":"tonnes","total_amount":1100000,"seller_name":"Ibrahim Musa","status":"Delivered","created_at":"2025-08-10"},
-            {"id":"ORD-002","crop":"Rice","variety":"FARO 44","quantity":3,"unit":"tonnes","total_amount":1050000,"seller_name":"Aisha Bello","status":"In Transit","created_at":"2025-08-11"},
-        ]
-    
-    for order in orders:
-        status = order.get("status", "pending")
-        status_emoji = {"Delivered":"✅","In Transit":"🚚","Pending":"⏳","Cancelled":"❌"}.get(status, "⏳")
-        with st.expander(f"{status_emoji} Order #{order.get('id','?')} — {order.get('crop','')} — {status}"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"**Crop:** {order.get('crop','')} ({order.get('variety','')})")
-                st.write(f"**Quantity:** {order.get('quantity','')} {order.get('unit','tonnes')}")
-                st.write(f"**Total:** ₦{order.get('total_amount',0):,}")
-            with col2:
-                st.write(f"**Seller:** {order.get('seller_name','')}")
-                st.write(f"**Date:** {order.get('created_at','')[:10]}")
-                st.write(f"**Status:** {status}")
+# ===== FILTER LISTINGS =====
+filtered = LISTINGS
+if search:
+    s = search.lower()
+    filtered = [l for l in filtered if s in str(l.get('crop','')).lower() or s in str(l.get('variety','')).lower() or s in str(l.get('location','')).lower() or s in str(l.get('farmer','')).lower() or s in str(l.get('description','')).lower()]
+if location_filter != "📍 All Nigeria":
+    filtered = [l for l in filtered if l.get("state") == location_filter]
+if selected_cat != "All":
+    cat_crops = category_map.get(selected_cat, [])
+    filtered = [l for l in filtered if l.get("crop") in cat_crops]
 
-# ===== TAB 3: LIST PRODUCE =====
-with tab3:
-    st.markdown("### 📝 List Your Produce for Sale")
-    
-    with st.form("list_produce"):
-        col1, col2 = st.columns(2)
-        with col1:
-            crop_name = st.text_input("Crop Name *", placeholder="e.g., Maize, Rice, Beans")
-            variety = st.text_input("Variety", placeholder="e.g., SAMMAZ 15")
-            quantity = st.number_input("Quantity Available *", min_value=1, max_value=10000, value=10)
-        with col2:
-            price = st.number_input("Price per Unit (₦) *", min_value=1000, max_value=10000000, value=200000, step=10000)
-            unit = st.selectbox("Unit", ["tonnes", "kg", "bags", "baskets", "trucks"])
-            location = st.text_input("Location *", placeholder="e.g., Kaduna, Kano")
-        
-        state = st.text_input("State *", placeholder="e.g., Kaduna")
-        harvest_date = st.date_input("Expected Harvest Date", min_value=datetime.now().date())
-        organic = st.checkbox("🌿 Organic Certified")
-        description = st.text_area("Description", placeholder="Describe your produce...", max_chars=300)
-        
-        if st.form_submit_button("📤 List Produce"):
-            if not crop_name or not location:
-                st.error("Crop name and location are required.")
-            else:
-                try:
-                    db.table("marketplace_listings").insert({
-                        "user_id": user.id,
-                        "crop": crop_name,
-                        "variety": variety,
-                        "quantity": quantity,
-                        "unit": unit,
-                        "price": price,
-                        "location": location,
-                        "state": state,
-                        "description": description,
-                        "organic": organic,
-                        "harvest_date": harvest_date.isoformat(),
-                        "status": "active"
-                    }).execute()
-                    st.success("✅ Your produce has been listed! Buyers can now find it in the marketplace.")
-                    st.balloons()
-                except Exception as e:
-                    st.error(f"Failed to list: {e}")
+# ===== PRODUCT GRID =====
+st.markdown(f"### {len(filtered)} results found")
 
-# ===== TAB 4: MY STORE =====
-with tab4:
-    st.markdown("### 👤 My Store")
-    
-    try:
-        my_listings = db.table("marketplace_listings").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
-        store_listings = my_listings.data if my_listings.data else []
-    except:
-        store_listings = []
-    
-    if store_listings:
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Active Listings", sum(1 for l in store_listings if l.get("status") == "active"))
-        
-        # Calculate total sales
-        try:
-            sales = db.table("marketplace_orders").select("total_amount").eq("seller_id", user.id).eq("status", "Delivered").execute()
-            total_sales = sum(s.get("total_amount", 0) for s in (sales.data or []))
-        except:
-            total_sales = 0
-        col2.metric("Total Sales", f"₦{total_sales:,}")
-        col3.metric("Rating", "⭐ New Seller")
-        
-        st.markdown("---")
-        for listing in store_listings:
-            status = listing.get("status", "active")
-            with st.expander(f"{'🟢' if status=='active' else '🔴'} {listing.get('crop','')} — ₦{listing.get('price',0):,} ({status})"):
-                st.write(f"**Variety:** {listing.get('variety','N/A')}")
-                st.write(f"**Quantity:** {listing.get('quantity','')} {listing.get('unit','tonnes')}")
-                st.write(f"**Location:** {listing.get('location','')}, {listing.get('state','')}")
-                
-                if status == "active":
-                    if st.button("🔴 Deactivate", key=f"deact_{listing['id']}"):
-                        db.table("marketplace_listings").update({"status": "inactive"}).eq("id", listing["id"]).execute()
-                        st.rerun()
-                else:
-                    if st.button("🟢 Reactivate", key=f"react_{listing['id']}"):
-                        db.table("marketplace_listings").update({"status": "active"}).eq("id", listing["id"]).execute()
-                        st.rerun()
-    else:
-        st.info("📝 You haven't listed any produce yet. Go to the 'List Produce' tab to start selling!")
+# Featured section
+featured = [l for l in filtered if l.get("featured")]
+if featured:
+    st.markdown("#### ⭐ Featured Listings")
+    cols = st.columns(min(len(featured), 4))
+    for i, listing in enumerate(featured[:4]):
+        with cols[i % 4]:
+            render_card(listing, db, user)
 
-# ===== SHOPPING CART SIDEBAR =====
-with st.sidebar:
-    st.markdown("### 🛒 Shopping Cart")
-    
+# All listings
+if filtered:
+    st.markdown("#### All Listings")
+    rows = [filtered[i:i+4] for i in range(0, len(filtered), 4)]
+    for row in rows:
+        cols = st.columns(len(row))
+        for i, listing in enumerate(row):
+            with cols[i]:
+                render_card(listing, db, user)
+else:
+    st.info("No listings found. Try a different search or category.")
+
+# ===== BOTTOM NAVIGATION =====
+st.markdown("""
+<div class="bottom-nav">
+    <a href="/~/1_Dashboard" class="active"><span class="icon">🏠</span>Home</a>
+    <a href="/~/20_Marketplace"><span class="icon">🛒</span>Market</a>
+    <a href="/~/2_Crops"><span class="icon">🌿</span>Diagnose</a>
+    <a href="/~/16_Chat"><span class="icon">💬</span>Chat</a>
+    <a href="/~/8_Profile"><span class="icon">👤</span>Me</a>
+</div>
+""", unsafe_allow_html=True)
+
+# ===== FLOATING CART BUTTON =====
+cart_count = len(st.session_state.cart)
+st.markdown(f"""
+<div class="cart-float" onclick="document.getElementById('cart-anchor').scrollIntoView()">
+    🛒
+    {f'<div class="cart-badge">{cart_count}</div>' if cart_count > 0 else ''}
+</div>
+""", unsafe_allow_html=True)
+
+# ===== CART SIDEBAR (at the bottom) =====
+st.markdown('<div id="cart-anchor"></div>', unsafe_allow_html=True)
+with st.expander(f"🛒 Shopping Cart ({cart_count} items)", expanded=cart_count > 0):
     if not st.session_state.cart:
         st.write("Your cart is empty.")
     else:
@@ -351,61 +281,84 @@ with st.sidebar:
         for item in st.session_state.cart:
             crop = item.get('crop', 'Unknown')
             price = item.get('price', 0)
-            qty = item.get('quantity', 0)
-            unit = item.get('unit', 'tonnes')
+            st.write(f"**{crop}** — ₦{price:,}")
             total += price
-            st.markdown(f"""
-            <div class="cart-item">
-                <div>
-                    <strong>{crop}</strong><br>
-                    <small>{qty} {unit}</small>
-                </div>
-                <div style="text-align:right;">
-                    <strong>₦{price:,}</strong>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"**Total: ₦{total:,}**")
         
-        st.markdown(f'<div class="cart-total">Total: ₦{total:,}</div>', unsafe_allow_html=True)
-        
-        if st.button("💳 Checkout (Escrow)", type="primary", use_container_width=True):
-            ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:8]}"
-            components.html(f"""
-            <script src="https://js.paystack.co/v1/inline.js"></script>
-            <script>
-                PaystackPop.setup({{
-                    key: '{PAYSTACK_PUBLIC}',
-                    email: '{user.email}',
-                    amount: {total * 100},
-                    currency: 'NGN',
-                    ref: '{ref}',
-                    label: 'GAIA Marketplace Order',
-                    onClose: function() {{ window.location.reload(); }},
-                    callback: function(r) {{
-                        window.location.href = '/~/callback?reference=' + r.reference + '&plan=marketplace';
-                    }}
-                }}).openIframe();
-            </script>
-            """, height=0)
-        
-        if st.button("🗑️ Clear Cart", use_container_width=True):
-            st.session_state.cart = []
-            st.rerun()
-    
-    st.markdown("---")
-    st.markdown("### 🔒 Secure Escrow")
-    st.caption("Payment is held until you confirm delivery. Your money is safe with Paystack.")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("💳 Pay with Paystack", use_container_width=True):
+                ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:8]}"
+                components.html(f"""
+                <script src="https://js.paystack.co/v1/inline.js"></script>
+                <script>
+                    PaystackPop.setup({{
+                        key: '{PAYSTACK_PUBLIC}',
+                        email: '{user.email}',
+                        amount: {total * 100},
+                        currency: 'NGN',
+                        ref: '{ref}',
+                        label: 'GAIA Market',
+                        onClose: function() {{ window.location.reload(); }},
+                        callback: function(r) {{ window.location.href = '/~/callback?reference=' + r.reference + '&plan=marketplace'; }}
+                    }}).openIframe();
+                </script>
+                """, height=0)
+        with col2:
+            if st.button("🗑️ Clear", use_container_width=True):
+                st.session_state.cart = []
+                st.rerun()
 
-# ===== NAVIGATION =====
-st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(9)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[6]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[7]: st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
-with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+# ===== HELPER: RENDER A PRODUCT CARD =====
+def render_card(listing, db, user):
+    crop = listing.get('crop', 'Unknown')
+    variety = listing.get('variety', '')
+    price = listing.get('price', 0)
+    location = listing.get('location', 'Unknown')
+    state = listing.get('state', '')
+    farmer = listing.get('farmer', 'Unknown')
+    rating = listing.get('rating', 4.5)
+    organic = listing.get('organic', False)
+    featured = listing.get('featured', False)
+    description = listing.get('description', '')
+    image = listing.get('image', '🌱')
+    seller_type = listing.get('seller_type', 'Verified Farmer')
+    
+    # Generate star display
+    full_stars = int(rating)
+    half_star = (rating - full_stars) >= 0.5
+    stars_html = "⭐" * full_stars
+    if half_star:
+        stars_html += "⭐"
+    
+    st.markdown(f"""
+    <div class="jiji-card">
+        <div class="image-area" style="background: linear-gradient(135deg, {'#e8f5e9' if organic else '#f5f5f5'}, {'#c8e6c9' if organic else '#e0e0e0'});">
+            <span style="font-size:3.5rem;">{image}</span>
+            {('<div class="featured-badge">⭐ Featured</div>' if featured else '')}
+            {('<div class="organic-badge">🌿</div>' if organic else '')}
+        </div>
+        <div class="info-area">
+            <div class="crop-name">{crop}</div>
+            {('<div style="font-size:0.75rem;color:#888;">' + variety + '</div>' if variety else '')}
+            <div class="price">₦{price:,} <small>/ {listing.get('unit','tonnes')}</small></div>
+            <div class="location">📍 {location}, {state}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                <span class="seller-badge {'verified' if 'Verified' in seller_type else 'premium' if 'Premium' in seller_type else 'organic'}">{seller_type}</span>
+                <span class="stars">{stars_html} {rating}</span>
+            </div>
+            <div class="seller" style="margin-top:6px;">👨‍🌾 {farmer}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🛒 Add", key=f"add_{listing.get('id','')}", use_container_width=True):
+            st.session_state.cart.append(listing)
+            st.success(f"Added {crop}!")
+            st.rerun()
+    with col2:
+        if st.button("📞 Chat", key=f"chat_{listing.get('id','')}", use_container_width=True):
+            st.session_state.active_chat = listing.get('user_id', '')
+            st.switch_page("pages/16_Chat.py")

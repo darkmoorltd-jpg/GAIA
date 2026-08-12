@@ -209,10 +209,11 @@ else:
             else:
                 st.info("🗳️ No clear consensus. Consider retaking.")
 
+
 # ---------- Quick Navigation ----------
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(8)
+cols = st.columns(9)
 with cols[0]:
     st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
 with cols[1]:
@@ -226,7 +227,8 @@ with cols[4]:
 with cols[5]:
     st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
 with cols[6]:
-    st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
-with cols[7]:
     st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[?]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[7]:
+    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
+with cols[8]:
+    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

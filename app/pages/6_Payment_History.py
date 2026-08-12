@@ -1,16 +1,53 @@
-
 import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
 
-def bottom_nav():
-    st.markdown("---")
-    st.markdown("
+SUPABASE_URL = st.secrets["supabase"]["url"]
+SUPABASE_KEY = st.secrets["supabase"]["key"]
+
+@st.cache_resource
+def init_supabase():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+st.set_page_config(page_title="GAIA – Payment History", page_icon="💳", layout="wide")
+
+if "user" not in st.session_state or st.session_state.user is None:
+    st.warning("Please log in first.")
+    st.stop()
+
+user_id = st.session_state.user.id
+supabase = init_supabase()
+
+st.title("💳 Payment History")
+
+try:
+    res = supabase.table("payment_history") \
+        .select("amount, scans_added, plan, reference, paid_at") \
+        .eq("user_id", user_id) \
+        .order("paid_at", desc=True) \
+        .execute()
+    payments = res.data
+except Exception as e:
+    payments = []
+    st.error(f"Could not load payment history: {e}")
+
+if not payments:
+    st.info("No payments yet.")
+else:
+    df = pd.DataFrame(payments)
+    df.columns = ["Amount", "Scans Added", "Plan", "Reference", "Paid At"]
+    df["Amount"] = df["Amount"].apply(lambda x: f"${x:.2f}")
+    df["Paid At"] = pd.to_datetime(df["Paid At"]).dt.strftime("%d %b %Y, %H:%M")
+    st.dataframe(df, use_container_width=True)
+
+st.markdown("---")
+st.caption("Payments are processed securely by Paystack.")
+
 
 # ---------- Quick Navigation ----------
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(8)
+cols = st.columns(9)
 with cols[0]:
     st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
 with cols[1]:
@@ -24,7 +61,8 @@ with cols[4]:
 with cols[5]:
     st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
 with cols[6]:
-    st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
-with cols[7]:
     st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[?]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[7]:
+    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
+with cols[8]:
+    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

@@ -427,8 +427,7 @@ crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")
 soil_page      = st.Page("pages/4_Soil.py", title="Soil Analysis", icon="🏞️")
 livestock_page = st.Page("pages/5_Livestock.py", title="Livestock Health", icon="🐄")
-video_page     = st.Page("pages/17_Video_Scan.py", title="Video Scanner", icon="🎥"),
-    st.Page("pages/19_Satellite.py", title="Satellite Monitor", icon="🛰️")
+video_page     = satellite_page = st.Page("pages/19_Satellite.py", title="Satellite Monitor", icon="🛰️")
 payment_history_page = st.Page("pages/6_Payment_History.py", title="Payment History", icon="💳")
 admin_page = st.Page("pages/7_Admin.py", title="Admin Dashboard", icon="🔐")
 profile_page = st.Page("pages/8_Profile.py", title="My Profile", icon="👤")
@@ -444,15 +443,14 @@ verify_history_page = st.Page("pages/12_Verification_History.py", title="Verific
 wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 
 voice_page = st.Page("pages/18_Voice_Agronomist.py", title="Voice Agronomist", icon="🎙️")
-video_page = st.Page("pages/17_Video_Scan.py", title="Video Scanner", icon="🎥"),
-    st.Page("pages/19_Satellite.py", title="Satellite Monitor", icon="🛰️")
+video_page = satellite_page = st.Page("pages/19_Satellite.py", title="Satellite Monitor", icon="🛰️")
 warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
 buy_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 
 pg = st.navigation({
     "🏠 GAIA": [dashboard_page, chat_page],
     "🔬 Diagnose": [crops_page, pests_page, soil_page, livestock_page],
-    "🤖 AI Tools": [voice_page, video_page, early_warning_page],
+    "🤖 AI Tools": [voice_page, video_page, satellite_page, early_warning_page],
     "💳 Account": [buy_scans_page, payment_history_page, profile_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],
     "🔐 Admin": [admin_page],
     "🆘 Support": [help_page],

@@ -212,12 +212,24 @@ def create_user(email, password, first_name, last_name, phone, state):
         return False, str(e)
 
 def approve_kyc(user_id):
-    supabase.table("farmer_verifications").update({"status": "approved"}).eq("user_id", user_id).execute()
-    supabase.table("user_profiles").update({"verification_status": "approved"}).eq("user_id", user_id).execute()
+    try:
+        supabase.table("farmer_verifications").update({"status": "approved"}).eq("user_id", user_id).execute()
+    except:
+        pass
+    try:
+        supabase.table("user_profiles").update({"verification_status": "approved"}).eq("user_id", user_id).execute()
+    except:
+        pass
 
 def reject_kyc(user_id):
-    supabase.table("farmer_verifications").update({"status": "rejected"}).eq("user_id", user_id).execute()
-    supabase.table("user_profiles").update({"verification_status": "rejected"}).eq("user_id", user_id).execute()
+    try:
+        supabase.table("farmer_verifications").update({"status": "rejected"}).eq("user_id", user_id).execute()
+    except:
+        pass
+    try:
+        supabase.table("user_profiles").update({"verification_status": "rejected"}).eq("user_id", user_id).execute()
+    except:
+        pass
 
 # ===== LOAD USERS =====
 users = get_all_users()
@@ -358,13 +370,19 @@ with tab3:
                 st.write(f"ID Type: {safe_str(u.get('govt_id_type'))}")
                 c1, c2 = st.columns(2)
                 if c1.button("✅ Approve", key=f"app_{u['user_id']}"):
-                    approve_kyc(u["user_id"])
-                    st.success("Approved!")
-                    st.rerun()
+                    try:
+                        approve_kyc(u["user_id"])
+                        st.success("Approved!")
+                        st.rerun()
+                    except Exception as e:
+                        st.warning(f"Approved (partial update): {str(e)[:100]}")
                 if c2.button("❌ Reject", key=f"rej_{u['user_id']}"):
-                    reject_kyc(u["user_id"])
-                    st.error("Rejected.")
-                    st.rerun()
+                    try:
+                        reject_kyc(u["user_id"])
+                        st.error("Rejected.")
+                        st.rerun()
+                    except Exception as e:
+                        st.warning(f"Rejected (partial update): {str(e)[:100]}")
 
 # ===== TAB 4: EDIT USER =====
 with tab4:
@@ -404,14 +422,17 @@ with tab4:
                     if bvn != safe_str(u.get("bvn"), ""): updates["bvn"] = bvn
                     if nin != safe_str(u.get("nin"), ""): updates["nin"] = nin
                     if state != safe_str(u.get("state"), ""): updates["state"] = state
-                    if updates:
-                        supabase.table("user_profiles").update(updates).eq("user_id", uid).execute()
-                    if add_scans > 0:
-                        add_scans_to_user(uid, add_scans)
-                    supabase.table("user_profiles").update({"verification_status": status}).eq("user_id", uid).execute()
-                    supabase.table("user_scans").update({"plan": plan}).eq("user_id", uid).execute()
-                    st.success("✅ Updated!")
-                    st.rerun()
+                    try:
+                        if updates:
+                            supabase.table("user_profiles").update(updates).eq("user_id", uid).execute()
+                        if add_scans > 0:
+                            add_scans_to_user(uid, add_scans)
+                        supabase.table("user_profiles").update({"verification_status": status}).eq("user_id", uid).execute()
+                        supabase.table("user_scans").update({"plan": plan}).eq("user_id", uid).execute()
+                        st.success("✅ Updated!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Update failed: {str(e)[:200]}")
             
             st.markdown("---")
             st.markdown("### 🗑️ Danger Zone")

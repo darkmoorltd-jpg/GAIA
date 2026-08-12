@@ -85,12 +85,12 @@ def render_card(listing, idx=0):
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("🛒 Add to Cart", key=f"add_{lid}_{idx}", use_container_width=True):
+        if st.button("🛒 Add to Cart", key=f"add_{lid}_{idx}_{uuid.uuid4().hex[:8]}", use_container_width=True):
             st.session_state.cart.append(listing)
             st.success(f"Added {crop}!")
             st.rerun()
     with col2:
-        if st.button("📞 Contact", key=f"contact_{lid}_{idx}", use_container_width=True):
+        if st.button("📞 Contact", key=f"contact_{lid}_{idx}_{uuid.uuid4().hex[:8]}", use_container_width=True):
             seller_id = listing.get('user_id', '')
             if seller_id and seller_id != 'demo':
                 st.session_state.active_chat = seller_id
@@ -98,7 +98,7 @@ def render_card(listing, idx=0):
             else:
                 st.info(f"📞 Contact {farmer} via GAIA Chat or phone: {phone}")
     with col3:
-        if st.button("ℹ️ Details", key=f"details_{lid}_{idx}", use_container_width=True):
+        if st.button("ℹ️ Details", key=f"details_{lid}_{idx}_{uuid.uuid4().hex[:8]}", use_container_width=True):
             with st.expander("📋 Full Details", expanded=True):
                 st.write(f"**Crop:** {crop}")
                 st.write(f"**Variety:** {variety or 'N/A'}")

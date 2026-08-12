@@ -8,9 +8,13 @@ from datetime import datetime, timedelta
 import folium
 from streamlit_folium import st_folium
 
-# ===== SENTINEL HUB CONFIG =====
-CLIENT_ID = "17783119-0066-4563-84ce-8c84fc13a60b"
-CLIENT_SECRET = "qYTQXnQFpgstJSrAulJ6NREflI2m2eCN"
+# ===== SENTINEL HUB CONFIG (from Streamlit Secrets) =====
+try:
+    CLIENT_ID = st.secrets["sentinel"]["client_id"]
+    CLIENT_SECRET = st.secrets["sentinel"]["client_secret"]
+except:
+    CLIENT_ID = "86ed44fa-793b-47da-973b-345a83ae18c0"
+    CLIENT_SECRET = "qYTQXnQFpgstJSrAulJ6NREflI2m2eCN"
 TOKEN_URL = "https://services.sentinel-hub.com/oauth/token"
 PROCESS_URL = "https://services.sentinel-hub.com/api/v1/process"
 
@@ -18,13 +22,13 @@ PROCESS_URL = "https://services.sentinel-hub.com/api/v1/process"
 @st.cache_data(ttl=3500)
 def get_access_token():
     """Get OAuth2 token from Sentinel Hub."""
-    resp = requests.post(TOKEN_URL, data={
-        "grant_type": "client_credentials",
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET
-    })
+    import base64
+    # Sentinel Hub uses Basic Auth with client_id:client_secret
+    credentials = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+    headers = {"Authorization": f"Basic {credentials}", "Content-Type": "application/x-www-form-urlencoded"}
+    resp = requests.post(TOKEN_URL, data={"grant_type": "client_credentials"}, headers=headers)
     if resp.status_code == 200:
-        return resp.json()["access_token"]
+        return resp.json().get("access_token")
     return None
 
 def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", date_from=None, date_to=None):

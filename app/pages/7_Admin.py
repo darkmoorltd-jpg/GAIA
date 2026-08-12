@@ -234,7 +234,7 @@ with tab1:
                 "Scans": u.get("scans_remaining", 0),
                 "Plan": u.get("plan", "free"),
                 "Wallet": f"₦{float(u.get('wallet_balance', 0)):,.2f}",
-                "Joined": u.get("created_at", "")[:10],
+                "Joined": (u.get("created_at") or "")[:10] if u.get("created_at") else "N/A",
             })
         st.dataframe(pd.DataFrame(summary), use_container_width=True)
     else:
@@ -253,7 +253,7 @@ with tab2:
             st.markdown('<div class="user-card">', unsafe_allow_html=True)
             st.markdown(f"### 👤 {selected.get('first_name','')} {selected.get('last_name','')}")
             st.markdown(f"**Email:** {selected.get('email','')}")
-            st.markdown(f"**Joined:** {selected.get('created_at','')[:16]}")
+            st.markdown(f"**Joined:** {(selected.get('created_at') or '')[:16] if selected.get('created_at') else 'N/A'}")
             
             st.markdown("---")
             st.markdown("#### 📋 Personal")

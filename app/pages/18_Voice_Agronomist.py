@@ -58,7 +58,7 @@ def update_farmer_memory(question, answer):
 def ask_gaia(question):
     system_prompt = GAIA_IDENTITY + " " + build_memory_context()
     headers = {"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"}
-    payload = {"model":"deepseek-chat","messages":[{"role":"system","content":system_prompt},{"role":"user","content":question}],"temperature":0.7,"max_tokens":1000}
+    payload = {"model":"deepseek-chat","messages":[{"role":"system","content":system_prompt},{"role":"user","content":question}],"temperature":0.7,"max_tokens":3000}
     try:
         r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
         if r.status_code == 200:

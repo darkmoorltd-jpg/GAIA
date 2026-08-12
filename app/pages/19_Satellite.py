@@ -38,7 +38,7 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
         return None, "Failed to authenticate with Sentinel Hub"
 
     if not date_from:
-        date_from = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        date_from = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
     if not date_to:
         date_to = datetime.now().strftime("%Y-%m-%d")
 
@@ -114,7 +114,7 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
                 "type": "sentinel-2-l1c",
                 "dataFilter": {
                     "timeRange": {"from": f"{date_from}T00:00:00Z", "to": f"{date_to}T23:59:59Z"},
-                    "maxCloudCoverage": 30,
+                    "maxCloudCoverage": 50,
                     "mosaickingOrder": "leastCC"
                 }
             }]
@@ -214,13 +214,14 @@ else:
 # ===== UI =====
 st.markdown('<div class="title">🛰️ Satellite Field Monitor</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">See your farm from space — vegetation health, crop stress, and field conditions updated every 5 days</div>', unsafe_allow_html=True)
+st.info("💡 **Tip:** Satellite images work best during the dry season (Nov–Apr) when clouds are minimal. During the rainy season, some days may show cloud cover.")
 
 # ===== LOCATION INPUT =====
 col1, col2, col3 = st.columns([1, 1, 1])
 with col1:
-    lat = st.number_input("📍 Latitude", value=9.0820, format="%.4f", help="Enter your farm's latitude")
+    lat = st.number_input("📍 Latitude", value=7.7270, format="%.4f", help="Enter your farm's latitude")
 with col2:
-    lon = st.number_input("📍 Longitude", value=8.6753, format="%.4f", help="Enter your farm's longitude")
+    lon = st.number_input("📍 Longitude", value=8.5390, format="%.4f", help="Enter your farm's longitude")
 with col3:
     layer_type = st.selectbox("🔬 Analysis Type", ["TRUE_COLOR", "NDVI", "MOISTURE", "CROP_STRESS"], 
                               help="TRUE_COLOR: Natural photo | NDVI: Plant health | MOISTURE: Water content | CROP_STRESS: Problem areas")

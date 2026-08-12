@@ -50,8 +50,8 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
             return { input: ["B04","B03","B02"], output: { bands: 3 } };
         }
         function evaluatePixel(sample) {
-            // L1C values need simple scaling
-            return [sample.B04, sample.B03, sample.B02];
+            // L1C values are 0-10000, normalize to 0-1
+            return [sample.B04/10000, sample.B03/10000, sample.B02/10000];
         }
         """
     elif layers == "NDVI":
@@ -61,8 +61,11 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
             return { input: ["B04","B08"], output: { bands: 1 } };
         }
         function evaluatePixel(sample) {
-            let ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04);
-            // Scale to 0-255 for display
+            // Normalize L1C values
+            let b04 = sample.B04 / 10000;
+            let b08 = sample.B08 / 10000;
+            let ndvi = (b08 - b04) / (b08 + b04 + 0.001);
+            // Map to 0-255 for display
             return [(ndvi + 1) / 2 * 255];
         }
         """
@@ -73,21 +76,27 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
             return { input: ["B08","B11"], output: { bands: 1 } };
         }
         function evaluatePixel(sample) {
-            let ndmi = (sample.B08 - sample.B11) / (sample.B08 + sample.B11);
-            return [ndmi];
+            let b08 = sample.B08 / 10000;
+            let b11 = sample.B11 / 10000;
+            let ndmi = (b08 - b11) / (b08 + b11 + 0.001);
+            return [(ndmi + 1) / 2 * 255];
         }
         """
     else:
         evalscript = """
         //VERSION=3
         function setup() {
-            return { input: ["B04","B03","B02","B08"], output: { bands: 4 } };
+            return { input: ["B04","B08"], output: { bands: 1 } };
         }
         function evaluatePixel(sample) {
-            let ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04);
-            if (ndvi > 0.4) return [0, 1, 0, 1];
-            else if (ndvi > 0.2) return [1, 1, 0, 1];
-            else return [0.8, 0.4, 0, 1];
+            let b04 = sample.B04 / 10000;
+            let b08 = sample.B08 / 10000;
+            let ndvi = (b08 - b04) / (b08 + b04 + 0.001);
+            // Classify into health categories
+            if (ndvi > 0.6) return [0, 1, 0];       // Green - healthy
+            else if (ndvi > 0.4) return [0.6, 0.8, 0.2]; // Yellow-green - moderate
+            else if (ndvi > 0.2) return [1, 0.7, 0];     // Orange - stressed
+            else return [1, 0, 0];                    // Red - critical
         }
         """
 
@@ -128,9 +137,11 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
 def calculate_vegetation_health(ndvi_img):
     """Calculate vegetation health statistics from NDVI image."""
     arr = np.array(ndvi_img.convert("L"), dtype=float) / 255.0
-    # Already in [0,1] range from evalscript scaling
-    # Convert back to NDVI range [-1, 1]
+    # Values are in [0,1] range from evalscript
+    # Convert to NDVI range [-1, 1]
     arr = (arr * 2) - 1
+    # Clamp to valid NDVI range
+    arr = np.clip(arr, -1, 1)
     
     healthy = (arr > 0.4).mean() * 100
     moderate = ((arr > 0.2) & (arr <= 0.4)).mean() * 100

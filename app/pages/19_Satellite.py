@@ -50,7 +50,8 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
             return { input: ["B04","B03","B02"], output: { bands: 3 } };
         }
         function evaluatePixel(sample) {
-            return [sample.B04*2.5, sample.B03*2.5, sample.B02*2.5];
+            // L1C values need simple scaling
+            return [sample.B04, sample.B03, sample.B02];
         }
         """
     elif layers == "NDVI":
@@ -61,7 +62,8 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
         }
         function evaluatePixel(sample) {
             let ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04);
-            return [ndvi];
+            // Scale to 0-255 for display
+            return [(ndvi + 1) / 2 * 255];
         }
         """
     elif layers == "MOISTURE":
@@ -100,7 +102,7 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
                 "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"}
             },
             "data": [{
-                "type": "sentinel-2-l2a",
+                "type": "sentinel-2-l1c",
                 "dataFilter": {
                     "timeRange": {"from": f"{date_from}T00:00:00Z", "to": f"{date_to}T23:59:59Z"},
                     "maxCloudCoverage": 30,
@@ -126,7 +128,9 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
 def calculate_vegetation_health(ndvi_img):
     """Calculate vegetation health statistics from NDVI image."""
     arr = np.array(ndvi_img.convert("L"), dtype=float) / 255.0
-    arr = (arr * 2) - 1  # Scale to -1 to 1
+    # Already in [0,1] range from evalscript scaling
+    # Convert back to NDVI range [-1, 1]
+    arr = (arr * 2) - 1
     
     healthy = (arr > 0.4).mean() * 100
     moderate = ((arr > 0.2) & (arr <= 0.4)).mean() * 100

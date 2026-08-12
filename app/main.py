@@ -449,6 +449,7 @@ pg = st.navigation({
     "🏠 GAIA": [dashboard_page, chat_page, marketplace_page],
     "🔬 Diagnose": [crops_page, pests_page, soil_page, livestock_page],
     "🤖 AI Tools": [voice_page, video_page, satellite_page, early_warning_page],
+    "🏦 Insurance": [insurance_page],
     "💳 Account": [buy_scans_page, payment_history_page, profile_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],
     "🔐 Admin": [admin_page],
     "🆘 Support": [help_page],

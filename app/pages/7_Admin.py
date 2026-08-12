@@ -11,463 +11,402 @@ ADMIN_EMAIL = "darkmoorltd@gmail.com"
 
 @st.cache_resource
 def init_service_client():
+    """Service role client - bypasses RLS for admin operations."""
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
 @st.cache_resource
 def init_anon_client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def safe_crops(val):
-    if not val: return 'None'
-    if isinstance(val, list): return ', '.join(val)
-    return str(val).strip('{}').replace('"', '')
+st.set_page_config(page_title="GAIA – Admin", page_icon="🔐", layout="wide", initial_sidebar_state="expanded")
 
-st.set_page_config(page_title="GAIA – Admin", page_icon="🔐", layout="wide")
+# ===== LIGHT MODE DEFAULT =====
+st.markdown("""
+<style>
+    .stApp { background: linear-gradient(135deg, #f5f7fa, #e8f5e9); color: #1b5e20; }
+    header, footer { visibility: hidden; }
+    .admin-title { font-size: 2.5rem; font-weight: 800; text-align: center; color: #2e7d32; }
+    .user-card { background: #fff; border-radius: 15px; padding: 1.5rem; margin: 0.5rem 0; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .verified { color: #2e7d32; font-weight: 600; }
+    .pending { color: #f57f17; font-weight: 600; }
+    .rejected { color: #c62828; font-weight: 600; }
+    .stButton button { background: #2e7d32 !important; color: #fff !important; border: none !important; border-radius: 8px !important; }
+    .stButton button:hover { background: #1b5e20 !important; }
+</style>
+""", unsafe_allow_html=True)
 
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("Please log in first.")
     st.stop()
+
 if st.session_state.user.email != ADMIN_EMAIL:
     st.error("Access denied. Admin only.")
     st.stop()
 
-st.markdown("""
-<style>
-    .stApp { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); color: #fff; }
-    header, footer { visibility: hidden; }
-    .admin-title { font-size: 2.5rem; font-weight: 800; text-align: center; color: #4caf50; }
-    .user-card { background: rgba(255,255,255,0.05); border-radius: 15px; padding: 1.5rem; margin: 0.5rem 0; border: 1px solid rgba(255,255,255,0.1); }
-    .verified { color: #4caf50; font-weight: 600; }
-    .pending { color: #ff9800; font-weight: 600; }
-    .rejected { color: #f44336; font-weight: 600; }
-    .stat-box { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem; text-align: center; }
-    .stat-number { font-size: 2rem; font-weight: 800; color: #4caf50; }
-    .stat-label { font-size: 0.8rem; color: #aaa; }
-</style>
-""", unsafe_allow_html=True)
-
 st.markdown('<div class="admin-title">🔐 GAIA Admin Dashboard</div>', unsafe_allow_html=True)
 
 supabase = init_service_client()
+anon = init_anon_client()
 
-# ===== FETCH REAL DATA =====
-def fetch_all_users():
-    """Fetch all auth users."""
+# ===== FETCH USERS DIRECTLY =====
+def get_all_users():
+    """Get all users using service role."""
+    users = []
+    profiles = []
+    scans = []
+    wallets = []
+    verifications = []
+    policies = []
+    
     try:
+        # Get all auth users
         resp = supabase.auth.admin.list_users()
         if hasattr(resp, 'users'):
-            return resp.users
-        return []
+            users = resp.users
+        elif isinstance(resp, list):
+            users = resp
+        st.sidebar.success(f"✅ {len(users)} users found")
     except Exception as e:
-        st.error(f"Error fetching users: {e}")
-        return []
-
-def fetch_user_profiles():
-    """Fetch all user profiles."""
+        st.sidebar.error(f"Auth error: {str(e)[:100]}")
+    
     try:
-        resp = supabase.table("user_profiles").select("*").execute()
-        return resp.data if resp.data else []
-    except:
-        return []
-
-def fetch_user_scans():
-    """Fetch all user scans."""
+        p = supabase.table("user_profiles").select("*").execute()
+        profiles = p.data if p.data else []
+    except Exception as e:
+        st.sidebar.warning(f"Profiles: {str(e)[:50]}")
+    
     try:
-        resp = supabase.table("user_scans").select("*").execute()
-        return resp.data if resp.data else []
+        s = supabase.table("user_scans").select("*").execute()
+        scans = s.data if s.data else []
     except:
-        return []
-
-def fetch_payments():
-    """Fetch all payment history."""
+        pass
+    
     try:
-        resp = supabase.table("payment_history").select("*").execute()
-        return resp.data if resp.data else []
+        w = supabase.table("farmer_wallets").select("*").execute()
+        wallets = w.data if w.data else []
     except:
-        return []
-
-def fetch_verifications():
-    """Fetch all farmer verifications."""
+        pass
+    
     try:
-        resp = supabase.table("farmer_verifications").select("*").execute()
-        return resp.data if resp.data else []
+        v = supabase.table("farmer_verifications").select("*").execute()
+        verifications = v.data if v.data else []
     except:
-        return []
-
-def fetch_insurance_policies():
-    """Fetch all insurance policies."""
+        pass
+    
     try:
-        resp = supabase.table("insurance_policies").select("*").execute()
-        return resp.data if resp.data else []
+        pol = supabase.table("insurance_policies").select("*").execute()
+        policies = pol.data if pol.data else []
     except:
-        return []
+        pass
+    
+    profile_map = {p["user_id"]: p for p in profiles if p.get("user_id")}
+    scan_map = {s["user_id"]: s for s in scans if s.get("user_id")}
+    wallet_map = {w["user_id"]: w for w in wallets if w.get("user_id")}
+    verify_map = {v["user_id"]: v for v in verifications if v.get("user_id")}
+    policy_list = [p for p in policies if p.get("user_id")]
+    
+    user_list = []
+    for u in users:
+        uid = u.id if hasattr(u, 'id') else u.get('id', '')
+        email = u.email if hasattr(u, 'email') else u.get('email', '')
+        created = u.created_at if hasattr(u, 'created_at') else u.get('created_at', '')
+        
+        p = profile_map.get(uid, {})
+        s = scan_map.get(uid, {})
+        w = wallet_map.get(uid, {})
+        v = verify_map.get(uid, {})
+        user_policies = [pol for pol in policy_list if pol.get("user_id") == uid]
+        
+        user_list.append({
+            "user_id": uid,
+            "email": email or "N/A",
+            "created_at": created or "",
+            "scans_remaining": s.get("scans_remaining", 0),
+            "plan": s.get("plan", "free"),
+            "wallet_balance": w.get("balance", 0),
+            "verification_status": v.get("status", p.get("verification_status", "pending")),
+            **p
+        })
+    
+    return user_list
 
-def fetch_insurance_claims():
-    """Fetch all insurance claims."""
+def add_scans_to_user(user_id, amount):
     try:
-        resp = supabase.table("insurance_claims").select("*").execute()
-        return resp.data if resp.data else []
-    except:
-        return []
+        current = supabase.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+        cur = current.data[0]["scans_remaining"] if current.data else 0
+        supabase.table("user_scans").update({"scans_remaining": cur + amount}).eq("user_id", user_id).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
-def fetch_marketplace_listings():
-    """Fetch all marketplace listings."""
+def delete_user_fully(user_id):
+    tables = [
+        "payment_history", "messages", "farmer_verifications", "user_profiles",
+        "user_scans", "marketplace_listings", "marketplace_orders", "insurance_policies",
+        "insurance_claims", "field_monitoring", "seller_profiles", "badge_subscriptions",
+        "farmer_wallets", "pending_payments", "posts", "friendships", "chat_members",
+        "chat_rooms", "user_status", "user_feedback"
+    ]
+    errors = []
+    for table in tables:
+        try:
+            supabase.table(table).delete().eq("user_id", user_id).execute()
+        except:
+            pass  # Table might not have user_id column or doesn't exist
     try:
-        resp = supabase.table("marketplace_listings").select("*").execute()
-        return resp.data if resp.data else []
-    except:
-        return []
+        supabase.auth.admin.delete_user(user_id)
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
-def fetch_feedback():
-    """Fetch all user feedback."""
+def create_user(email, password, first_name, last_name, phone, state):
     try:
-        resp = supabase.table("user_feedback").select("*").execute()
-        return resp.data if resp.data else []
-    except:
-        return []
+        resp = supabase.auth.admin.create_user({
+            "email": email,
+            "password": password,
+            "email_confirm": True
+        })
+        if resp.user:
+            uid = resp.user.id
+            supabase.table("user_profiles").insert({
+                "user_id": uid,
+                "first_name": first_name,
+                "last_name": last_name,
+                "phone": phone,
+                "state": state,
+                "verification_status": "pending"
+            }).execute()
+            supabase.table("user_scans").insert({
+                "user_id": uid,
+                "scans_remaining": 30,
+                "plan": "free"
+            }).execute()
+            return True, None
+        return False, "User creation failed"
+    except Exception as e:
+        return False, str(e)
 
-def fetch_messages():
-    """Fetch all support messages."""
-    try:
-        resp = supabase.table("messages").select("*").execute()
-        return resp.data if resp.data else []
-    except:
-        return []
+def approve_kyc(user_id):
+    supabase.table("farmer_verifications").update({"status": "approved"}).eq("user_id", user_id).execute()
+    supabase.table("user_profiles").update({"verification_status": "approved", "kyc_level": 2}).eq("user_id", user_id).execute()
 
-# ===== LOAD ALL DATA =====
-auth_users = fetch_all_users()
-profiles = fetch_user_profiles()
-scans_data = fetch_user_scans()
-payments = fetch_payments()
-verifications = fetch_verifications()
-insurance_policies = fetch_insurance_policies()
-insurance_claims = fetch_insurance_claims()
-marketplace_listings = fetch_marketplace_listings()
-feedback_data = fetch_feedback()
-messages_data = fetch_messages()
-
-# Build profile and scan maps
-profile_map = {p["user_id"]: p for p in profiles}
-scan_map = {s["user_id"]: s for s in scans_data}
-
-# ===== STATS =====
-total_users = len(auth_users)
-total_profiles = len(profiles)
-verified_count = sum(1 for p in profiles if p.get("verification_status") == "approved")
-pending_count = sum(1 for p in profiles if p.get("verification_status") == "pending")
-total_payments = len(payments)
-total_revenue = sum(p.get("amount", 0) for p in payments)
-total_policies = len(insurance_policies)
-total_claims = len(insurance_claims)
-total_listings = len(marketplace_listings)
+def reject_kyc(user_id):
+    supabase.table("farmer_verifications").update({"status": "rejected"}).eq("user_id", user_id).execute()
+    supabase.table("user_profiles").update({"verification_status": "rejected"}).eq("user_id", user_id).execute()
 
 # ===== TABS =====
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-    "📊 Overview", "👥 Users", "🛡️ KYC", "💳 Payments", "🏦 Insurance", "🌍 Marketplace", "💬 Feedback", "✏️ Edit/Delete"
-])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "👤 All Users", "🛡️ KYC Queue", "✏️ Edit User", "➕ Create User"])
+
+users = get_all_users()
 
 # ===== TAB 1: OVERVIEW =====
 with tab1:
-    col1, col2, col3, col4 = st.columns(4)
-    col1.markdown(f'<div class="stat-box"><div class="stat-number">{total_users}</div><div class="stat-label">Total Users</div></div>', unsafe_allow_html=True)
-    col2.markdown(f'<div class="stat-box"><div class="stat-number">{verified_count}</div><div class="stat-label">Verified</div></div>', unsafe_allow_html=True)
-    col3.markdown(f'<div class="stat-box"><div class="stat-number">{total_payments}</div><div class="stat-label">Payments</div></div>', unsafe_allow_html=True)
-    col4.markdown(f'<div class="stat-box"><div class="stat-number">₦{total_revenue:,.0f}</div><div class="stat-label">Total Revenue</div></div>', unsafe_allow_html=True)
+    total = len(users)
+    verified = sum(1 for u in users if u.get("verification_status") == "approved")
+    pending = sum(1 for u in users if u.get("verification_status") == "pending")
+    rejected = sum(1 for u in users if u.get("verification_status") == "rejected")
+    paid = sum(1 for u in users if u.get("plan", "free") != "free")
+    total_wallets = sum(float(u.get("wallet_balance", 0)) for u in users)
     
-    col1, col2, col3, col4 = st.columns(4)
-    col1.markdown(f'<div class="stat-box"><div class="stat-number">{total_policies}</div><div class="stat-label">Insurance Policies</div></div>', unsafe_allow_html=True)
-    col2.markdown(f'<div class="stat-box"><div class="stat-number">{total_claims}</div><div class="stat-label">Insurance Claims</div></div>', unsafe_allow_html=True)
-    col3.markdown(f'<div class="stat-box"><div class="stat-number">{total_listings}</div><div class="stat-label">Marketplace Listings</div></div>', unsafe_allow_html=True)
-    col4.markdown(f'<div class="stat-box"><div class="stat-number">{pending_count}</div><div class="stat-label">Pending KYC</div></div>', unsafe_allow_html=True)
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("Total Users", total)
+    col2.metric("Verified", verified)
+    col3.metric("Pending KYC", pending)
+    col4.metric("Rejected", rejected)
+    col5.metric("Paid Plans", paid)
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Wallet Balance", f"₦{total_wallets:,.2f}")
+    col2.metric("Avg Scans/User", round(sum(u.get('scans_remaining', 0) for u in users) / max(total, 1), 1))
     
     st.markdown("---")
-    st.markdown("### Recent Users")
+    st.markdown("### User Summary Table")
     
-    if auth_users:
-        recent = []
-        for u in auth_users[:20]:
-            uid = u.id
-            p = profile_map.get(uid, {})
-            recent.append({
-                "Email": u.email,
-                "Name": f"{p.get('first_name','')} {p.get('last_name','')}".strip(),
-                "Phone": p.get("phone", ""),
-                "State": p.get("state", ""),
-                "KYC": p.get("verification_status", "N/A"),
-                "Created": u.created_at[:10] if u.created_at else "",
+    if users:
+        summary = []
+        for u in users:
+            summary.append({
+                "Email": u.get("email", ""),
+                "Name": f"{u.get('first_name','')} {u.get('last_name','')}".strip() or "N/A",
+                "Phone": u.get("phone", ""),
+                "State": u.get("state", ""),
+                "KYC": u.get("verification_status", "pending"),
+                "Scans": u.get("scans_remaining", 0),
+                "Plan": u.get("plan", "free"),
+                "Wallet": f"₦{float(u.get('wallet_balance', 0)):,.2f}",
+                "Joined": u.get("created_at", "")[:10],
             })
-        st.dataframe(pd.DataFrame(recent), use_container_width=True)
+        st.dataframe(pd.DataFrame(summary), use_container_width=True)
     else:
-        st.info("No users found in the database.")
+        st.info("No users found. Check your service_key in Streamlit secrets.")
 
-# ===== TAB 2: USERS =====
+# ===== TAB 2: ALL USERS =====
 with tab2:
-    st.markdown("### 👥 All Users")
-    
-    if not auth_users:
-        st.warning("⚠️ No users found. Check if the service_role key is correct in Streamlit secrets.")
-        st.code("""
-        [supabase]
-        url = "your_url"
-        key = "anon_key"
-        service_key = "service_role_key"
-        """)
+    if not users:
+        st.info("No users found.")
     else:
-        st.success(f"✅ Found {total_users} users")
+        user_emails = [u.get("email", "") for u in users]
+        selected_email = st.selectbox("Select User", user_emails, key="view_user")
+        selected = next((u for u in users if u.get("email") == selected_email), None)
         
-        for u in auth_users:
-            uid = u.id
-            p = profile_map.get(uid, {})
-            s = scan_map.get(uid, {})
+        if selected:
+            st.markdown('<div class="user-card">', unsafe_allow_html=True)
+            st.markdown(f"### 👤 {selected.get('first_name','')} {selected.get('last_name','')}")
+            st.markdown(f"**Email:** {selected.get('email','')}")
+            st.markdown(f"**Joined:** {selected.get('created_at','')[:16]}")
             
-            status = p.get("verification_status", "N/A")
-            status_emoji = "✅" if status == "approved" else ("⏳" if status == "pending" else "❌")
+            st.markdown("---")
+            st.markdown("#### 📋 Personal")
+            c1, c2, c3 = st.columns(3)
+            c1.write(f"Phone: {selected.get('phone','N/A')}")
+            c1.write(f"WhatsApp: {selected.get('whatsapp','N/A')}")
+            c1.write(f"Gender: {selected.get('gender','N/A')}")
+            c2.write(f"BVN: {selected.get('bvn','N/A')}")
+            c2.write(f"NIN: {selected.get('nin','N/A')}")
+            c2.write(f"ID Type: {selected.get('govt_id_type','N/A')}")
+            c3.write(f"State: {selected.get('state','N/A')}")
+            c3.write(f"LGA: {selected.get('lga','N/A')}")
+            c3.write(f"City: {selected.get('city','N/A')}")
             
-            with st.expander(f"{status_emoji} {p.get('first_name','')} {p.get('last_name','')} — {u.email}"):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.write(f"**User ID:** {uid[:16]}...")
-                    st.write(f"**Email:** {u.email}")
-                    st.write(f"**Phone:** {p.get('phone','N/A')}")
-                    st.write(f"**WhatsApp:** {p.get('whatsapp','N/A')}")
-                with col2:
-                    st.write(f"**State:** {p.get('state','N/A')}")
-                    st.write(f"**LGA:** {p.get('lga','N/A')}")
-                    st.write(f"**City:** {p.get('city','N/A')}")
-                    st.write(f"**Address:** {p.get('street_address','N/A')}")
-                with col3:
-                    st.write(f"**Scans:** {s.get('scans_remaining', 0)}")
-                    st.write(f"**Plan:** {s.get('plan', 'free')}")
-                    st.write(f"**BVN:** {p.get('bvn','N/A')}")
-                    st.write(f"**NIN:** {p.get('nin','N/A')}")
-                
-                # Farm info
-                with st.expander("🌾 Farm Info"):
-                    st.write(f"**Farm State:** {p.get('farm_state','N/A')}")
-                    st.write(f"**Farm Size:** {p.get('farm_size_acres','N/A')} acres")
-                    st.write(f"**Primary Crops:** {p.get('primary_crops','N/A')}")
-                    st.write(f"**Experience:** {p.get('years_experience','N/A')} years")
-                
-                # Banking
-                with st.expander("🏦 Banking"):
-                    st.write(f"**Account Name:** {p.get('account_name','N/A')}")
-                    st.write(f"**Account Number:** {p.get('account_number','N/A')}")
-                    st.write(f"**Bank:** {p.get('bank_name','N/A')}")
-                
-                # Emergency
-                with st.expander("🚨 Emergency Contact"):
-                    st.write(f"**Name:** {p.get('emergency_contact_name','N/A')}")
-                    st.write(f"**Phone:** {p.get('emergency_contact_phone','N/A')}")
-                    st.write(f"**Relationship:** {p.get('emergency_relationship','N/A')}")
+            st.markdown("---")
+            st.markdown("#### 🌾 Farm")
+            c1, c2 = st.columns(2)
+            c1.write(f"Farm State: {selected.get('farm_state','N/A')}")
+            c1.write(f"Farm Size: {selected.get('farm_size_acres','N/A')} acres")
+            c1.write(f"Crops: {selected.get('primary_crops','N/A')}")
+            c2.write(f"Experience: {selected.get('years_experience','N/A')} years")
+            c2.write(f"Farming Type: {selected.get('farming_type','N/A')}")
+            
+            st.markdown("---")
+            st.markdown("#### 🏦 Banking")
+            c1, c2 = st.columns(2)
+            c1.write(f"Account: {selected.get('account_name','N/A')} — {selected.get('account_number','N/A')}")
+            c2.write(f"Bank: {selected.get('bank_name','N/A')}")
+            
+            st.markdown("---")
+            st.markdown("#### 🚨 Emergency Contact")
+            st.write(f"{selected.get('emergency_contact_name','N/A')} — {selected.get('emergency_contact_phone','N/A')} ({selected.get('emergency_relationship','N/A')})")
+            
+            st.markdown("---")
+            st.markdown("#### 💰 Wallet & Plan")
+            c1, c2 = st.columns(2)
+            c1.metric("Scans", selected.get("scans_remaining", 0))
+            c2.metric("Wallet", f"₦{float(selected.get('wallet_balance', 0)):,.2f}")
+            st.write(f"Plan: **{selected.get('plan', 'free')}**")
+            st.write(f"KYC: **{selected.get('verification_status', 'pending').upper()}**")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
 
-# ===== TAB 3: KYC =====
+# ===== TAB 3: KYC QUEUE =====
 with tab3:
-    st.markdown("### 🛡️ KYC Verification")
+    st.markdown("### 🛡️ Pending KYC Verifications")
+    pending_users = [u for u in users if u.get("verification_status") == "pending"]
     
-    pending_kyc = [p for p in profiles if p.get("verification_status") == "pending" and p.get("bvn")]
-    
-    if not pending_kyc:
-        st.info("No pending KYC verifications.")
+    if not pending_users:
+        st.info("No pending KYC.")
     else:
-        st.success(f"Found {len(pending_kyc)} pending verifications")
-        
-        for p in pending_kyc:
-            with st.expander(f"⏳ {p.get('first_name','')} {p.get('last_name','')} — {p.get('email','N/A')}"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**BVN:** {p.get('bvn','N/A')}")
-                    st.write(f"**NIN:** {p.get('nin','N/A')}")
-                    st.write(f"**ID Type:** {p.get('govt_id_type','N/A')}")
-                with col2:
-                    st.write(f"**ID Number:** {p.get('govt_id_number','N/A')}")
-                    st.write(f"**Phone:** {p.get('phone','N/A')}")
-                    st.write(f"**State:** {p.get('state','N/A')}")
-                
-                col1, col2, col3 = st.columns(3)
-                if col1.button("✅ Approve", key=f"approve_{p['user_id']}"):
-                    supabase.table("user_profiles").update({"verification_status": "approved", "kyc_level": 2}).eq("user_id", p["user_id"]).execute()
+        for u in pending_users:
+            with st.expander(f"⏳ {u.get('first_name','')} {u.get('last_name','')} — {u.get('email','')}"):
+                st.write(f"BVN: {u.get('bvn','N/A')}")
+                st.write(f"NIN: {u.get('nin','N/A')}")
+                st.write(f"ID Type: {u.get('govt_id_type','N/A')}")
+                c1, c2 = st.columns(2)
+                if c1.button("✅ Approve", key=f"app_{u['user_id']}"):
+                    approve_kyc(u["user_id"])
                     st.success("Approved!")
                     st.rerun()
-                if col2.button("❌ Reject", key=f"reject_{p['user_id']}"):
-                    supabase.table("user_profiles").update({"verification_status": "rejected"}).eq("user_id", p["user_id"]).execute()
+                if c2.button("❌ Reject", key=f"rej_{u['user_id']}"):
+                    reject_kyc(u["user_id"])
                     st.error("Rejected.")
                     st.rerun()
-                if col3.button("🗑️ Delete", key=f"del_kyc_{p['user_id']}"):
-                    supabase.table("user_profiles").delete().eq("user_id", p["user_id"]).execute()
-                    st.warning("Deleted.")
-                    st.rerun()
 
-# ===== TAB 4: PAYMENTS =====
+# ===== TAB 4: EDIT USER =====
 with tab4:
-    st.markdown("### 💳 Payment History")
-    
-    if not payments:
-        st.info("No payments yet.")
+    st.markdown("### ✏️ Edit User")
+    if not users:
+        st.info("No users.")
     else:
-        payment_data = []
-        for p in payments:
-            payment_data.append({
-                "User": p.get("user_id", "")[:12],
-                "Amount": f"₦{p.get('amount', 0):,.2f}",
-                "Scans": p.get("scans_added", 0),
-                "Plan": p.get("plan", ""),
-                "Reference": p.get("reference", ""),
-                "Date": p.get("paid_at", "")[:16],
-            })
-        st.dataframe(pd.DataFrame(payment_data), use_container_width=True)
-
-# ===== TAB 5: INSURANCE =====
-with tab5:
-    st.markdown("### 🏦 Insurance Policies")
-    
-    if insurance_policies:
-        for pol in insurance_policies:
-            with st.expander(f"Policy #{pol.get('policy_number','?')} — {pol.get('crop','')} — {pol.get('status','')}"):
-                st.write(f"**User:** {pol.get('user_id','')[:16]}...")
-                st.write(f"**Coverage:** ₦{pol.get('coverage_amount',0):,}")
-                st.write(f"**Premium:** ₦{pol.get('premium_monthly',0):,}/month")
-                st.write(f"**Location:** {pol.get('field_location','N/A')}")
-    else:
-        st.info("No insurance policies yet.")
-    
-    st.markdown("---")
-    st.markdown("### 📝 Insurance Claims")
-    
-    if insurance_claims:
-        for claim in insurance_claims:
-            status = claim.get("status", "pending")
-            with st.expander(f"Claim #{claim.get('id','?')} — {claim.get('claim_type','')} — {status}"):
-                st.write(f"**User:** {claim.get('user_id','')[:16]}...")
-                st.write(f"**Description:** {claim.get('description','')[:200]}")
+        emails = [u.get("email","") for u in users]
+        sel = st.selectbox("Select User to Edit", emails, key="edit_sel")
+        u = next((x for x in users if x.get("email") == sel), None)
+        if u:
+            uid = u["user_id"]
+            with st.form("edit_form"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    first = st.text_input("First Name", value=u.get("first_name",""))
+                    last = st.text_input("Last Name", value=u.get("last_name",""))
+                    phone = st.text_input("Phone", value=u.get("phone",""))
+                    bvn = st.text_input("BVN", value=u.get("bvn",""))
+                with c2:
+                    nin = st.text_input("NIN", value=u.get("nin",""))
+                    state = st.text_input("State", value=u.get("state",""))
+                    status = st.selectbox("KYC Status", ["pending","approved","rejected"],
+                                          index=["pending","approved","rejected"].index(u.get("verification_status","pending")))
+                    plan = st.selectbox("Plan", ["free","10","25","60","250","unlimited"])
                 
-                if status == "pending":
-                    col1, col2 = st.columns(2)
-                    if col1.button("✅ Approve", key=f"app_claim_{claim['id']}"):
-                        supabase.table("insurance_claims").update({"status": "approved"}).eq("id", claim["id"]).execute()
-                        st.rerun()
-                    if col2.button("❌ Reject", key=f"rej_claim_{claim['id']}"):
-                        supabase.table("insurance_claims").update({"status": "rejected"}).eq("id", claim["id"]).execute()
-                        st.rerun()
-    else:
-        st.info("No insurance claims yet.")
-
-# ===== TAB 6: MARKETPLACE =====
-with tab6:
-    st.markdown("### 🌍 Marketplace Listings")
-    
-    if marketplace_listings:
-        for listing in marketplace_listings:
-            with st.expander(f"{listing.get('crop','')} — ₦{listing.get('price',0):,} — {listing.get('status','')}"):
-                st.write(f"**Seller:** {listing.get('farmer','N/A')}")
-                st.write(f"**Location:** {listing.get('location','')}, {listing.get('state','')}")
-                st.write(f"**Quantity:** {listing.get('quantity','')} {listing.get('unit','tonnes')}")
+                add_scans = st.number_input("Scans to Add", min_value=0, value=0)
                 
-                col1, col2 = st.columns(2)
-                if listing.get("status") == "active":
-                    if col1.button("🔴 Deactivate", key=f"deact_list_{listing['id']}"):
-                        supabase.table("marketplace_listings").update({"status": "inactive"}).eq("id", listing["id"]).execute()
-                        st.rerun()
-                if col2.button("🗑️ Delete", key=f"del_list_{listing['id']}"):
-                    supabase.table("marketplace_listings").delete().eq("id", listing["id"]).execute()
-                    st.rerun()
-    else:
-        st.info("No marketplace listings yet.")
-
-# ===== TAB 7: FEEDBACK =====
-with tab7:
-    st.markdown("### 💬 User Feedback")
-    
-    if feedback_data:
-        for fb in feedback_data:
-            with st.expander(f"{'👍' if fb.get('helpful') else '👎'} {fb.get('predicted_class','')} — {fb.get('created_at','')[:16]}"):
-                st.write(f"**User:** {fb.get('user_id','')[:16]}...")
-                st.write(f"**Image:** {fb.get('image_name','')}")
-    else:
-        st.info("No feedback yet.")
-
-# ===== TAB 8: EDIT/DELETE =====
-with tab8:
-    st.markdown("### ✏️ Edit or Delete User")
-    
-    if auth_users:
-        user_emails = [u.email for u in auth_users]
-        selected_email = st.selectbox("Select User", user_emails, key="edit_user_select")
-        
-        selected_user = next((u for u in auth_users if u.email == selected_email), None)
-        
-        if selected_user:
-            uid = selected_user.id
-            p = profile_map.get(uid, {})
-            s = scan_map.get(uid, {})
-            
-            st.markdown(f"### Editing: {selected_email}")
-            
-            with st.form("edit_user_form"):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    new_first = st.text_input("First Name", value=p.get("first_name", ""))
-                    new_last = st.text_input("Last Name", value=p.get("last_name", ""))
-                    new_phone = st.text_input("Phone", value=p.get("phone", ""))
-                with col2:
-                    new_bvn = st.text_input("BVN", value=p.get("bvn", ""))
-                    new_nin = st.text_input("NIN", value=p.get("nin", ""))
-                    new_state = st.text_input("State", value=p.get("state", ""))
-                with col3:
-                    new_status = st.selectbox("KYC Status", ["pending", "approved", "rejected"],
-                                              index=["pending", "approved", "rejected"].index(p.get("verification_status", "pending")))
-                    scans_add = st.number_input("Add Scans", min_value=0, value=0)
-                    new_password = st.text_input("New Password (optional)", type="password")
-                
-                if st.form_submit_button("💾 Update User"):
+                if st.form_submit_button("💾 Save"):
                     updates = {}
-                    if new_first != p.get("first_name", ""): updates["first_name"] = new_first
-                    if new_last != p.get("last_name", ""): updates["last_name"] = new_last
-                    if new_phone != p.get("phone", ""): updates["phone"] = new_phone
-                    if new_bvn != p.get("bvn", ""): updates["bvn"] = new_bvn
-                    if new_nin != p.get("nin", ""): updates["nin"] = new_nin
-                    if new_state != p.get("state", ""): updates["state"] = new_state
-                    if new_status != p.get("verification_status", ""): updates["verification_status"] = new_status
-                    
+                    if first != u.get("first_name",""): updates["first_name"] = first
+                    if last != u.get("last_name",""): updates["last_name"] = last
+                    if phone != u.get("phone",""): updates["phone"] = phone
+                    if bvn != u.get("bvn",""): updates["bvn"] = bvn
+                    if nin != u.get("nin",""): updates["nin"] = nin
+                    if state != u.get("state",""): updates["state"] = state
+                    if status != u.get("verification_status",""): updates["verification_status"] = status
                     if updates:
-                        try:
-                            supabase.table("user_profiles").update(updates).eq("user_id", uid).execute()
-                        except:
-                            supabase.table("user_profiles").insert({"user_id": uid, **updates}).execute()
-                    
-                    if scans_add > 0:
-                        current = s.get("scans_remaining", 0)
-                        supabase.table("user_scans").update({"scans_remaining": current + scans_add}).eq("user_id", uid).execute()
-                    
-                    if new_password and len(new_password) >= 6:
-                        supabase.auth.admin.update_user(uid, {"password": new_password})
-                    
-                    st.success("✅ User updated!")
+                        supabase.table("user_profiles").update(updates).eq("user_id", uid).execute()
+                    if add_scans > 0:
+                        add_scans_to_user(uid, add_scans)
+                    supabase.table("user_scans").update({"plan": plan}).eq("user_id", uid).execute()
+                    st.success("✅ Updated!")
                     st.rerun()
             
-            # Delete user
+            # Delete
             st.markdown("---")
             st.markdown("### 🗑️ Danger Zone")
-            confirm_delete = st.checkbox("I understand this will permanently delete the user and all their data.")
-            
-            if st.button("🗑️ Delete User", type="secondary"):
-                if not confirm_delete:
-                    st.warning("Please confirm the checkbox first.")
-                else:
-                    try:
-                        for table in ["payment_history", "messages", "farmer_verifications", "user_profiles", "user_scans", "marketplace_listings", "insurance_policies", "insurance_claims", "field_monitoring", "seller_profiles", "badge_subscriptions", "farmer_wallets", "user_feedback"]:
-                            try:
-                                supabase.table(table).delete().eq("user_id", uid).execute()
-                            except:
-                                pass
-                        supabase.auth.admin.delete_user(uid)
-                        st.success(f"User {selected_email} deleted.")
+            if st.button("🗑️ Delete User Permanently", type="secondary"):
+                st.warning("⚠️ This will delete ALL user data permanently.")
+                confirm = st.checkbox("I understand. Delete this user.")
+                if confirm:
+                    ok, err = delete_user_fully(uid)
+                    if ok:
+                        st.success("User deleted.")
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to delete: {e}")
+                    else:
+                        st.error(f"Failed: {err}")
+
+# ===== TAB 5: CREATE USER =====
+with tab5:
+    st.markdown("### ➕ Create New User")
+    with st.form("create_user"):
+        c1, c2 = st.columns(2)
+        with c1:
+            em = st.text_input("Email")
+            pw = st.text_input("Password", type="password")
+            fn = st.text_input("First Name")
+        with c2:
+            ln = st.text_input("Last Name")
+            ph = st.text_input("Phone")
+            stt = st.text_input("State")
+        
+        if st.form_submit_button("➕ Create"):
+            if not em or not pw:
+                st.error("Email and password required.")
+            elif len(pw) < 6:
+                st.error("Password must be 6+ characters.")
+            else:
+                ok, err = create_user(em, pw, fn, ln, ph, stt)
+                if ok:
+                    st.success(f"User {em} created with 30 free scans!")
+                    st.rerun()
+                else:
+                    st.error(err)
 
 # ===== NAVIGATION =====
 st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(9)
 with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
 with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")

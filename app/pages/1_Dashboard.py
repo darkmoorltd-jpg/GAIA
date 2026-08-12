@@ -120,3 +120,5 @@ with cols[7]:
     st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
 with cols[8]:
     st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[9]:
+    st.page_link("pages/21_Crop_Insurance.py", label="🏦 Insurance")

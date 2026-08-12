@@ -26,4 +26,5 @@ with cols[5]:
 with cols[6]:
     st.page_link("pages/10_Early_Warning.py", label="🛰️ Early Warning")
 with cols[7]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
+with cols[?]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

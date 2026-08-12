@@ -225,16 +225,36 @@ with tab1:
     if users:
         summary = []
         for u in users:
+            # Safe helper function
+            def safe_str(val, default="N/A"):
+                if val is None:
+                    return default
+                return str(val)
+            
+            def safe_date(val):
+                if val is None:
+                    return "N/A"
+                try:
+                    return str(val)[:10]
+                except:
+                    return "N/A"
+            
+            def safe_float(val, default=0.0):
+                try:
+                    return float(val) if val is not None else default
+                except:
+                    return default
+            
             summary.append({
-                "Email": u.get("email", ""),
-                "Name": f"{u.get('first_name','')} {u.get('last_name','')}".strip() or "N/A",
-                "Phone": u.get("phone", ""),
-                "State": u.get("state", ""),
-                "KYC": u.get("verification_status", "pending"),
-                "Scans": u.get("scans_remaining", 0),
-                "Plan": u.get("plan", "free"),
-                "Wallet": f"₦{float(u.get('wallet_balance', 0)):,.2f}",
-                "Joined": (u.get("created_at") or "")[:10] if u.get("created_at") else "N/A",
+                "Email": safe_str(u.get("email"), "N/A"),
+                "Name": f"{safe_str(u.get('first_name',''))} {safe_str(u.get('last_name',''))}".strip() or "N/A",
+                "Phone": safe_str(u.get("phone"), ""),
+                "State": safe_str(u.get("state"), ""),
+                "KYC": safe_str(u.get("verification_status"), "pending"),
+                "Scans": u.get("scans_remaining", 0) or 0,
+                "Plan": safe_str(u.get("plan"), "free"),
+                "Wallet": f"₦{safe_float(u.get('wallet_balance'), 0):,.2f}",
+                "Joined": safe_date(u.get("created_at")),
             })
         st.dataframe(pd.DataFrame(summary), use_container_width=True)
     else:

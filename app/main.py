@@ -443,6 +443,7 @@ verify_farmer_page = st.Page("pages/11_Verify_Farmer.py", title="Verify Farmer",
 verify_history_page = st.Page("pages/12_Verification_History.py", title="Verification History", icon="📋")
 wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
+insurance_page = st.Page("pages/21_Crop_Insurance.py", title="Crop Insurance", icon="🏦")
 
 pg = st.navigation({
     "🏠 GAIA": [dashboard_page, chat_page, marketplace_page],

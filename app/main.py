@@ -443,7 +443,6 @@ verify_history_page = st.Page("pages/12_Verification_History.py", title="Verific
 wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 
 voice_page = st.Page("pages/18_Voice_Agronomist.py", title="Voice Agronomist", icon="🎙️")
-video_page = satellite_page = st.Page("pages/19_Satellite.py", title="Satellite Monitor", icon="🛰️")
 warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
 buy_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 

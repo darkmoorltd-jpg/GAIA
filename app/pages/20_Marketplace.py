@@ -29,6 +29,18 @@ user = st.session_state.user
 db = get_db()
 service = get_service()
 
+
+# ===== SELLER PROFILE CHECK =====
+seller_profile = None
+try:
+    sp = db.table("seller_profiles").select("*").eq("user_id", user.id).execute()
+    seller_profile = sp.data[0] if sp.data else None
+except:
+    seller_profile = None
+
+has_seller_profile = seller_profile is not None
+
+
 # ===== SESSION STATE =====
 if "cart" not in st.session_state:
     st.session_state.cart = []
@@ -226,6 +238,70 @@ with tab1:
 with tab2:
     st.markdown("## 📝 List Your Produce for Sale")
     
+    # Check if seller profile exists
+    if not has_seller_profile:
+        st.warning("🔐 Complete your seller profile first before listing produce.")
+        
+        with st.form("seller_profile_form"):
+            st.markdown("### 👤 Seller Registration")
+            st.markdown("*Fill in all details to become a verified seller on GAIA Marketplace.*")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                full_name = st.text_input("👤 Full Name *", placeholder="e.g., Ibrahim Musa")
+                phone = st.text_input("📞 Phone Number *", placeholder="e.g., 08031234567")
+                whatsapp = st.text_input("💬 WhatsApp Number *", placeholder="e.g., 08031234567")
+                email = st.text_input("📧 Email Address *", value=user.email, disabled=False)
+            with col2:
+                address = st.text_input("🏠 Address *", placeholder="e.g., 12, Main Street")
+                state = st.text_input("🗺️ State *", placeholder="e.g., Kaduna")
+                lga = st.text_input("📍 LGA (Local Government Area)", placeholder="e.g., Kaduna North")
+                farm_location = st.text_input("🌾 Farm Location", placeholder="e.g., Birnin Yero Village")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                farm_size = st.number_input("📐 Farm Size (acres)", min_value=0.1, value=1.0, step=0.5)
+            with col2:
+                years_exp = st.number_input("📅 Years of Experience", min_value=0, max_value=70, value=1)
+            with col3:
+                primary_crops = st.text_input("🌾 Primary Crops", placeholder="e.g., Maize, Rice, Beans")
+            
+            # Photo upload
+            profile_photo = st.file_uploader("📸 Profile Photo (optional)", type=["jpg","jpeg","png"])
+            
+            submitted = st.form_submit_button("✅ Register as Seller", type="primary", use_container_width=True)
+            
+            if submitted:
+                if not full_name or not phone or not whatsapp or not address or not state:
+                    st.error("❌ Please fill in all required fields (marked with *).")
+                else:
+                    try:
+                        db.table("seller_profiles").insert({
+                            "user_id": user.id,
+                            "full_name": full_name.strip(),
+                            "phone": phone.strip(),
+                            "whatsapp": whatsapp.strip(),
+                            "email": email.strip(),
+                            "address": address.strip(),
+                            "state": state.strip(),
+                            "lga": lga.strip() if lga else None,
+                            "farm_location": farm_location.strip() if farm_location else None,
+                            "farm_size_acres": farm_size,
+                            "years_experience": years_exp,
+                            "primary_crops": primary_crops.strip() if primary_crops else None
+                        }).execute()
+                        st.success("✅ Seller profile created! You can now list your produce.")
+                        st.balloons()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {str(e)[:200]}")
+        st.stop()
+    
+    # Seller profile exists – show listing form with seller info
+    st.success(f"✅ Registered as: **{seller_profile.get('full_name','')}** | 📞 {seller_profile.get('phone','')} | 📧 {seller_profile.get('email','')}")
+    
+    with st.form("sell_produce_form"):
+    
     with st.form("sell_produce_form"):
         col1, col2 = st.columns(2)
         with col1:
@@ -247,9 +323,10 @@ with tab2:
                 st.error("❌ Crop name, location, and state are required.")
             else:
                 try:
-                    profile = db.table("user_profiles").select("first_name,last_name").eq("user_id", user.id).execute()
-                    pd = profile.data[0] if profile.data else {}
-                    farmer_name = f"{pd.get('first_name','')} {pd.get('last_name','')}".strip() or user.email.split('@')[0]
+                    # Use seller profile info
+                    farmer_name = seller_profile.get('full_name', user.email.split('@')[0])
+                    farmer_phone = seller_profile.get('phone', '')
+                    farmer_whatsapp = seller_profile.get('whatsapp', '')
                     
                     db.table("marketplace_listings").insert({
                         "user_id": user.id,
@@ -264,7 +341,9 @@ with tab2:
                         "organic": organic,
                         "harvest_date": harvest_date.isoformat(),
                         "status": "active",
-                        "farmer": farmer_name
+                        "farmer": farmer_name,
+                        "phone": farmer_phone,
+                        "whatsapp": farmer_whatsapp
                     }).execute()
                     st.success(f"✅ Your {crop_name} has been listed!")
                     st.balloons()

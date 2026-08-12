@@ -213,7 +213,7 @@ else:
 # ---------- Quick Navigation ----------
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(9)
+cols = st.columns(10)
 with cols[0]:
     st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
 with cols[1]:

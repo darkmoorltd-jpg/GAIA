@@ -248,7 +248,7 @@ if st.session_state.farmer_memory:
 
 # ===== NAVIGATION =====
 st.markdown("---")
-cols = st.columns(9)
+cols = st.columns(10)
 with cols[0]: st.page_link("pages/1_Dashboard.py", label="Dashboard")
 with cols[1]: st.page_link("pages/2_Crops.py", label="Crops")
 with cols[2]: st.page_link("pages/3_Pests.py", label="Pests")

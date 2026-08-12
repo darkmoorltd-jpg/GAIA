@@ -199,7 +199,7 @@ cols[5].page_link("pages/9_Buy_Scans.py", label="Buy Scans")
 # ---------- Quick Navigation ----------
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(9)
+cols = st.columns(10)
 with cols[0]:
     st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
 with cols[1]:

@@ -437,6 +437,7 @@ payment_history_page = st.Page("pages/6_Payment_History.py", title="Payment Hist
 admin_page = st.Page("pages/7_Admin.py", title="Admin Dashboard", icon="🔐")
 profile_page = st.Page("pages/8_Profile.py", title="My Profile", icon="👤")
 chat_page = st.Page("pages/16_Chat.py", title="Chat", icon="💬")
+marketplace_page = st.Page("pages/20_Marketplace.py", title="Marketplace", icon="🌍")
 help_page = st.Page("pages/13_Help.py", title="Help & Support", icon="🆘")
 verify_farmer_page = st.Page("pages/11_Verify_Farmer.py", title="Verify Farmer", icon="🛡️")
 verify_history_page = st.Page("pages/12_Verification_History.py", title="Verification History", icon="📋")
@@ -444,7 +445,7 @@ wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
 
 pg = st.navigation({
-    "🏠 GAIA": [dashboard_page, chat_page],
+    "🏠 GAIA": [dashboard_page, chat_page, marketplace_page],
     "🔬 Diagnose": [crops_page, pests_page, soil_page, livestock_page],
     "🤖 AI Tools": [voice_page, video_page, satellite_page, early_warning_page],
     "💳 Account": [buy_scans_page, payment_history_page, profile_page, verify_farmer_page, verify_history_page, wallet_page, badges_page],

@@ -146,7 +146,6 @@ if files:
     deduct_one_scan()
 
 st.markdown("---")
-st.markdown("
 
 
 # ---------- Quick Navigation ----------

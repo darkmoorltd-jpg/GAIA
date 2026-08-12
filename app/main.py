@@ -427,24 +427,20 @@ crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")
 soil_page      = st.Page("pages/4_Soil.py", title="Soil Analysis", icon="🏞️")
 livestock_page = st.Page("pages/5_Livestock.py", title="Livestock Health", icon="🐄")
-video_page     = satellite_page = st.Page("pages/19_Satellite.py", title="Satellite Monitor", icon="🛰️")
+video_page     = st.Page("pages/17_Video_Scan.py", title="Video Scanner", icon="🎥")
+satellite_page = st.Page("pages/19_Satellite.py", title="Satellite Monitor", icon="🛰️")
+voice_page     = st.Page("pages/18_Voice_Agronomist.py", title="Voice Agronomist", icon="🎙️")
+early_warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
+buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 payment_history_page = st.Page("pages/6_Payment_History.py", title="Payment History", icon="💳")
 admin_page = st.Page("pages/7_Admin.py", title="Admin Dashboard", icon="🔐")
 profile_page = st.Page("pages/8_Profile.py", title="My Profile", icon="👤")
-buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
-
-
-early_warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
-badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
 chat_page = st.Page("pages/16_Chat.py", title="Chat", icon="💬")
 help_page = st.Page("pages/13_Help.py", title="Help & Support", icon="🆘")
 verify_farmer_page = st.Page("pages/11_Verify_Farmer.py", title="Verify Farmer", icon="🛡️")
 verify_history_page = st.Page("pages/12_Verification_History.py", title="Verification History", icon="📋")
 wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
-
-voice_page = st.Page("pages/18_Voice_Agronomist.py", title="Voice Agronomist", icon="🎙️")
-warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
-buy_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
+badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
 
 pg = st.navigation({
     "🏠 GAIA": [dashboard_page, chat_page],

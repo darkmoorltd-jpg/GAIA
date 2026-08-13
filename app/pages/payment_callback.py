@@ -76,6 +76,20 @@ try:
             service_client.table("pending_payments").update({"status": "completed"}).eq("reference", reference).execute()
             
             st.success(f"✅ Payment successful! {scans_to_add} scans added to your account.")
+
+# Send SMS receipt via Termii
+try:
+    from app.utils.sms_util import send_payment_receipt_sms
+    user_profile = service_client.table("user_profiles").select("phone").eq("user_id", user_id).execute()
+    user_phone = user_profile.data[0].get("phone", "") if user_profile.data else ""
+    if user_phone:
+        sms_ok, sms_err = send_payment_receipt_sms(user_phone, amount_paid, reference, plan)
+        if sms_ok:
+            st.success("📱 SMS receipt sent!")
+        else:
+            st.warning(f"SMS: {sms_err}")
+except Exception as sms_e:
+    st.warning(f"SMS error: {str(sms_e)[:100]}")
             st.markdown(f"Amount paid: ${amount_paid:.2f}")
             st.markdown(f"Reference: {reference}")
             st.markdown("[Go to Dashboard](/~/)")

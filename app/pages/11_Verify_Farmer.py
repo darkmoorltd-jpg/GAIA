@@ -139,7 +139,7 @@ else:
                 PaystackPop.setup({{
                     key: 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057',
                     email: '{user.email}',
-                    phone: '{normalize_phone(user_phone)}',  // Placeholder — will be replaced by user phone
+                    phone: '{normalize_phone(user_phone) if user_phone else "08000000000"}',
 
                     amount: 50000,
                     currency: 'NGN',

@@ -322,12 +322,21 @@ with st.sidebar:
         
         if st.button("💳 Checkout (Escrow)", type="primary", use_container_width=True):
             ref = f"GAIA_MARKET_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
-            components.html(f"""
+            
+        # Fetch user phone for SMS receipt
+        try:
+            profile_res = db.table("user_profiles").select("phone").eq("user_id", user.id).execute()
+            user_phone = profile_res.data[0].get("phone", "") if profile_res.data else ""
+        except:
+            user_phone = ""
+        
+        components.html(f"""
             <script src="https://js.paystack.co/v1/inline.js"></script>
             <script>
                 PaystackPop.setup({{
                     key: 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057',
                     email: '{user.email}',
+                    phone: '{user_phone}',
                     amount: {total * 100},
                     currency: 'NGN',
                     ref: '{ref}',

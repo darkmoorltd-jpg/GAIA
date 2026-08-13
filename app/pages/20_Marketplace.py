@@ -378,12 +378,21 @@ with st.expander(f"🛒 Cart ({len(st.session_state.cart)} items)", expanded=len
         st.markdown(f"**Total: ₦{total:,}**")
         if st.button("💳 Pay with Paystack", use_container_width=True):
             ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:8]}"
-            components.html(f"""
+            
+        # Fetch user phone for SMS receipt
+        try:
+            profile_res = db.table("user_profiles").select("phone").eq("user_id", user.id).execute()
+            user_phone = profile_res.data[0].get("phone", "") if profile_res.data else ""
+        except:
+            user_phone = ""
+        
+        components.html(f"""
             <script src="https://js.paystack.co/v1/inline.js"></script>
             <script>
                 PaystackPop.setup({{
                     key: '{PAYSTACK_PUBLIC}',
                     email: '{user.email}',
+                    phone: '{user_phone}',
                     amount: {total * 100},
                     currency: 'NGN',
                     ref: '{ref}',

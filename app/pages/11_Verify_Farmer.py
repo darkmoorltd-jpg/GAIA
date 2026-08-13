@@ -240,7 +240,7 @@ with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
 with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
 with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
 with cols[5]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[?]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[6]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
 
 
 # ---------- Quick Navigation ----------

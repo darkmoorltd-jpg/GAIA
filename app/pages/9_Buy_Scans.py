@@ -110,11 +110,6 @@ if st.session_state.plan:
     st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
 
     
-        # Fetch user phone for SMS receipt
-        try:
-            profile_res = db.table("user_profiles").select("phone").eq("user_id", user.id).execute()
-            user_phone = profile_res.data[0].get("phone", "") if profile_res.data else ""
-        except:
             user_phone = ""
         
         components.html(f"""
@@ -139,7 +134,7 @@ if st.session_state.plan:
                 PaystackPop.setup({{
                     key: '{PAYSTACK_PUBLIC}',
                     email: '{user.email}',
-                    phone: '08000000000',  // Placeholder — will be replaced by user phone
+                    phone: '08000000000',
 
                     amount: {p['kobo']},
                     currency: 'NGN',

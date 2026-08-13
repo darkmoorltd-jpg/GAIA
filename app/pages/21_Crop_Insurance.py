@@ -1,4 +1,3 @@
-
 import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
@@ -7,13 +6,11 @@ import uuid
 from app.utils.phone_util import normalize_phone
 import requests
 
-# ===== CONFIG =====
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_PUBLIC = "pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057"
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
-PULA_API_KEY = st.secrets.get("pula", {}).get("api_key", "")
 
 @st.cache_resource
 def get_db():
@@ -33,35 +30,11 @@ user = st.session_state.user
 db = get_db()
 service = get_service()
 
-# ===== SESSION STATE =====
-if "insurance_tab" not in st.session_state:
-    st.session_state.insurance_tab = "overview"
-
-# ===== INSURANCE PLANS =====
 INSURANCE_PLANS = {
     "basic": {"name": "Basic Cover", "premium": 500, "coverage": 50000, "crops": ["Maize", "Rice", "Beans"], "duration": "6 months"},
     "standard": {"name": "Standard Cover", "premium": 1000, "coverage": 100000, "crops": ["Maize", "Rice", "Beans", "Yam", "Cassava"], "duration": "12 months"},
     "premium": {"name": "Premium Cover", "premium": 2000, "coverage": 200000, "crops": ["All crops"], "duration": "12 months"},
 }
-
-# ===== PULA API INTEGRATION =====
-def register_with_pula(policy_data):
-    """Register policy with Pula if API key exists."""
-    if not PULA_API_KEY:
-        return None, "Pula API not configured"
-    
-    try:
-        resp = requests.post(
-            "https://api.pula.io/v1/policies",
-            headers={"Authorization": f"Bearer {PULA_API_KEY}", "Content-Type": "application/json"},
-            json=policy_data,
-            timeout=15
-        )
-        if resp.status_code == 200:
-            return resp.json(), None
-        return None, f"Pula error: {resp.status_code}"
-    except Exception as e:
-        return None, str(e)
 
 def verify_paystack(ref):
     r = requests.get(f"https://api.paystack.co/transaction/verify/{ref}",
@@ -72,7 +45,6 @@ def verify_paystack(ref):
             return {"ok": True, "amount": d["data"]["amount"] / 100}
     return {"ok": False}
 
-# ===== FETCH USER POLICIES =====
 try:
     policies_res = db.table("insurance_policies").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
     my_policies = policies_res.data if policies_res.data else []
@@ -81,11 +53,124 @@ except:
 
 active_policy = next((p for p in my_policies if p.get("status") == "active"), None)
 
-# ===== STYLING =====
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .stApp { background: linear-gradient(160deg, #e8f5e9 0%, #f1f8e9 50%, #fffde7 100%); color: #1b5e20; }
+    header, footer { visibility: hidden; }
+    .insurance-title {
+        font-size: 2.8rem; font-weight: 800; text-align: center;
+        background: linear-gradient(135deg, #1b5e20, #4caf50, #1b5e20);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .subtitle { text-align: center; color: #607d8b; font-size: 1.1rem; margin-bottom: 2rem; }
+    .plan-card {
+        background: #fff; border-radius: 20px; padding: 2rem;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.06); text-align: center;
+        border: 2px solid transparent; transition: all 0.3s;
+    }
+    .plan-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(46,125,50,0.15); }
+    .plan-name { font-size: 1.2rem; font-weight: 700; color: #546e7a; }
+    .plan-premium { font-size: 2.5rem; font-weight: 900; color: #1b5e20; margin: 0.5rem 0; }
+    .plan-premium small { font-size: 0.8rem; color: #78909c; font-weight: 400; }
+    .plan-coverage { font-size: 1rem; color: #2e7d32; font-weight: 600; }
+    .stButton button {
+        background: #2e7d32 !important; color: #fff !important;
+        border: none !important; border-radius: 10px !important;
+        padding: 12px 28px !important; font-weight: 600 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# ============================================
-# FULL NAVIGATION
-# ============================================
+st.markdown('<div class="insurance-title">🏦 Crop Insurance</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Your farm is covered. GAIA monitors your field and files claims automatically.</div>', unsafe_allow_html=True)
+
+tab1, tab2, tab3, tab4 = st.tabs(["📋 My Policies", "🛡️ Get Insurance", "📸 Field Monitoring", "📝 File Claim"])
+
+with tab1:
+    if not my_policies:
+        st.info("🏦 You don't have any insurance policies yet. Go to **Get Insurance** to protect your farm.")
+    else:
+        for policy in my_policies:
+            status = policy.get("status", "active")
+            status_emoji = {"active": "🟢", "expired": "🔴", "cancelled": "⚫"}.get(status, "⚪")
+            with st.expander(f"{status_emoji} Policy #{policy.get('policy_number','?')} — {policy.get('crop','')} ({status.upper()})"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**Crop:** {policy.get('crop','')}")
+                    st.write(f"**Field Location:** {policy.get('field_location','N/A')}")
+                    st.write(f"**Field Size:** {policy.get('field_size_acres','N/A')} acres")
+                with col2:
+                    st.write(f"**Coverage:** ₦{policy.get('coverage_amount',0):,}")
+                    st.write(f"**Premium:** ₦{policy.get('premium_monthly',0):,}/month")
+                    st.write(f"**Start:** {str(policy.get('start_date',''))[:10]}")
+                    st.write(f"**End:** {str(policy.get('end_date',''))[:10]}")
+
+with tab2:
+    if active_policy:
+        st.success(f"✅ You have an active policy for **{active_policy.get('crop','')}** — coverage ₦{active_policy.get('coverage_amount',0):,}")
+    else:
+        st.markdown("### Choose Your Coverage Plan")
+        
+        cols = st.columns(3)
+        for i, (plan_key, plan) in enumerate(INSURANCE_PLANS.items()):
+            with cols[i]:
+                st.markdown(f"""
+                <div class="plan-card">
+                    <div class="plan-name">{plan['name']}</div>
+                    <div class="plan-premium">₦{plan['premium']:,}<small>/mo</small></div>
+                    <div class="plan-coverage">Coverage: ₦{plan['coverage']:,}</div>
+                    <p style="font-size:0.8rem;color:#888;">Crops: {', '.join(plan['crops'])}</p>
+                    <p style="font-size:0.8rem;color:#888;">Duration: {plan['duration']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button(f"Select {plan['name']}", key=f"plan_{plan_key}", use_container_width=True):
+                    st.session_state.selected_insurance_plan = plan_key
+                    st.rerun()
+        
+        if "selected_insurance_plan" in st.session_state:
+            selected = st.session_state.selected_insurance_plan
+            plan = INSURANCE_PLANS[selected]
+            st.markdown("---")
+            st.markdown(f"### Selected: {plan['name']} — ₦{plan['premium']:,}/month")
+            
+            with st.form("insurance_form"):
+                crop = st.selectbox("Crop to Insure", plan['crops'])
+                field_location = st.text_input("Field Location")
+                field_size = st.number_input("Field Size (acres)", min_value=1, value=1)
+                
+                if st.form_submit_button("💳 Pay Premium", type="primary", use_container_width=True):
+                    ref = f"GAIA_INS_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
+                    components.html(f"""
+                    <script src="https://js.paystack.co/v1/inline.js"></script>
+                    <script>
+                        PaystackPop.setup({{
+                            key: '{PAYSTACK_PUBLIC}',
+                            email: '{user.email}',
+                            amount: {plan['premium'] * 100},
+                            currency: 'NGN',
+                            ref: '{ref}',
+                            label: 'GAIA {plan['name']}',
+                            callback: function(response) {{
+                                window.location.href = '/~/callback?reference=' + response.reference + '&plan={selected}';
+                            }}
+                        }}).openIframe();
+                    </script>
+                    """, height=150)
+
+with tab3:
+    st.markdown("### 📸 Field Monitoring")
+    st.info("Upload field photos for GAIA to monitor crop health and file claims automatically.")
+
+with tab4:
+    st.markdown("### 📝 File a Claim")
+    st.info("Claim filing feature coming soon.")
+
+st.markdown("---")
+st.caption("Powered by Darkmoor Ltd")
+
 st.markdown("---")
 st.markdown("### Quick Navigation")
 cols = st.columns(10)

@@ -164,189 +164,33 @@ def calculate_vegetation_health(ndvi_img):
 st.set_page_config(page_title="GAIA – Satellite Monitoring", page_icon="🛰️", layout="wide")
 
 # ===== THEME TOGGLE =====
-st.markdown("""
-<style>
-    .stToggle > label { display: none !important; }
-    .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
-    .stToggle > div { transform: scale(1.3); }
-</style>
-""", unsafe_allow_html=True)
-
-dark_mode = st.toggle("", value=False, key="satellite_theme_toggle")
-theme = "dark" if dark_mode else "light"
-
-# ===== THEME CSS =====
-if theme == "dark":
-    st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        .stApp { background: linear-gradient(135deg, #0a0e1a 0%, #111827 50%, #0a0e1a 100%); color: #e2e8f0; }
-        header, footer { visibility: hidden; }
-        .title { font-size: 3rem; font-weight: 800; text-align: center; background: linear-gradient(135deg, #6366f1, #818cf8, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.3rem; }
-        .subtitle { text-align: center; font-size: 1.1rem; color: #94a3b8; margin-bottom: 2rem; }
-        .stat-box { background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 16px; padding: 1.5rem; text-align: center; }
-        .stat-number { font-size: 2rem; font-weight: 700; color: #818cf8; }
-        .stat-label { font-size: 0.85rem; color: #94a3b8; margin-top: 4px; }
-        .satellite-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 1.5rem; margin: 1rem 0; backdrop-filter: blur(20px); }
-        .stButton button { background: linear-gradient(135deg, #6366f1, #818cf8) !important; color: #fff !important; border: none !important; border-radius: 12px !important; padding: 12px 28px !important; font-weight: 600 !important; font-size: 1rem !important; transition: all 0.3s !important; }
-        .stButton button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(99,102,241,0.4); }
-    </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        .stApp { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: #1e293b; }
-        header, footer { visibility: hidden; }
-        .title { font-size: 3rem; font-weight: 800; text-align: center; background: linear-gradient(135deg, #4f46e5, #6366f1, #4f46e5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.3rem; }
-        .subtitle { text-align: center; font-size: 1.1rem; color: #64748b; margin-bottom: 2rem; }
-        .stat-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .stat-number { font-size: 2rem; font-weight: 700; color: #4f46e5; }
-        .stat-label { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
-        .satellite-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 1.5rem; margin: 1rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .stButton button { background: #4f46e5 !important; color: #fff !important; border: none !important; border-radius: 12px !important; padding: 12px 28px !important; font-weight: 600 !important; font-size: 1rem !important; }
-        .stButton button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(79,70,229,0.3); }
-    </style>
-    """, unsafe_allow_html=True)
-
-# ===== UI =====
-st.markdown('<div class="title">🛰️ Satellite Field Monitor</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">See your farm from space — vegetation health, crop stress, and field conditions updated every 5 days</div>', unsafe_allow_html=True)
-st.info("💡 **Tip:** Satellite images work best during the dry season (Nov–Apr) when clouds are minimal. During the rainy season, some days may show cloud cover.")
-
-# ===== LOCATION INPUT =====
-col1, col2, col3 = st.columns([1, 1, 1])
-with col1:
-    lat = st.number_input("📍 Latitude", value=7.7270, format="%.4f", help="Enter your farm's latitude")
-with col2:
-    lon = st.number_input("📍 Longitude", value=8.5390, format="%.4f", help="Enter your farm's longitude")
-with col3:
-    layer_type = st.selectbox("🔬 Analysis Type", ["TRUE_COLOR", "NDVI", "MOISTURE", "CROP_STRESS"], 
-                              help="TRUE_COLOR: Natural photo | NDVI: Plant health | MOISTURE: Water content | CROP_STRESS: Problem areas")
-
-# ===== INTERACTIVE MAP =====
-st.markdown("### 🗺️ Click on the Map to Select Your Farm")
-m = folium.Map(location=[lat, lon], zoom_start=14)
-m.add_child(folium.LatLngPopup())
-folium.Marker([lat, lon], popup="Your Farm", tooltip="Selected Location").add_to(m)
-map_data = st_folium(m, width=700, height=350)
-
-if map_data and map_data.get("last_clicked"):
-    lat = map_data["last_clicked"]["lat"]
-    lon = map_data["last_clicked"]["lng"]
-    st.success(f"📍 Selected: {lat:.4f}, {lon:.4f}")
-
-# ===== FETCH IMAGERY =====
-if st.button("🛰️ Capture Satellite Image", type="primary"):
-    with st.spinner("📡 Tasking Sentinel-2 satellite... This may take 10-15 seconds."):
-        img, error = fetch_satellite_image(lat, lon, layers=layer_type)
-    
-    if error:
-        st.error(f"❌ Satellite data unavailable: {error}")
-        st.info("💡 Try: 1) Adjusting location slightly  2) Waiting for cloud-free day  3) Using demo mode below")
-        
-        # DEMO MODE — show sample imagery
-        st.markdown("---")
-        st.markdown("### 🎨 Demo Mode — Sample Satellite View")
-        demo_urls = {
-            "TRUE_COLOR": "https://images.unsplash.com/photo-1488747279002-c8523379faaa?w=800",
-            "NDVI": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/NDVI_example.jpg/800px-NDVI_example.jpg",
-            "MOISTURE": "https://images.unsplash.com/photo-1586771107445-b3f0a0a0e1a5?w=800",
-            "CROP_STRESS": "https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=800"
-        }
-        st.image(demo_urls.get(layer_type, demo_urls["TRUE_COLOR"]), caption=f"Sample {layer_type} imagery", use_container_width=True)
-    else:
-        st.markdown('<div class="satellite-card">', unsafe_allow_html=True)
-        st.image(img, caption=f"Sentinel-2 {layer_type} — {lat:.4f}, {lon:.4f}", use_container_width=True)
-        
-        # If NDVI, calculate vegetation health
-        if layer_type == "NDVI":
-            health = calculate_vegetation_health(img)
-            
-            col1, col2, col3, col4, col5 = st.columns(5)
-            col1.markdown(f'<div class="stat-box"><div class="stat-number">{health["avg_ndvi"]:.3f}</div><div class="stat-label">Average NDVI</div></div>', unsafe_allow_html=True)
-            col2.markdown(f'<div class="stat-box"><div class="stat-number">{health["healthy_pct"]:.0f}%</div><div class="stat-label">Healthy Vegetation</div></div>', unsafe_allow_html=True)
-            col3.markdown(f'<div class="stat-box"><div class="stat-number">{health["moderate_pct"]:.0f}%</div><div class="stat-label">Moderate</div></div>', unsafe_allow_html=True)
-            col4.markdown(f'<div class="stat-box"><div class="stat-number">{health["stressed_pct"]:.0f}%</div><div class="stat-label">Stressed</div></div>', unsafe_allow_html=True)
-            col5.markdown(f'<div class="stat-box"><div class="stat-number">{health["health_status"]}</div><div class="stat-label">Overall Health</div></div>', unsafe_allow_html=True)
-            
-            # Recommendations based on health
-            if health["avg_ndvi"] < 0.2:
-                st.warning("⚠️ Your field shows significant stress. Consider: 1) Soil testing 2) Irrigation check 3) Pest/disease inspection")
-            elif health["avg_ndvi"] < 0.4:
-                st.info("💡 Your field is doing okay but could improve. Check fertilizer application and irrigation timing.")
-            else:
-                st.success("✅ Your field looks healthy! Continue your current practices.")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ===== NDVI SCALE EXPLANATION =====
-with st.expander("📊 Understanding NDVI Values", expanded=False):
-    st.markdown("""
-    | NDVI Range | Health Status | What It Means |
-    |------------|---------------|---------------|
-    | **0.6 – 1.0** | 🟢 Excellent | Dense, healthy vegetation. Crops thriving. |
-    | **0.4 – 0.6** | 🟡 Good | Moderate vegetation. Some areas may need attention. |
-    | **0.2 – 0.4** | 🟠 Stressed | Sparse or stressed vegetation. Possible nutrient/water issues. |
-    | **0.0 – 0.2** | 🔴 Poor | Very little vegetation. Bare soil or severely stressed crops. |
-    | **< 0.0** | ⚫ Barren | No vegetation. Water, rock, or bare soil. |
-    
-    **NDVI** (Normalized Difference Vegetation Index) is the gold standard for measuring crop health from space.
-    Healthy plants reflect near-infrared light and absorb red light. NDVI captures this difference.
-    """)
-
-# ===== NAVIGATION =====
-st.markdown("---")
-st.markdown("
 
 # ============================================
-# FULL NAVIGATION — ALL PAGES
+# FULL NAVIGATION
 # ============================================
 st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
+st.markdown("### Quick Navigation")
 cols = st.columns(10)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]:
-    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]:
-    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
-with cols[9]:
-    st.page_link("pages/10_Early_Warning.py", label="⚠️ Alerts")
+with cols[0]: st.page_link("pages/1_Dashboard.py", label="Dashboard")
+with cols[1]: st.page_link("pages/2_Crops.py", label="Crops")
+with cols[2]: st.page_link("pages/3_Pests.py", label="Pests")
+with cols[3]: st.page_link("pages/4_Soil.py", label="Soil")
+with cols[4]: st.page_link("pages/5_Livestock.py", label="Livestock")
+with cols[5]: st.page_link("pages/17_Video_Scan.py", label="Video Scan")
+with cols[6]: st.page_link("pages/19_Satellite.py", label="Satellite")
+with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="Voice AI")
+with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="Buy Scans")
+with cols[9]: st.page_link("pages/10_Early_Warning.py", label="Alerts")
 
-st.markdown("### 📱 More Features")
+st.markdown("### More Features")
 cols2 = st.columns(10)
-with cols2[0]:
-    st.page_link("pages/11_Verify_Farmer.py", label="🛡️ Verify")
-with cols2[1]:
-    st.page_link("pages/12_Verification_History.py", label="📋 History")
-with cols2[2]:
-    st.page_link("pages/14_Wallet.py", label="💰 Wallet")
-with cols2[3]:
-    st.page_link("pages/15_Badges.py", label="🏅 Badges")
-with cols2[4]:
-    st.page_link("pages/16_Chat.py", label="💬 Chat")
-with cols2[5]:
-    st.page_link("pages/20_Marketplace.py", label="🌍 Market")
-with cols2[6]:
-    st.page_link("pages/21_Crop_Insurance.py", label="🏦 Insurance")
-with cols2[7]:
-    st.page_link("pages/6_Payment_History.py", label="💳 Payments")
-with cols2[8]:
-    st.page_link("pages/8_Profile.py", label="👤 Profile")
-with cols2[9]:
-    st.page_link("pages/13_Help.py", label="🆘 Help")
+with cols2[0]: st.page_link("pages/11_Verify_Farmer.py", label="Verify")
+with cols2[1]: st.page_link("pages/12_Verification_History.py", label="History")
+with cols2[2]: st.page_link("pages/14_Wallet.py", label="Wallet")
+with cols2[3]: st.page_link("pages/15_Badges.py", label="Badges")
+with cols2[4]: st.page_link("pages/16_Chat.py", label="Chat")
+with cols2[5]: st.page_link("pages/20_Marketplace.py", label="Market")
+with cols2[6]: st.page_link("pages/21_Crop_Insurance.py", label="Insurance")
+with cols2[7]: st.page_link("pages/6_Payment_History.py", label="Payments")
+with cols2[8]: st.page_link("pages/8_Profile.py", label="Profile")
+with cols2[9]: st.page_link("pages/13_Help.py", label="Help")

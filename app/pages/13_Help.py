@@ -11,37 +11,22 @@ def get_service():
 
 def upload_file_to_supabase(file_bytes, filename):
     """Upload file to Supabase Storage and return URL."""
-    import uuid
     supabase = get_service()
     clean_name = "attachment_" + uuid.uuid4().hex[:10] + ".bin"
     
     try:
-        # Try direct upload first
-        supabase.storage.from_("support_attachments").upload(
-            path=clean_name,
-            file=file_bytes,
-            file_options={"content-type": "application/octet-stream"}
-        )
+        supabase.storage.from_("support_attachments").upload(clean_name, file_bytes)
         url = supabase.storage.from_("support_attachments").get_public_url(clean_name)
         return url, None
     except Exception as e:
-        # Try creating bucket via SQL approach
         try:
-            supabase.table("storage.buckets").insert({"id": "support_attachments", "name": "support_attachments", "public": True}).execute()
-        except:
-            pass
-        
-        # Retry upload
-        try:
-            supabase.storage.from_("support_attachments").upload(
-                path=clean_name,
-                file=file_bytes,
-                file_options={"content-type": "application/octet-stream"}
-            )
+            supabase.storage.create_bucket("support_attachments", {"public": True})
+            supabase.storage.from_("support_attachments").upload(clean_name, file_bytes)
             url = supabase.storage.from_("support_attachments").get_public_url(clean_name)
             return url, None
         except Exception as e2:
             return None, f"Upload failed: {str(e2)[:200]}"
+
 st.set_page_config(page_title="GAIA – Help & Support", page_icon="💬", layout="wide")
 
 if "user" not in st.session_state or st.session_state.user is None:
@@ -56,6 +41,8 @@ st.markdown("""
     .stApp { background: linear-gradient(135deg, #f5f7fa, #e8f5e9); color: #1b5e20; }
     header, footer { visibility: hidden; }
     .title { font-size: 2.5rem; font-weight: 800; text-align: center; color: #2e7d32; }
+    .msg-user { background: #e8f5e9; padding: 10px 15px; border-radius: 12px; margin: 5px 0; margin-left: 40px; border-left: 4px solid #4caf50; }
+    .msg-admin { background: #fff3e0; padding: 10px 15px; border-radius: 12px; margin: 5px 0; margin-right: 40px; border-left: 4px solid #ff9800; }
     .stButton button { background: #2e7d32 !important; color: #fff !important; border: none !important; border-radius: 8px !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -97,11 +84,13 @@ with tab1:
 
 with tab2:
     st.markdown("### My Support Tickets")
+    
     try:
         tickets = supabase.table("support_tickets").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
         my_tickets = tickets.data if tickets.data else []
-    except:
+    except Exception as e:
         my_tickets = []
+        st.warning(f"Could not load tickets: {str(e)[:100]}")
     
     if not my_tickets:
         st.info("No tickets yet.")
@@ -109,10 +98,53 @@ with tab2:
         for ticket in my_tickets:
             status = ticket.get("status", "open")
             emoji = "🟠" if status == "open" else "✅"
-            with st.expander(f"{emoji} {ticket.get('subject','')} — {str(ticket.get('created_at',''))[:16]}"):
-                st.markdown(f"**Message:** {ticket.get('message','')}")
+            ticket_id = ticket.get("id")
+            
+            with st.expander(f"{emoji} {ticket.get('subject','')} — {str(ticket.get('created_at',''))[:16]}", expanded=True):
+                # Original message
+                st.markdown(f"**You wrote:** {ticket.get('message','')}")
+                
+                # Attachment
                 if ticket.get("attachment_url"):
                     st.markdown(f"[📎 Download Attachment]({ticket['attachment_url']})")
+                
+                st.markdown("---")
+                st.markdown("**Conversation:**")
+                
+                # Fetch all replies for this ticket
+                try:
+                    replies = supabase.table("support_replies").select("*").eq("ticket_id", ticket_id).order("created_at").execute()
+                    reply_list = replies.data if replies.data else []
+                except Exception as e:
+                    reply_list = []
+                
+                # Display conversation in order
+                if reply_list:
+                    for reply in reply_list:
+                        if reply.get("is_admin"):
+                            st.markdown(f'<div class="msg-admin"><strong>🔐 GAIA Team:</strong><br>{reply.get("message","")}</div>', unsafe_allow_html=True)
+                        else:
+                            st.markdown(f'<div class="msg-user"><strong>👤 You:</strong><br>{reply.get("message","")}</div>', unsafe_allow_html=True)
+                else:
+                    st.info("No replies yet. The GAIA team will respond soon.")
+                
+                # User can add reply
+                st.markdown("---")
+                with st.form(f"user_reply_form_{ticket_id}"):
+                    user_reply = st.text_area("Add a reply", key=f"user_reply_text_{ticket_id}", height=60)
+                    if st.form_submit_button("📤 Send Reply"):
+                        if user_reply.strip():
+                            try:
+                                supabase.table("support_replies").insert({
+                                    "ticket_id": ticket_id,
+                                    "sender_id": user.id,
+                                    "is_admin": False,
+                                    "message": user_reply.strip()
+                                }).execute()
+                                st.success("Reply sent!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Failed to send reply: {e}")
 
 st.markdown("---")
 st.caption("GAIA Support Team — darkmoorltd@gmail.com | Powered by Darkmoor Ltd")

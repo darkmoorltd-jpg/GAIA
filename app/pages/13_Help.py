@@ -13,35 +13,32 @@ def get_service():
 
 def upload_file_to_supabase(file_bytes, filename):
     """Upload file to Supabase Storage and return URL."""
+    import uuid as uuid_module
     supabase = get_service()
     
-    # Clean the filename – remove special characters, spaces
-    clean_name = str(filename).replace(" ", "_").replace("/", "_").replace("\\", "_").replace(":", "_")
-    unique_name = f"{uuid.uuid4().hex[:12]}_{clean_name}"
+    # Generate a clean, ASCII-only filename
+    clean_name = "attachment_" + uuid_module.uuid4().hex[:10] + ".bin"
     
     try:
-        # Try to upload with proper body format
-        supabase.storage.from_("support_attachments").upload(
-            path=unique_name,
-            file=file_bytes,
-            file_options={"content-type": "application/octet-stream"}
+        # Upload with explicit string path
+        result = supabase.storage.from_("support_attachments").upload(
+            clean_name,
+            file_bytes
         )
-        url = supabase.storage.from_("support_attachments").get_public_url(unique_name)
+        url = supabase.storage.from_("support_attachments").get_public_url(clean_name)
         return url, None
     except Exception as e:
-        # If bucket doesn't exist, try to create it
+        # Create bucket and retry
         try:
             supabase.storage.create_bucket("support_attachments", {"public": True})
-            # Retry upload with body string format
-            supabase.storage.from_("support_attachments").upload(
-                path=unique_name,
-                file=file_bytes,
-                file_options={"content-type": "application/octet-stream"}
+            result = supabase.storage.from_("support_attachments").upload(
+                clean_name,
+                file_bytes
             )
-            url = supabase.storage.from_("support_attachments").get_public_url(unique_name)
+            url = supabase.storage.from_("support_attachments").get_public_url(clean_name)
             return url, None
         except Exception as e2:
-            return None, f"Upload failed: {str(e2)[:200]}"
+            return None, f"Upload failed: {str(e2)[:200]}
 
 st.set_page_config(page_title="GAIA – Help & Support", page_icon="💬", layout="wide")
 

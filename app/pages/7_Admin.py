@@ -494,7 +494,7 @@ with tab6:
             status_emoji = {"open": "🟠", "closed": "✅"}.get(status, "⚪")
             
             # Get user info
-            user_info = next((u for u in users if u.get("user_id") == ticket.get("user_id")), {})
+            user_info = next((u for u in all_users if u.get("user_id") == ticket.get("user_id")), {})
             
             with st.expander(f"{status_emoji} {ticket.get('subject','')} — {user_info.get('email','N/A')}"):
                 # User details

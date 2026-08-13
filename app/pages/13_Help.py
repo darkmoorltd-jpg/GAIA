@@ -11,20 +11,12 @@ def get_service():
 
 def upload_file_to_supabase(file_bytes, filename):
     """Upload file to Supabase Storage and return URL."""
+    import uuid
     supabase = get_service()
     clean_name = "attachment_" + uuid.uuid4().hex[:10] + ".bin"
     
-    # Ensure bucket exists first
     try:
-        supabase.storage.get_bucket("support_attachments")
-    except:
-        try:
-            supabase.storage.create_bucket("support_attachments", {"public": True})
-        except:
-            pass
-    
-    # Upload the file
-    try:
+        # Try direct upload first
         supabase.storage.from_("support_attachments").upload(
             path=clean_name,
             file=file_bytes,
@@ -33,8 +25,23 @@ def upload_file_to_supabase(file_bytes, filename):
         url = supabase.storage.from_("support_attachments").get_public_url(clean_name)
         return url, None
     except Exception as e:
-        return None, f"Upload failed: {str(e)[:200]}"
-
+        # Try creating bucket via SQL approach
+        try:
+            supabase.table("storage.buckets").insert({"id": "support_attachments", "name": "support_attachments", "public": True}).execute()
+        except:
+            pass
+        
+        # Retry upload
+        try:
+            supabase.storage.from_("support_attachments").upload(
+                path=clean_name,
+                file=file_bytes,
+                file_options={"content-type": "application/octet-stream"}
+            )
+            url = supabase.storage.from_("support_attachments").get_public_url(clean_name)
+            return url, None
+        except Exception as e2:
+            return None, f"Upload failed: {str(e2)[:200]}"
 st.set_page_config(page_title="GAIA – Help & Support", page_icon="💬", layout="wide")
 
 if "user" not in st.session_state or st.session_state.user is None:

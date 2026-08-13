@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 from datetime import datetime
 import uuid
+from app.utils.scan_util import deduct_scans
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -190,6 +191,8 @@ with tabs[0]:
                 if st.button("📤", key=f"send_{room_id}"):
                     if msg_text:
                         service.table("messages").insert({"room_id": room_id, "sender_id": user.id, "content": msg_text}).execute()
+                        # Deduct 2 scans for chat message
+                        deduct_scans(user.id, 2, "Chat with GAIA")
                         st.rerun()
         else:
             st.markdown('<div class="empty-state"><h3>💬 Your Messages</h3><p>Select a chat or find a farmer</p></div>', unsafe_allow_html=True)

@@ -327,7 +327,7 @@ def _recommend(disease, affected, conf, consensus):
     return f"🔴 Severe ({affected:.0f}%). Full treatment + notify extension officer. Yield loss: 30-50%."
 
 # ===== SCAN DEDUCTION =====
-def deduct_scan():
+def deduct_scans(st.session_state.user.id, 3, 'Video Field Scanner') if st.session_state.user else None:
     if "user" not in st.session_state or st.session_state.user is None: return
     from supabase import create_client
     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -440,7 +440,9 @@ if video_file:
                         st.write(log)
             
             st.markdown('</div>', unsafe_allow_html=True)
-            deduct_scan()
+            # Deduct 3 scans for video scan
+            if "user" in st.session_state and st.session_state.user:
+                deduct_scans(st.session_state.user.id, 3, "Video Field Scanner")
         
         os.unlink(video_path)
 

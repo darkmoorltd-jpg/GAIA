@@ -3,6 +3,7 @@ import requests
 import os
 from datetime import datetime
 import uuid
+from app.utils.scan_util import deduct_scans
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
@@ -127,6 +128,10 @@ if st.session_state.pending_transcription:
             "hidden": False
         })
         update_farmer_memory(text, answer)
+        
+        # Deduct 3 scans for voice question
+        if "user" in st.session_state and st.session_state.user:
+            deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
     st.rerun()
 
 # ===== VOICE INPUT =====

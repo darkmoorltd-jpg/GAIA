@@ -480,6 +480,12 @@ with tab5:
 with tab6:
     st.markdown("### 📨 User Support Tickets")
     
+    # Ensure all_users is defined
+    try:
+        all_users = get_all_users()
+    except:
+        all_users = []
+    
     try:
         tickets = supabase.table("support_tickets").select("*").order("created_at", desc=True).execute()
         all_tickets = tickets.data if tickets.data else []
@@ -493,19 +499,26 @@ with tab6:
             status = ticket.get("status", "open")
             status_emoji = {"open": "🟠", "closed": "✅"}.get(status, "⚪")
             
-            # Get user info
-            user_info = next((u for u in all_users if u.get("user_id") == ticket.get("user_id")), {})
+            # Get user info from all_users list
+            user_info = {}
+            for u in all_users:
+                if isinstance(u, dict) and u.get("user_id") == ticket.get("user_id"):
+                    user_info = u
+                    break
             
-            with st.expander(f"{status_emoji} {ticket.get('subject','')} — {user_info.get('email','N/A')}"):
+            user_email = user_info.get("email", "N/A")
+            user_name = f"{user_info.get('first_name','')} {user_info.get('last_name','')}".strip() or user_email
+            
+            with st.expander(f"{status_emoji} {ticket.get('subject','')} — {user_email}"):
                 # User details
                 st.markdown("#### 👤 User Information")
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.write(f"**Name:** {user_info.get('first_name','')} {user_info.get('last_name','')}")
-                    st.write(f"**Email:** {user_info.get('email','N/A')}")
+                    st.write(f"**Name:** {user_name}")
+                    st.write(f"**Email:** {user_email}")
                 with col2:
                     st.write(f"**Phone:** {user_info.get('phone','N/A')}")
-                    st.write(f"**User ID:** {ticket.get('user_id','N/A')[:12]}...")
+                    st.write(f"**User ID:** {str(ticket.get('user_id','N/A'))[:12]}...")
                 with col3:
                     st.write(f"**State:** {user_info.get('state','N/A')}")
                     st.write(f"**KYC:** {user_info.get('verification_status','N/A')}")
@@ -516,49 +529,70 @@ with tab6:
                 st.write(f"**Message:** {ticket.get('message','')}")
                 
                 # Attachment
-                if ticket.get("attachment_url"):
-                    if ticket.get("attachment_type", "").startswith("image"):
-                        st.image(ticket["attachment_url"], width=300)
-                    elif ticket.get("attachment_type", "").startswith("video"):
-                        st.video(ticket["attachment_url"])
+                attachment_url = ticket.get("attachment_url")
+                if attachment_url:
+                    attachment_type = ticket.get("attachment_type", "")
+                    if attachment_type and attachment_type.startswith("image"):
+                        st.image(attachment_url, width=300)
+                    elif attachment_type and attachment_type.startswith("video"):
+                        st.video(attachment_url)
                     else:
-                        st.markdown(f"[📎 Download]({ticket['attachment_url']})")
+                        st.markdown(f"[📎 Download Attachment]({attachment_url})")
                 
                 st.markdown("---")
                 st.markdown("#### 💬 Conversation")
                 
-                # Get replies
+                # Get all replies
                 try:
                     replies = supabase.table("support_replies").select("*").eq("ticket_id", ticket["id"]).order("created_at").execute()
                     reply_list = replies.data if replies.data else []
                 except:
                     reply_list = []
                 
-                for reply in reply_list:
-                    if reply.get("is_admin"):
-                        st.markdown(f'<div style="background:#e8f5e9;padding:8px 12px;border-radius:8px;margin:4px 0;"><strong>🔐 GAIA Team:</strong> {reply.get("message","")}</div>', unsafe_allow_html=True)
-                    else:
-                        st.markdown(f'<div style="background:#fff3e0;padding:8px 12px;border-radius:8px;margin:4px 0;"><strong>👤 User:</strong> {reply.get("message","")}</div>', unsafe_allow_html=True)
+                # Display all messages in chronological order
+                if reply_list:
+                    for reply in reply_list:
+                        if reply.get("is_admin"):
+                            st.markdown(f'<div style="background:#e8f5e9;padding:8px 12px;border-radius:8px;margin:4px 0;"><strong>🔐 GAIA Team:</strong> {reply.get("message","")}</div>', unsafe_allow_html=True)
+                        else:
+                            st.markdown(f'<div style="background:#fff3e0;padding:8px 12px;border-radius:8px;margin:4px 0;"><strong>👤 User:</strong> {reply.get("message","")}</div>', unsafe_allow_html=True)
+                else:
+                    st.info("No replies yet.")
                 
                 # Admin reply form
-                with st.form(f"admin_reply_{ticket['id']}"):
-                    admin_reply = st.text_area("Reply", key=f"admin_reply_text_{ticket['id']}", height=60)
-                    col1, col2 = st.columns(2)
-                    if col1.form_submit_button("📤 Send Reply"):
-                        if admin_reply.strip():
+                st.markdown("#### ✍️ Reply to User")
+                with st.form(f"admin_reply_form_{ticket['id']}"):
+                    admin_reply = st.text_area("Your Reply", key=f"admin_reply_text_{ticket['id']}", height=100)
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        send_reply = st.form_submit_button("📤 Send Reply", use_container_width=True)
+                    with col2:
+                        close_ticket = st.form_submit_button("✅ Close Ticket", use_container_width=True)
+                    with col3:
+                        reopen_ticket = st.form_submit_button("🔄 Reopen", use_container_width=True)
+                    
+                    if send_reply and admin_reply.strip():
+                        try:
                             supabase.table("support_replies").insert({
                                 "ticket_id": ticket["id"],
                                 "sender_id": st.session_state.user.id,
                                 "is_admin": True,
                                 "message": admin_reply.strip()
                             }).execute()
-                            st.success("Reply sent!")
+                            st.success("✅ Reply sent!")
                             st.rerun()
-                    if col2.form_submit_button("✅ Close Ticket"):
+                        except Exception as e:
+                            st.error(f"Failed to send reply: {e}")
+                    
+                    if close_ticket:
                         supabase.table("support_tickets").update({"status": "closed"}).eq("id", ticket["id"]).execute()
                         st.success("Ticket closed.")
                         st.rerun()
-
+                    
+                    if reopen_ticket:
+                        supabase.table("support_tickets").update({"status": "open"}).eq("id", ticket["id"]).execute()
+                        st.success("Ticket reopened.")
+                        st.rerun()
 
 # ===== NAVIGATION =====
 st.markdown("---")

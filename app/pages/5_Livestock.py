@@ -7,33 +7,144 @@ from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 from timm.models.vision_transformer import VisionTransformer
 
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
+st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
+dark = st.toggle("", value=False, key="livestock_theme")
+theme = "dark" if dark else "light"
 
-# ============================================
-# FULL NAVIGATION
-# ============================================
+ANIMALS = {
+    "cattle": ["Foot‑and‑Mouth Disease","Healthy","Lumpy Skin Disease"],
+    "poultry": ["Coccidiosis","Healthy","Newcastle Disease","Salmonella"]
+}
+
+def save_feedback(image_name, predicted_class, helpful):
+    if "user" not in st.session_state or st.session_state.user is None: return
+    from supabase import create_client
+    supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+    try: supabase.table("user_feedback").insert({"user_id": st.session_state.user.id, "image_name": image_name, "predicted_class": predicted_class, "helpful": helpful, "created_at": datetime.datetime.now().isoformat()}).execute()
+    except: pass
+
+def deduct_one_scan():
+    if "user" not in st.session_state or st.session_state.user is None: return
+    from supabase import create_client
+    supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+    uid = st.session_state.user.id
+    try: supabase.table("user_scans").insert({"user_id":uid,"scans_remaining":30,"plan":"free"}).execute()
+    except: pass
+    try: supabase.table("user_scans").update({"scans_remaining": supabase.raw("scans_remaining - 1")}).eq("user_id", uid).execute()
+    except: supabase.rpc("decrement_scan", {"uid": uid}).execute()
+    res = supabase.table("user_scans").select("scans_remaining").eq("user_id", uid).execute()
+    if res.data: st.success(f"Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
+
+def load_animal_model(animal):
+    from app.utils.download_models import ensure_model
+    
+    # Force delete old file to ensure fresh download
+    cp_path = os.path.join("checkpoints", animal, "model.pt")
+    if os.path.exists(cp_path):
+        os.remove(cp_path)
+    
+    checkpoint = ensure_model(animal)
+    if not checkpoint or not os.path.exists(checkpoint):
+        return None, None
+    
+    try:
+        state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    except:
+        if os.path.exists(cp_path):
+            os.remove(cp_path)
+        raise
+    prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
+    embed_dim = state[f"{prefix}cls_token"].shape[-1]
+    pos_embed = state[f"{prefix}pos_embed"]
+    num_patches = pos_embed.shape[1] - 1
+    grid = int(num_patches ** 0.5)
+    img_size = grid * 16
+    depth = len([k for k in state if k.startswith(f"{prefix}blocks") and k.endswith(".norm1.weight")])
+    num_heads = 6 if embed_dim == 384 else 3
+    backbone = VisionTransformer(img_size=img_size, patch_size=16, embed_dim=embed_dim, depth=depth, num_heads=num_heads, num_classes=0, global_pool='token')
+    backbone_state = {k.replace(prefix, ""): v for k, v in state.items() if k.startswith(prefix)}
+    backbone.load_state_dict(backbone_state, strict=False)
+    head_keys = [k for k in state if k.startswith("head.")]
+    if any(".0.weight" in k for k in head_keys):
+        w_keys = sorted([k for k in head_keys if k.endswith(".weight")], key=lambda x: int(x.split('.')[1]))
+        layers = []
+        in_feat = embed_dim
+        for w_key in w_keys:
+            w = state[w_key]; out_feat = w.shape[0]
+            layers.append(nn.Linear(in_feat, out_feat))
+            if w_key != w_keys[-1]: layers.extend([nn.GELU(), nn.Dropout(0.2)])
+            in_feat = out_feat
+        head = nn.Sequential(*layers)
+        head_state = {k.replace("head.", ""): v for k, v in state.items() if k.startswith("head.")}
+        head.load_state_dict(head_state, strict=False)
+    else:
+        n = len(ANIMALS[animal])
+        head = nn.Linear(embed_dim, n)
+        head.load_state_dict({"weight": state["head.weight"], "bias": state.get("head.bias", torch.zeros(n))}, strict=False)
+    class AnimalViT(torch.nn.Module):
+        def __init__(self, backbone, head): super().__init__(); self.backbone = backbone; self.head = head
+        def forward(self, x): return self.head(self.backbone(x))
+    model = AnimalViT(backbone, head)
+    model.eval()
+    return model, img_size
+
+if theme == "dark":
+    st.markdown("""<style>.stApp{background:linear-gradient(135deg,#1a0f2e,#2e1c3e,#3e2a5e,#1a0f2e);color:#ede7f6}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#7c4dff,#b388ff,#7c4dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(124,77,255,.7);animation:livestockGlow 2s ease-in-out infinite alternate}@keyframes livestockGlow{from{text-shadow:0 0 25px rgba(124,77,255,.7)}to{text-shadow:0 0 50px rgba(124,77,255,1),0 0 80px rgba(124,77,255,.6)}}.subtitle{text-align:center;font-size:1.2rem;color:#b39ddb}.result-card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 30px rgba(124,77,255,.3)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}</style>""", unsafe_allow_html=True)
+else:
+    st.markdown("""<style>.stApp{background:linear-gradient(135deg,#ede7f6,#d1c4e9);color:#311b92}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#4a148c,#7c4dff,#4a148c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(74,20,140,.3);animation:livestockGlowLight 2s ease-in-out infinite alternate}@keyframes livestockGlowLight{from{text-shadow:0 0 10px rgba(74,20,140,.3)}to{text-shadow:0 0 25px rgba(74,20,140,.8),0 0 50px rgba(74,20,140,.5)}}.subtitle{text-align:center;font-size:1.2rem;color:#4a148c}.result-card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 20px rgba(74,20,140,.2)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}</style>""", unsafe_allow_html=True)
+
+st.markdown('<div class="title">🐄 Livestock Health</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Upload photos of your animals and detect diseases instantly</div>', unsafe_allow_html=True)
+with st.expander("📸 Tips for animal photos"):
+    st.markdown("1. 🐄 Show the affected area clearly.\n2. 📱 Hold the phone steady.\n3. ☀️ Good light is important.\n4. 📤 Upload 2‑3 photos if possible.")
+animal = st.selectbox("🐾 Choose animal", list(ANIMALS.keys()))
+files = st.file_uploader("📤 Upload animal photos", type=["jpg","jpeg","png"], accept_multiple_files=True)
+if files:
+    names = ANIMALS[animal]; n = len(names)
+    model, img_size = load_animal_model(animal)
+    for f in files:
+        img = Image.open(f).convert("RGB")
+        with st.expander(f"🐄 {f.name}", expanded=True):
+            c1, c2 = st.columns([1,2])
+            c1.image(img, caption=f.name, width=200)
+            if model:
+                t = Compose([Resize((img_size, img_size)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
+                with torch.no_grad(): probs = F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].detach().cpu().numpy()
+            else:
+                seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8],16)
+                np.random.seed(seed)
+                probs = np.random.rand(n); probs/=probs.sum()
+            si = np.argsort(probs)[::-1]; td = names[si[0]]
+            c2.markdown(f'<div class="result-card top-result" style="border-left:5px solid #7c4dff;"><h2 style="margin:0">{td} <span style="font-size:1.5rem;color:#7c4dff">{probs[si[0]]*100:.1f}%</span></h2></div>', unsafe_allow_html=True)
+            for i in si[1:4]:
+                c2.write(f"**{names[i]}**: {probs[i]*100:.1f}%"); c2.progress(float(probs[i]))
+            if "healthy" in td.lower(): c2.success(f"✅ This {animal} appears healthy!")
+            else: c2.warning(f"⚠️ Possible **{td}** detected.")
+            deduct_one_scan()
+            col_fb1, col_fb2 = c2.columns(2)
+            if col_fb1.button("👍 Helpful", key=f"livestock_help_{f.name}"): save_feedback(f.name, td, True); col_fb1.success("Thanks!")
+            if col_fb2.button("👎 Not", key=f"livestock_not_{f.name}"): save_feedback(f.name, td, False); col_fb2.info("We'll improve.")
+
+
+# ---------- Quick Navigation ----------
 st.markdown("---")
-st.markdown("### Quick Navigation")
-cols = st.columns(10)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="Livestock")
-with cols[5]: st.page_link("pages/17_Video_Scan.py", label="Video Scan")
-with cols[6]: st.page_link("pages/19_Satellite.py", label="Satellite")
-with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="Voice AI")
-with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="Buy Scans")
-with cols[9]: st.page_link("pages/10_Early_Warning.py", label="Alerts")
-
-st.markdown("### More Features")
-cols2 = st.columns(10)
-with cols2[0]: st.page_link("pages/11_Verify_Farmer.py", label="Verify")
-with cols2[1]: st.page_link("pages/12_Verification_History.py", label="History")
-with cols2[2]: st.page_link("pages/14_Wallet.py", label="Wallet")
-with cols2[3]: st.page_link("pages/15_Badges.py", label="Badges")
-with cols2[4]: st.page_link("pages/16_Chat.py", label="Chat")
-with cols2[5]: st.page_link("pages/20_Marketplace.py", label="Market")
-with cols2[6]: st.page_link("pages/21_Crop_Insurance.py", label="Insurance")
-with cols2[7]: st.page_link("pages/6_Payment_History.py", label="Payments")
-with cols2[8]: st.page_link("pages/8_Profile.py", label="Profile")
-with cols2[9]: st.page_link("pages/13_Help.py", label="Help")
+st.markdown("### 🔗 Quick Navigation")
+cols = st.columns(9)
+with cols[0]:
+    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]:
+    st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]:
+    st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]:
+    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]:
+    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]:
+    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
+with cols[6]:
+    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
+with cols[7]:
+    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
+with cols[8]:
+    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

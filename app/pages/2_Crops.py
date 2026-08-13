@@ -91,14 +91,32 @@ def load_crop_model(crop_name):
 
 
 def load_potato_lcmt():
-    """Load potato LCMT model with lesion detection."""
-    from app.utils.download_models import ensure_model
-    checkpoint = ensure_model("potato_lcmt")
-    if not checkpoint or not os.path.exists(checkpoint):
-        return None
+    """Load potato LCMT model with lesion detection (direct download)."""
+    import requests as req
     from src.models.lcmt import LCMT
+
+    checkpoint_dir = "models/potato_lcmt"
+    checkpoint_path = os.path.join(checkpoint_dir, "model.pt")
+
+    # Download if missing or too small
+    if not os.path.exists(checkpoint_path) or os.path.getsize(checkpoint_path) < 10000:
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        url = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_potato_lcmt.pt"
+        with st.spinner("Downloading potato LCMT model (one-time, ~259 MB)…"):
+            r = req.get(url, stream=True, timeout=600)
+            total = 0
+            with open(checkpoint_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=32768):
+                    if chunk:
+                        f.write(chunk)
+                        total += len(chunk)
+            if total < 10000:
+                st.error("Potato LCMT download failed.")
+                return None
+
     model = LCMT(num_classes=7)
-    model.load_state_dict(torch.load(checkpoint, map_location="cpu", weights_only=False))
+    state = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    model.load_state_dict(state)
     model.eval()
     return model
 

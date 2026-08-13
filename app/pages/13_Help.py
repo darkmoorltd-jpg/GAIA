@@ -16,6 +16,7 @@ def upload_file_to_supabase(file_bytes, filename):
     supabase = get_service()
     unique_name = f"{uuid.uuid4().hex[:12]}_{filename}"
     try:
+        # Try to upload
         supabase.storage.from_("support_attachments").upload(
             unique_name,
             file_bytes,
@@ -24,7 +25,19 @@ def upload_file_to_supabase(file_bytes, filename):
         url = supabase.storage.from_("support_attachments").get_public_url(unique_name)
         return url, None
     except Exception as e:
-        return None, str(e)
+        # If bucket doesn't exist, try to create it
+        try:
+            supabase.storage.create_bucket("support_attachments", {"public": True})
+            # Retry upload
+            supabase.storage.from_("support_attachments").upload(
+                unique_name,
+                file_bytes,
+                {"content-type": "application/octet-stream"}
+            )
+            url = supabase.storage.from_("support_attachments").get_public_url(unique_name)
+            return url, None
+        except Exception as e2:
+            return None, f"Upload failed: {str(e2)[:200]}"
 
 st.set_page_config(page_title="GAIA – Help & Support", page_icon="💬", layout="wide")
 

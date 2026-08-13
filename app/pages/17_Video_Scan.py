@@ -441,8 +441,8 @@ if video_file:
             
             st.markdown('</div>', unsafe_allow_html=True)
             # Deduct 3 scans for video scan
-            if "user" in st.session_state and st.session_state.user:
-                deduct_scans(st.session_state.user.id, 3, "Video Field Scanner")
+            if "user" in st.session_state and st.session_state.user is not None:
+                ok, remaining = deduct_scans(st.session_state.user.id, 3, "Video Field Scanner")
         
         os.unlink(video_path)
 

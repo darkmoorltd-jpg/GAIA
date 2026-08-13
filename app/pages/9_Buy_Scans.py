@@ -3,18 +3,37 @@ import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
 import uuid
-from app.utils.phone_util import normalize_phone
 import requests
-from app.utils.phone_util import normalize_phone
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
+SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_PUBLIC = "pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057"
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
 @st.cache_resource
 def get_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+@st.cache_resource
+def get_service():
+    return create_client(SUPABASE_URL, SERVICE_KEY)
+
+def normalize_phone(phone):
+    """Convert Nigerian phone to international format."""
+    if not phone:
+        return ""
+    phone = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+    if phone.startswith("0"):
+        return "234" + phone[1:]
+    elif phone.startswith("234"):
+        return phone
+    else:
+        return "234" + phone
 
 def verify_payment(ref):
     r = requests.get(f"https://api.paystack.co/transaction/verify/{ref}",
@@ -33,18 +52,25 @@ if "user" not in st.session_state or not st.session_state.user:
 
 user = st.session_state.user
 db = get_supabase()
+service = get_service()
 
-res = db.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
+# Fetch scans
+res = service.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
 scans = res.data[0]["scans_remaining"] if res.data else 30
 
-# Fetch user phone for SMS
+# 🔑 FETCH THE PAYING USER'S PHONE NUMBER
 user_phone = ""
 try:
-    profile_res = db.table("user_profiles").select("phone").eq("user_id", user.id).execute()
-    if profile_res.data:
-        user_phone = profile_res.data[0].get("phone", "") or ""
-except:
-    pass
+    profile_res = service.table("user_profiles").select("phone").eq("user_id", user.id).execute()
+    if profile_res.data and len(profile_res.data) > 0:
+        raw_phone = profile_res.data[0].get("phone", "")
+        user_phone = normalize_phone(raw_phone)
+except Exception as e:
+    st.sidebar.warning(f"Couldn't fetch phone: {str(e)[:50]}")
+
+# If no phone, show a message
+if not user_phone:
+    st.warning("⚠️ Please update your profile with your phone number to receive SMS receipts.")
 
 PLANS = {
     "10":  {"scans": 10,  "price": "N500",   "kobo": 50000},
@@ -107,6 +133,9 @@ if st.session_state.plan:
 
     st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
 
+    # 🔑 PASS THE PAYING USER'S PHONE TO PAYSTACK
+    phone_for_sms = user_phone if user_phone else "08000000000"
+    
     components.html(f"""
     <!DOCTYPE html>
     <html>
@@ -120,7 +149,7 @@ if st.session_state.plan:
                 PaystackPop.setup({{
                     key: '{PAYSTACK_PUBLIC}',
                     email: '{user.email}',
-                    phone: '{normalize_phone(user_phone)}',
+                    phone: '{phone_for_sms}',
                     amount: {p['kobo']},
                     currency: 'NGN',
                     ref: '{ref}',

@@ -14,13 +14,17 @@ def get_service():
 def upload_file_to_supabase(file_bytes, filename):
     """Upload file to Supabase Storage and return URL."""
     supabase = get_service()
-    unique_name = f"{uuid.uuid4().hex[:12]}_{filename}"
+    
+    # Clean the filename – remove special characters, spaces
+    clean_name = str(filename).replace(" ", "_").replace("/", "_").replace("\\", "_").replace(":", "_")
+    unique_name = f"{uuid.uuid4().hex[:12]}_{clean_name}"
+    
     try:
-        # Try to upload
+        # Try to upload with proper body format
         supabase.storage.from_("support_attachments").upload(
-            unique_name,
-            file_bytes,
-            {"content-type": "application/octet-stream"}
+            path=unique_name,
+            file=file_bytes,
+            file_options={"content-type": "application/octet-stream"}
         )
         url = supabase.storage.from_("support_attachments").get_public_url(unique_name)
         return url, None
@@ -28,11 +32,11 @@ def upload_file_to_supabase(file_bytes, filename):
         # If bucket doesn't exist, try to create it
         try:
             supabase.storage.create_bucket("support_attachments", {"public": True})
-            # Retry upload
+            # Retry upload with body string format
             supabase.storage.from_("support_attachments").upload(
-                unique_name,
-                file_bytes,
-                {"content-type": "application/octet-stream"}
+                path=unique_name,
+                file=file_bytes,
+                file_options={"content-type": "application/octet-stream"}
             )
             url = supabase.storage.from_("support_attachments").get_public_url(unique_name)
             return url, None

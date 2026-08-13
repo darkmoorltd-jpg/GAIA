@@ -4,7 +4,6 @@ from supabase import create_client, Client
 import uuid
 from app.utils.phone_util import normalize_phone
 import requests
-from app.utils.phone_util import normalize_phone
 from datetime import datetime, timedelta
 
 SUPABASE_URL = st.secrets["supabase"]["url"]

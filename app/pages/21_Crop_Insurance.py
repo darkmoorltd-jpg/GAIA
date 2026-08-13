@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import uuid
 from app.utils.phone_util import normalize_phone
 import requests
-from app.utils.phone_util import normalize_phone
 
 # ===== CONFIG =====
 SUPABASE_URL = st.secrets["supabase"]["url"]

@@ -423,6 +423,11 @@ if st.sidebar.button("Logout"):
     st.rerun()
 
 # ---------- Main navigation ----------
+crops_page = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
+pests_page = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")
+soil_page = st.Page("pages/4_Soil.py", title="Soil Analysis", icon="🏞️")
+voice_page = st.Page("pages/18_Voice_Agronomist.py", title="Voice Agronomist", icon="🎙️")
+video_page = st.Page("pages/17_Video_Scan.py", title="Video Scanner", icon="🎥")
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page     = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page     = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")

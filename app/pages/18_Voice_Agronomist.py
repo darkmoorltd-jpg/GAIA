@@ -129,6 +129,10 @@ if st.session_state.pending_transcription:
         })
         update_farmer_memory(text, answer)
         
+        # SHOW HUGE DEDUCTION BANNER
+        if "user" in st.session_state and st.session_state.user is not None:
+            deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
+        
         # Deduct 3 scans for voice question
         if "user" in st.session_state and st.session_state.user is not None:
             ok, remaining = deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")

@@ -16,6 +16,7 @@ CROP_CLASSES = {
     "soybean": ["Bacterial Pustule","Frogeye Leaf Spot","Healthy","Mosaic Virus","Rust","Southern blight","Sudden Death Syndrome","Target Leaf Spot","Yellow Mosaic","brown_spot","crestamento","ferrugen","powdery_mildew","septoria"],
     "pepper": ["Aphid","Bacterial spot","Blossom end rot","Burn","Edema","Healthy","Leaf curl","Leaf miners","Mosaic virus","Nutrient deficiency","Powdery mildew","Spider mite","Thrips"],
     "cabbage": ["Alternaria Leaf Spot","Bacterial Spot Rot","Black Rot","Cabbage Aphid Colony","Downy Mildew","Healthy","Club Root","Ring Spot"],
+    "potato": ["Bacteria","Fungi","Healthy","Nematode","Pest","Phytopthora","Virus"],
 }
 
 CHECKPOINT_MAP = {
@@ -88,6 +89,19 @@ def load_crop_model(crop_name):
     model.eval()
     return model, img_size
 
+
+def load_potato_lcmt():
+    """Load potato LCMT model with lesion detection."""
+    from app.utils.download_models import ensure_model
+    checkpoint = ensure_model("potato_lcmt")
+    if not checkpoint or not os.path.exists(checkpoint):
+        return None
+    from src.models.lcmt import LCMT
+    model = LCMT(num_classes=7)
+    model.load_state_dict(torch.load(checkpoint, map_location="cpu", weights_only=False))
+    model.eval()
+    return model
+
 def predict(model, img, img_size):
     t = Compose([Resize((img_size, img_size)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
     with torch.no_grad():
@@ -147,8 +161,13 @@ else:
     st.markdown(f"### 🌱 Selected Crop: **{crop.title()}**")
     files = st.file_uploader("📤 Upload leaf images", type=["jpg","jpeg","png"], accept_multiple_files=True)
     if files:
-        model, img_size = load_crop_model(crop)
-        class_names = CROP_CLASSES[crop]
+        if crop == "potato":
+            model = load_potato_lcmt()
+            img_size = 224  # LCMT expects 224x224
+            class_names = CROP_CLASSES[crop]
+        else:
+            model, img_size = load_crop_model(crop)
+            class_names = CROP_CLASSES[crop]
         predictions = []
         for f in files:
             img = Image.open(f).convert("RGB")
@@ -163,12 +182,33 @@ else:
                     seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8], 16)
                     np.random.seed(seed)
                     probs = np.random.rand(len(class_names)); probs /= probs.sum()
+                    lesion_count = 0
+                    severity = 0
                 else:
-                    try: probs = predict(model, img, img_size)
-                    except Exception as e: c2.error(f"Error: {e}"); continue
+                    if crop == "potato":
+                        # LCMT returns dict with logits, lesion_count, severity
+                        from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+                        transform = Compose([Resize((224,224)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
+                        img_tensor = transform(img).unsqueeze(0)
+                        with torch.no_grad():
+                            output = model(img_tensor)
+                            probs = F.softmax(output['logits'], dim=1)[0].detach().cpu().numpy()
+                            lesion_count = output['lesion_count'].item()
+                            severity = output['severity'].item() * 100
+                    else:
+                        try:
+                            probs = predict(model, img, img_size)
+                            lesion_count = 0
+                            severity = 0
+                        except Exception as e:
+                            c2.error(f"Error: {e}")
+                            continue
                 top_idx = np.argmax(probs)
                 predictions.append(class_names[top_idx])
                 c2.markdown(f"**Top Result:** {class_names[top_idx]} ({probs[top_idx]*100:.1f}%)")
+                if crop == "potato":
+                    c2.markdown(f"🔬 Lesion Count: **{lesion_count:.0f}**")
+                    c2.markdown(f"📊 Severity: **{severity:.1f}%**")
                 for i in np.argsort(probs)[::-1][1:5]:
                     c2.write(f"{class_names[i]}: {probs[i]*100:.1f}%")
                     c2.progress(float(probs[i]))

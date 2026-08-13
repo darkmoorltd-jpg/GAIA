@@ -11,6 +11,7 @@ MODEL_LINKS = {
     "maize": f"{BASE}/gaia_maize_4class.pt",
     "millet_3class": f"{BASE}/gaia_millet_3class.pt",
     "rice_10class": f"{BASE}/gaia_rice_10class_384px.pt",
+    "potato_lcmt": f"{BASE}/gaia_potato_lcmt.pt",
 }
 
 def ensure_model(model_key):

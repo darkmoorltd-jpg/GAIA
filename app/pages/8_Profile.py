@@ -6,11 +6,16 @@ from datetime import datetime
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
+SERVICE_KEY = st.secrets["supabase"]["service_key"]
 ADMIN_EMAIL = "darkmoorltd@gmail.com"
 
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+@st.cache_resource
+def init_service():
+    return create_client(SUPABASE_URL, SERVICE_KEY)
 
 @st.cache_resource
 def init_service():
@@ -24,6 +29,7 @@ if "user" not in st.session_state or st.session_state.user is None:
 
 user = st.session_state.user
 supabase = init_supabase()
+service = init_service()
 service = init_service()
 is_admin = (user.email == ADMIN_EMAIL)
 
@@ -237,11 +243,11 @@ if submitted:
         
         try:
             if profile:
-                supabase.table("user_profiles").update(update_data).eq("user_id", user.id).execute()
+                service.table("user_profiles").update(update_data).eq("user_id", user.id).execute()
             else:
                 update_data["user_id"] = user.id
                 update_data["verification_status"] = "pending"
-                supabase.table("user_profiles").insert(update_data).execute()
+                service.table("user_profiles").insert(update_data).execute()
             st.success("✅ Profile saved and locked! Only admin can edit now.")
             st.balloons()
             st.rerun()

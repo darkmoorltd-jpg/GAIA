@@ -1,3 +1,4 @@
+
 import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
@@ -34,6 +35,15 @@ db = get_supabase()
 res = db.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
 scans = res.data[0]["scans_remaining"] if res.data else 30
 
+# Fetch user phone for SMS
+user_phone = ""
+try:
+    profile_res = db.table("user_profiles").select("phone").eq("user_id", user.id).execute()
+    if profile_res.data:
+        user_phone = profile_res.data[0].get("phone", "") or ""
+except:
+    pass
+
 PLANS = {
     "10":  {"scans": 10,  "price": "N500",   "kobo": 50000},
     "25":  {"scans": 25,  "price": "N1,000", "kobo": 100000},
@@ -46,37 +56,23 @@ st.markdown("""
 <style>
     .stApp { background: linear-gradient(160deg, #f4faf5, #eaf5ee, #fdfefb); color: #1b5e20; }
     header, footer { visibility: hidden; }
-    .title {
-        font-size: 2.8rem; font-weight: 800; text-align: center;
-        background: linear-gradient(135deg, #1b5e20, #4caf50);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
+    .title { font-size: 2.8rem; font-weight: 800; text-align: center;
+             background: linear-gradient(135deg, #1b5e20, #4caf50);
+             -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .subtitle { text-align: center; color: #607d8b; font-size: 1.1rem; margin-bottom: 2rem; }
-    .badge {
-        background: #fff; border: 1px solid #c8e6c9; border-radius: 18px;
-        padding: 1rem 2rem; display: inline-block; box-shadow: 0 6px 20px rgba(0,0,0,.04);
-    }
+    .badge { background: #fff; border: 1px solid #c8e6c9; border-radius: 18px;
+             padding: 1rem 2rem; display: inline-block; box-shadow: 0 6px 20px rgba(0,0,0,.04); }
     .badge-num { font-size: 2.5rem; font-weight: 900; color: #2e7d32; }
     .badge-lbl { font-size: .85rem; color: #78909c; text-transform: uppercase; letter-spacing: .08em; }
-    .card {
-        background: #fff; border-radius: 24px; padding: 2rem 1rem; text-align: center;
-        box-shadow: 0 10px 30px rgba(0,0,0,.05); border: 2px solid transparent;
-        transition: all .25s;
-    }
-    .card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(46,125,50,.15); border-color: #a5d6a7; }
+    .card { background: #fff; border-radius: 24px; padding: 2rem 1rem; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,.05); border: 2px solid transparent; }
     .card.sel { border-color: #2e7d32; background: linear-gradient(160deg, #e8f5e9, #fff); }
     .card-name { font-size: 1.1rem; font-weight: 600; color: #546e7a; }
     .card-price { font-size: 2.4rem; font-weight: 900; color: #1b5e20; margin: .5rem 0; }
-    .banner {
-        background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border: 2px solid #2e7d32;
-        border-radius: 20px; padding: 1.5rem 2rem; text-align: center; margin: 1.8rem 0;
-    }
-    .pay-btn {
-        background: linear-gradient(135deg, #2e7d32, #43a047); color: #fff;
-        border: none; padding: 18px 50px; border-radius: 50px; font-weight: 700;
-        font-size: 1.2rem; cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,.3);
-    }
-    .pay-btn:hover { transform: scale(1.03); }
+    .banner { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border: 2px solid #2e7d32;
+              border-radius: 20px; padding: 1.5rem 2rem; text-align: center; margin: 1.8rem 0; }
+    .stButton button { background: #2e7d32 !important; color: #fff !important; border: none !important;
+                       border-radius: 10px !important; font-weight: 600 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -109,33 +105,20 @@ if st.session_state.plan:
 
     st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
 
-    
-            user_phone = ""
-        
-        components.html(f"""
+    components.html(f"""
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://js.paystack.co/v1/inline.js"></script>
-        <style>
-            body {{ margin:0; padding:0; }}
-            .btn {{
-                background: linear-gradient(135deg, #2e7d32, #43a047); color: #fff;
-                border: none; padding: 18px 50px; border-radius: 50px; font-weight: 700;
-                font-size: 1.2rem; cursor: pointer; width: 100%; box-shadow: 0 10px 30px rgba(46,125,50,.3);
-            }}
-            .btn:hover {{ transform: scale(1.03); }}
-        </style>
     </head>
     <body>
-        <button class="btn" onclick="payWithPaystack()">Pay {p['price']} Now</button>
+        <button onclick="payWithPaystack()" style="background:linear-gradient(135deg,#2e7d32,#4caf50);color:#fff;border:none;padding:18px 50px;border-radius:50px;font-weight:700;font-size:1.2rem;cursor:pointer;">Pay {p['price']} Now</button>
         <script>
             function payWithPaystack() {{
                 PaystackPop.setup({{
                     key: '{PAYSTACK_PUBLIC}',
                     email: '{user.email}',
-                    phone: '08000000000',
-
+                    phone: '{user_phone or "08000000000"}',
                     amount: {p['kobo']},
                     currency: 'NGN',
                     ref: '{ref}',
@@ -156,7 +139,7 @@ st.markdown("### Already Paid? Enter Your Reference")
 
 c1, c2 = st.columns([3, 1])
 with c1:
-    ref_input = st.text_input("Reference", placeholder="e.g. GAIA_abc123")
+    ref_input = st.text_input("Reference", placeholder="e.g. GAIA_abc123", key="ref_input")
 with c2:
     st.write("")
     if st.button("Verify", use_container_width=True) and ref_input:
@@ -188,36 +171,15 @@ with c2:
                 st.error("Payment not found.")
 
 st.markdown("---")
-st.caption("Secure payments by Paystack . Darkmoor Ltd")
+st.caption("Secure payments by Paystack. Darkmoor Ltd")
 
-cols = st.columns(6)
-cols[0].page_link("pages/1_Dashboard.py", label="Dashboard")
-cols[1].page_link("pages/2_Crops.py", label="Crops")
-cols[2].page_link("pages/3_Pests.py", label="Pests")
-cols[3].page_link("pages/4_Soil.py", label="Soil")
-cols[4].page_link("pages/5_Livestock.py", label="Livestock")
-cols[5].page_link("pages/9_Buy_Scans.py", label="Buy Scans")
-
-
-# ---------- Quick Navigation ----------
-st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(10)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]:
-    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]:
-    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+cols = st.columns(9)
+with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]: st.page_link("pages/8_Profile.py", label="👤 Profile")
+with cols[6]: st.page_link("pages/20_Marketplace.py", label="🌍 Market")
+with cols[7]: st.page_link("pages/21_Crop_Insurance.py", label="🏦 Insurance")
+with cols[8]: st.page_link("pages/7_Admin.py", label="🔐 Admin")

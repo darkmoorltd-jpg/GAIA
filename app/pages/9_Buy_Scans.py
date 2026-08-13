@@ -3,7 +3,9 @@ import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
 import uuid
+from app.utils.phone_util import normalize_phone
 import requests
+from app.utils.phone_util import normalize_phone
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -118,7 +120,7 @@ if st.session_state.plan:
                 PaystackPop.setup({{
                     key: '{PAYSTACK_PUBLIC}',
                     email: '{user.email}',
-                    phone: '{user_phone or "08000000000"}',
+                    phone: '{normalize_phone(user_phone)}',
                     amount: {p['kobo']},
                     currency: 'NGN',
                     ref: '{ref}',

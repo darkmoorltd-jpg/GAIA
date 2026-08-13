@@ -1,7 +1,9 @@
 import streamlit as st
 from supabase import create_client, Client
 import uuid
-import requests as req
+from app.utils.phone_util import normalize_phone
+import requests
+from app.utils.phone_util import normalize_phone as req
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -137,7 +139,7 @@ else:
                 PaystackPop.setup({{
                     key: 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057',
                     email: '{user.email}',
-                    phone: '08000000000',  // Placeholder — will be replaced by user phone
+                    phone: '{normalize_phone(user_phone)}',  // Placeholder — will be replaced by user phone
 
                     amount: 50000,
                     currency: 'NGN',

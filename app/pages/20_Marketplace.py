@@ -4,6 +4,7 @@ import streamlit.components.v1 as components
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 import uuid
+from app.utils.phone_util import normalize_phone
 
 # ===== CONFIG =====
 SUPABASE_URL = st.secrets["supabase"]["url"]
@@ -392,7 +393,7 @@ with st.expander(f"🛒 Cart ({len(st.session_state.cart)} items)", expanded=len
                 PaystackPop.setup({{
                     key: '{PAYSTACK_PUBLIC}',
                     email: '{user.email}',
-                    phone: '08000000000',  // Placeholder — will be replaced by user phone
+                    phone: '{normalize_phone(user_phone)}',  // Placeholder — will be replaced by user phone
 
                     amount: {total * 100},
                     currency: 'NGN',

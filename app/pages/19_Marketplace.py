@@ -336,7 +336,8 @@ with st.sidebar:
                 PaystackPop.setup({{
                     key: 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057',
                     email: '{user.email}',
-                    phone: '{user_phone}',
+                    phone: '08000000000',  // Placeholder — will be replaced by user phone
+
                     amount: {total * 100},
                     currency: 'NGN',
                     ref: '{ref}',

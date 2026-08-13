@@ -240,7 +240,8 @@ with tab2:
                             PaystackPop.setup({{
                                 key: '{PAYSTACK_PUBLIC}',
                                 email: '{user.email}',
-                    phone: '{user_phone}',
+                    phone: '08000000000',  // Placeholder — will be replaced by user phone
+
                                 amount: {plan['premium'] * 100},
                                 currency: 'NGN',
                                 ref: '{ref}',

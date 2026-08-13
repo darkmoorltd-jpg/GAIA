@@ -145,7 +145,8 @@ for i, (key, badge) in enumerate(BADGES.items()):
                     PaystackPop.setup({{
                         key: '{PAYSTACK_PUBLIC}',
                         email: '{user.email}',
-                    phone: '{user_phone}',
+                    phone: '08000000000',  // Placeholder — will be replaced by user phone
+
                         amount: {badge['kobo']},
                         currency: 'NGN',
                         ref: '{ref}',

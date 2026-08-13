@@ -392,7 +392,8 @@ with st.expander(f"🛒 Cart ({len(st.session_state.cart)} items)", expanded=len
                 PaystackPop.setup({{
                     key: '{PAYSTACK_PUBLIC}',
                     email: '{user.email}',
-                    phone: '{user_phone}',
+                    phone: '08000000000',  // Placeholder — will be replaced by user phone
+
                     amount: {total * 100},
                     currency: 'NGN',
                     ref: '{ref}',

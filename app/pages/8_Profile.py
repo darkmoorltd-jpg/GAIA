@@ -6,7 +6,6 @@ from datetime import datetime
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
-SERVICE_KEY = st.secrets["supabase"]["service_key"]
 ADMIN_EMAIL = "darkmoorltd@gmail.com"
 
 @st.cache_resource
@@ -15,10 +14,7 @@ def init_supabase():
 
 @st.cache_resource
 def init_service():
-    return create_client(SUPABASE_URL, SERVICE_KEY)
-
-@st.cache_resource
-def init_service():
+    """Service role client — bypasses RLS for writes."""
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
 st.set_page_config(page_title="GAIA – My Profile", page_icon="👤", layout="wide")
@@ -30,14 +26,15 @@ if "user" not in st.session_state or st.session_state.user is None:
 user = st.session_state.user
 supabase = init_supabase()
 service = init_service()
-service = init_service()
 is_admin = (user.email == ADMIN_EMAIL)
 
-# Fetch profile
-res = supabase.table("user_profiles").select("*").eq("user_id", user.id).execute()
-profile = res.data[0] if res.data and len(res.data) > 0 else None
+# Fetch profile using service role (always works)
+try:
+    res = service.table("user_profiles").select("*").eq("user_id", user.id).execute()
+    profile = res.data[0] if res.data and len(res.data) > 0 else None
+except:
+    profile = None
 
-# Check if profile is locked
 has_saved_profile = bool(profile and profile.get("first_name") and profile.get("last_name"))
 profile_locked = has_saved_profile and not is_admin
 
@@ -46,78 +43,49 @@ st.markdown("""
     .stApp { background: linear-gradient(135deg, #f5f7fa, #e8f5e9); color: #1b5e20; }
     header, footer { visibility: hidden; }
     .title { font-size: 2.5rem; font-weight: 800; text-align: center; color: #2e7d32; }
-    .section { background: #fff; border-radius: 15px; padding: 1.5rem; margin: 1rem 0; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
     .locked-banner { background: #fff3e0; border: 2px solid #ff9800; border-radius: 12px; padding: 1rem; text-align: center; margin-bottom: 1rem; }
-    .verified-badge { background: #c8e6c9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-weight: 600; }
-    .pending-badge { background: #fff9c4; color: #f57f17; padding: 4px 12px; border-radius: 20px; font-weight: 600; }
-    .rejected-badge { background: #ffcdd2; color: #c62828; padding: 4px 12px; border-radius: 20px; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="title">👤 My Profile</div>', unsafe_allow_html=True)
 
-# Show verification status
-if profile:
-    status = profile.get("verification_status", "pending")
-    if status == "approved":
-        st.markdown('<span class="verified-badge">✅ VERIFIED</span>', unsafe_allow_html=True)
-    elif status == "rejected":
-        st.markdown('<span class="rejected-badge">❌ REJECTED — Contact admin</span>', unsafe_allow_html=True)
-    else:
-        st.markdown('<span class="pending-badge">⏳ PENDING VERIFICATION</span>', unsafe_allow_html=True)
-
-# Show lock message
 if profile_locked:
-    st.markdown('<div class="locked-banner">🔒 Your profile is locked. Only the admin can make changes. Contact darkmoorltd@gmail.com for updates.</div>', unsafe_allow_html=True)
-elif has_saved_profile and is_admin:
-    st.markdown('<div class="locked-banner">🔧 Admin Mode — You can edit any profile.</div>', unsafe_allow_html=True)
-elif not has_saved_profile:
-    st.markdown('<div class="locked-banner">📝 Complete your profile. Once saved, it will be locked permanently.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="locked-banner">🔒 Profile locked. Contact darkmoorltd@gmail.com to edit.</div>', unsafe_allow_html=True)
 
-# ===== PROFILE FORM =====
 can_edit = not profile_locked or is_admin
 
 with st.form("complete_profile_form"):
-    
-    # ── Personal Information ──
     st.markdown("## 📋 Personal Information")
     col1, col2, col3 = st.columns(3)
     with col1:
         first_name = st.text_input("First Name *", value=profile.get("first_name", "") if profile else "", disabled=not can_edit)
         middle_name = st.text_input("Middle Name", value=profile.get("middle_name", "") if profile else "", disabled=not can_edit)
-        gender = st.selectbox("Gender *", ["", "Male", "Female"], index=0 if not profile or not profile.get("gender") else (1 if profile.get("gender") == "Male" else 2), disabled=not can_edit)
+        gender = st.selectbox("Gender", ["", "Male", "Female"], disabled=not can_edit)
     with col2:
         last_name = st.text_input("Last Name *", value=profile.get("last_name", "") if profile else "", disabled=not can_edit)
         date_of_birth = st.date_input("Date of Birth", value=None, disabled=not can_edit, key="dob")
         marital_status = st.selectbox("Marital Status", ["", "Single", "Married", "Divorced", "Widowed"], disabled=not can_edit)
     with col3:
-        phone = st.text_input("Phone *", value=profile.get("phone", "") if profile else "", disabled=not can_edit)
+        phone = st.text_input("Phone * (for SMS receipts)", value=profile.get("phone", "") if profile else "", disabled=not can_edit)
         whatsapp = st.text_input("WhatsApp *", value=profile.get("whatsapp", "") if profile else "", disabled=not can_edit)
         email = st.text_input("Email", value=user.email, disabled=True)
     
-    profile_photo = st.file_uploader("📸 Profile Photo", type=["jpg", "jpeg", "png"], disabled=not can_edit)
-    
     st.markdown("---")
-    
-    # ── Address ──
     st.markdown("## 🏠 Address")
     col1, col2, col3 = st.columns(3)
     with col1:
-        country = st.text_input("Country *", value=profile.get("country", "") if profile else "Nigeria", disabled=not can_edit)
+        country = st.text_input("Country *", value=profile.get("country", "Nigeria") if profile else "Nigeria", disabled=not can_edit)
         state = st.text_input("State *", value=profile.get("state", "") if profile else "", disabled=not can_edit)
         lga = st.text_input("LGA", value=profile.get("lga", "") if profile else "", disabled=not can_edit)
     with col2:
         city = st.text_input("City/Town *", value=profile.get("city", "") if profile else "", disabled=not can_edit)
-        street_address = st.text_input("Street Address *", value=profile.get("street_address", "") if profile else "", disabled=not can_edit)
+        street_address = st.text_input("Street Address", value=profile.get("street_address", "") if profile else "", disabled=not can_edit)
         landmark = st.text_input("Landmark", value=profile.get("landmark", "") if profile else "", disabled=not can_edit)
     with col3:
         postal_code = st.text_input("Postal Code", value=profile.get("postal_code", "") if profile else "", disabled=not can_edit)
     
     st.markdown("---")
-    
-    # ── KYC / Identity Verification ──
-    st.markdown("## 🛡️ Identity Verification (KYC)")
-    st.info("This information is required for insurance, wallet, and marketplace features.")
+    st.markdown("## 🛡️ KYC Information")
     col1, col2 = st.columns(2)
     with col1:
         bvn = st.text_input("BVN (11 digits)", value=profile.get("bvn", "") if profile else "", max_chars=11, disabled=not can_edit)
@@ -125,14 +93,8 @@ with st.form("complete_profile_form"):
         govt_id_type = st.selectbox("Government ID Type", ["", "National ID Card", "Driver's License", "International Passport", "Voter's Card (PVC)", "NIN Slip"], disabled=not can_edit)
     with col2:
         govt_id_number = st.text_input("ID Number", value=profile.get("govt_id_number", "") if profile else "", disabled=not can_edit)
-        nin_slip = st.file_uploader("NIN Slip Upload", type=["jpg", "jpeg", "png", "pdf"], disabled=not can_edit)
-        govt_id = st.file_uploader("Government ID Upload", type=["jpg", "jpeg", "png", "pdf"], disabled=not can_edit)
-    
-    selfie_with_id = st.file_uploader("🤳 Selfie with ID", type=["jpg", "jpeg", "png"], disabled=not can_edit)
     
     st.markdown("---")
-    
-    # ── Farm Information ──
     st.markdown("## 🌾 Farm Information")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -142,25 +104,20 @@ with st.form("complete_profile_form"):
     with col2:
         farm_lga = st.text_input("Farm LGA", value=profile.get("farm_lga", "") if profile else "", disabled=not can_edit)
         years_exp = st.number_input("Years of Experience", min_value=0, value=int(profile.get("years_experience", 0) if profile else 0), disabled=not can_edit)
-        primary_crops = st.text_input("Primary Crops (comma separated)", value=profile.get("primary_crops", "") if profile else "", disabled=not can_edit)
+        primary_crops = st.text_input("Primary Crops", value=profile.get("primary_crops", "") if profile else "", disabled=not can_edit)
     with col3:
         farm_address = st.text_input("Farm Address", value=profile.get("farm_address", "") if profile else "", disabled=not can_edit)
-        farm_gps = st.text_input("GPS Coordinates (lat, lon)", value=f"{profile.get('farm_gps_lat','')},{profile.get('farm_gps_lon','')}" if profile else "", disabled=not can_edit)
     
     st.markdown("---")
-    
-    # ── Banking ──
-    st.markdown("## 🏦 Bank Information (for Payouts)")
+    st.markdown("## 🏦 Bank Information")
     col1, col2 = st.columns(2)
     with col1:
         account_name = st.text_input("Account Name", value=profile.get("account_name", "") if profile else "", disabled=not can_edit)
-        bank_name = st.selectbox("Bank Name", ["", "Access Bank", "GTBank", "Zenith Bank", "UBA", "First Bank", "Kuda", "Opay", "Palmpay", "Moniepoint", "Sterling Bank", "Union Bank", "Fidelity Bank", "Wema Bank"], disabled=not can_edit)
+        bank_name = st.selectbox("Bank", ["", "Access Bank", "GTBank", "Zenith Bank", "UBA", "First Bank", "Kuda", "Opay", "Palmpay", "Moniepoint", "Sterling Bank", "Union Bank", "Fidelity Bank", "Wema Bank"], disabled=not can_edit)
     with col2:
-        account_number = st.text_input("Account Number (10 digits)", value=profile.get("account_number", "") if profile else "", max_chars=10, disabled=not can_edit)
+        account_number = st.text_input("Account Number", value=profile.get("account_number", "") if profile else "", max_chars=10, disabled=not can_edit)
     
     st.markdown("---")
-    
-    # ── Emergency Contact ──
     st.markdown("## 🚨 Emergency Contact")
     col1, col2 = st.columns(2)
     with col1:
@@ -170,48 +127,41 @@ with st.form("complete_profile_form"):
         emergency_phone = st.text_input("Contact Phone", value=profile.get("emergency_contact_phone", "") if profile else "", disabled=not can_edit)
     
     st.markdown("---")
-    
-    # ── Notification Preferences ──
     st.markdown("## 🔔 Notification Preferences")
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
         notify_sms = st.checkbox("SMS Notifications", value=True if not profile else profile.get("notify_sms", True), disabled=not can_edit)
-        notify_whatsapp = st.checkbox("WhatsApp Notifications", value=True if not profile else profile.get("notify_whatsapp", True), disabled=not can_edit)
-        notify_email = st.checkbox("Email Notifications", value=True if not profile else profile.get("notify_email", True), disabled=not can_edit)
-    with col2:
+        notify_whatsapp = st.checkbox("WhatsApp", value=True if not profile else profile.get("notify_whatsapp", True), disabled=not can_edit)
         notify_weather = st.checkbox("Weather Alerts", value=True if not profile else profile.get("notify_weather", True), disabled=not can_edit)
+    with col2:
         notify_disease = st.checkbox("Disease Alerts", value=True if not profile else profile.get("notify_disease", True), disabled=not can_edit)
         notify_payment = st.checkbox("Payment Alerts", value=True if not profile else profile.get("notify_payment", True), disabled=not can_edit)
-    with col3:
         preferred_language = st.selectbox("Language", ["English", "Hausa", "Yoruba", "Igbo", "Pidgin English"], disabled=not can_edit)
-        wallet_pin = st.text_input("Wallet PIN (4 digits)", type="password", max_chars=4, disabled=not can_edit)
     
-    st.markdown("---")
-    
-    # Submit button
     if can_edit:
         submitted = st.form_submit_button("💾 Save Profile & Lock", type="primary", use_container_width=True)
     else:
-        st.info("🔒 Profile is locked. Contact admin to make changes.")
+        st.info("🔒 Profile is locked.")
         submitted = False
 
 if submitted:
-    if not first_name or not last_name or not phone or not country or not state or not city:
-        st.error("❌ Please fill all required fields (*).")
+    if not first_name or not last_name or not phone:
+        st.error("❌ First name, last name, and phone are required.")
     else:
         update_data = {
+            "user_id": user.id,
             "first_name": first_name.strip(),
             "last_name": last_name.strip(),
             "middle_name": middle_name.strip() if middle_name else None,
             "phone": phone.strip(),
-            "whatsapp": whatsapp.strip(),
+            "whatsapp": whatsapp.strip() if whatsapp else None,
             "gender": gender if gender else None,
             "marital_status": marital_status if marital_status else None,
-            "country": country.strip(),
-            "state": state.strip(),
+            "country": country.strip() or "Nigeria",
+            "state": state.strip() if state else None,
             "lga": lga.strip() if lga else None,
-            "city": city.strip(),
-            "street_address": street_address.strip(),
+            "city": city.strip() if city else None,
+            "street_address": street_address.strip() if street_address else None,
             "landmark": landmark.strip() if landmark else None,
             "postal_code": postal_code.strip() if postal_code else None,
             "bvn": bvn.strip() if bvn else None,
@@ -233,30 +183,28 @@ if submitted:
             "emergency_relationship": emergency_relationship.strip() if emergency_relationship else None,
             "notify_sms": notify_sms,
             "notify_whatsapp": notify_whatsapp,
-            "notify_email": notify_email,
             "notify_weather": notify_weather,
             "notify_disease": notify_disease,
             "notify_payment": notify_payment,
             "preferred_language": preferred_language,
-            "wallet_pin": wallet_pin.strip() if wallet_pin else None,
+            "verification_status": "pending",
         }
         
         try:
             if profile:
+                # Update existing
                 service.table("user_profiles").update(update_data).eq("user_id", user.id).execute()
             else:
-                update_data["user_id"] = user.id
-                update_data["verification_status"] = "pending"
+                # Insert new
                 service.table("user_profiles").insert(update_data).execute()
-            st.success("✅ Profile saved and locked! Only admin can edit now.")
+            st.success("✅ Profile saved! Phone number is now ready for Paystack SMS receipts.")
             st.balloons()
             st.rerun()
         except Exception as e:
-            st.error(f"Error saving profile: {e}")
+            st.error(f"Error: {str(e)[:200]}")
 
 # ===== NAVIGATION =====
 st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(9)
 with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
 with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")

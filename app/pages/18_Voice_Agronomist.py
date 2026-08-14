@@ -10,21 +10,6 @@ DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 GROQ_API_KEY = st.secrets["groq"]["api_key"]
 
-
-def detect_language(text):
-    """Detect Nigerian language based on common words."""
-    t = text.lower()
-    if any(w in t for w in ["biko", "kedu", "ndewo", "imo", "igbo"]):
-        return "ig"
-    if any(w in t for w in ["sannu", "barka", "hausa", "zamu", "ya ya"]):
-        return "ha"
-    if any(w in t for w in ["e kaaro", "bawo", "yoruba", "se", "mo wa"]):
-        return "yo"
-    if any(w in t for w in ["wetin", "how far", "abi", "dey", "pidgin"]):
-        return "pcm"
-    return "en-GB"
-
-
 st.set_page_config(page_title="GAIA - Chat & Voice Agronomist", page_icon="🍅", layout="wide")
 
 # ===== THEME TOGGLE =====
@@ -102,6 +87,19 @@ def ask_gaia(question):
     except Exception as e:
         return None, str(e)
 
+def detect_language(text):
+    """Detect Nigerian language based on common words."""
+    t = text.lower()
+    if any(w in t for w in ["biko", "kedu", "ndewo", "imo", "igbo"]):
+        return "ig"
+    if any(w in t for w in ["sannu", "barka", "hausa", "zamu", "ya ya"]):
+        return "ha"
+    if any(w in t for w in ["e kaaro", "bawo", "yoruba", "se", "mo wa"]):
+        return "yo"
+    if any(w in t for w in ["wetin", "how far", "abi", "dey", "pidgin"]):
+        return "pcm"
+    return "en-GB"
+
 def speak_answer(text, language="en-GB"):
     """Convert GAIA's answer to speech and return audio bytes."""
     try:
@@ -154,7 +152,7 @@ st.markdown(f"""
 <div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type — GAIA listens and talks back</div>
 """, unsafe_allow_html=True)
 
-# ===== PLAY STORED AUDIO (after rerun) =====
+# ===== PLAY STORED AUDIO =====
 if st.session_state.audio_to_play:
     st.audio(st.session_state.audio_to_play, format="audio/mp3")
     st.session_state.audio_to_play = None
@@ -163,7 +161,7 @@ if st.session_state.audio_to_play:
 if st.session_state.pending_transcription:
     text = st.session_state.pending_transcription
     st.session_state.pending_transcription = ""
-    
+
     st.success("You said: " + text)
     with st.spinner("🍅 GAIA is thinking..."):
         answer, err = ask_gaia(text)
@@ -183,13 +181,12 @@ if st.session_state.pending_transcription:
         if "user" in st.session_state and st.session_state.user is not None:
             deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
 
-        # Generate voice response and store for next run
+        # Generate voice response
         lang = detect_language(text)
         audio_bytes, speech_err = speak_answer(answer, lang)
         if audio_bytes:
             st.session_state.audio_to_play = audio_bytes
         else:
-            st.session_state.audio_to_play = None
             st.caption(f"🔇 Voice unavailable: {speech_err}")
 
     st.rerun()
@@ -199,34 +196,32 @@ st.markdown("### 🎤 Speak to GAIA")
 
 if not st.session_state.processing_audio:
     audio = st.audio_input("Record your question")
-    
+
     if audio is not None:
         st.session_state.processing_audio = True
-        
+
         with st.spinner("🧠 Transcribing your voice..."):
             tmp = "/tmp/gaia_voice.wav"
             with open(tmp, "wb") as f:
                 f.write(audio.getvalue() if hasattr(audio, 'getvalue') else audio.read())
-            
+
             headers = {"Authorization": "Bearer " + GROQ_API_KEY}
             with open(tmp, "rb") as f:
                 resp = requests.post("https://api.groq.com/openai/v1/audio/transcriptions",
-                                   headers=headers, files={"file":("audio.wav",f,"audio/wav")},
-                                   data={"model":"whisper-large-v3","language":"en"})
+                                     headers=headers, files={"file":("audio.wav",f,"audio/wav")},
+                                     data={"model":"whisper-large-v3","language":"en"})
             os.remove(tmp)
-            
+
             if resp.status_code == 200:
                 text = resp.json().get("text","").strip()
                 if text:
                     st.session_state.pending_transcription = text
-                    st.session_state.processing_audio = False
                 else:
                     st.warning("No speech detected. Please try again.")
-                    st.session_state.processing_audio = False
             else:
                 st.error(f"Transcription failed (Error {resp.status_code}). Please type instead.")
-            
-            # Ensure we can record again after this run
+
+            # Important: reset so user can record again
             st.session_state.processing_audio = False
             st.rerun()
 else:
@@ -256,9 +251,8 @@ with c2:
             update_farmer_memory(q, answer)
             if "user" in st.session_state and st.session_state.user is not None:
                 deduct_scans(st.session_state.user.id, 3, "Voice Agronomist (Text)")
-            # Voice reply for typed text too
-            lang = detect_language(text)
-        audio_bytes, speech_err = speak_answer(answer, lang)
+            lang = detect_language(q)
+            audio_bytes, speech_err = speak_answer(answer, lang)
             if audio_bytes:
                 st.session_state.audio_to_play = audio_bytes
             st.rerun()
@@ -273,7 +267,7 @@ if st.session_state.voice_history:
         if st.button("🗑️ Clear All", use_container_width=True):
             st.session_state.voice_history = []
             st.rerun()
-    
+
     for item in reversed(st.session_state.voice_history):
         st.markdown(f'<div style="text-align:right;font-size:.7rem;color:#6b7280;">You - {item["t"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="msg-bubble msg-user">{item["q"]}</div>', unsafe_allow_html=True)

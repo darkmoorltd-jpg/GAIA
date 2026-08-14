@@ -80,56 +80,66 @@ Please provide a comprehensive soil management guide covering:
         return None, str(e)
 
 
-def text_to_speech(text, voice="en-US-JennyNeural"):
-    """Convert text to speech using Edge TTS (free)."""
+def text_to_speech(text, language="en"):
+    """Convert text to speech using Edge TTS (free) with local voice selection."""
+    import asyncio
+    import edge_tts
+
+    # Map language to preferred voice
+    voices = {
+        "en-GB": "en-GB-SoniaNeural",
+        "en-US": "en-US-JennyNeural",
+        "pcm": "en-GB-RyanNeural",    # Nigerian Pidgin
+        "ha": "ha-NG-MuhammedNeural", # Hausa
+        "yo": "yo-NG-AbimbolaNeural", # Yoruba
+        "ig": "ig-NG-ChidinmaNeural", # Igbo
+    }
+    voice = voices.get(language, "en-GB-SoniaNeural")
+
+    # Fallback to gTTS if edge-tts voice not available
     try:
-        import asyncio
-        
         async def generate():
-            try:
-                import edge_tts
-                communicate = edge_tts.Communicate(text, voice)
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-                await communicate.save(tmp.name)
-                return tmp.name, None
-            except ImportError:
-                return None, "edge_tts not installed"
-            except Exception as e:
-                return None, str(e)
-        
+            communicate = edge_tts.Communicate(text, voice)
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+            await communicate.save(tmp.name)
+            return tmp.name, None
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         audio_path, error = loop.run_until_complete(generate())
         loop.close()
-        
+
         if error:
-            # Fallback: try gTTS
-            try:
-                from gtts import gTTS
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-                tts = gTTS(text=text, lang='en', slow=False)
-                tts.save(tmp.name)
-                with open(tmp.name, "rb") as f:
-                    audio_bytes = f.read()
-                os.unlink(tmp.name)
-                return audio_bytes, None
-            except ImportError:
-                return None, "No TTS available. Install edge-tts or gTTS."
-        
-        if audio_path:
-            with open(audio_path, "rb") as f:
-                audio_bytes = f.read()
-            os.unlink(audio_path)
-            return audio_bytes, None
-        
-        return None, "Unknown error"
-        
-    except Exception as e:
-        # Last resort: gTTS
-        try:
+            # gTTS fallback with language code
+            gtts_lang = {
+                "en-GB": "en",
+                "en-US": "en",
+                "pcm": "en",
+                "ha": "ha",
+                "yo": "yo",
+                "ig": "ig",
+            }.get(language, "en")
             from gtts import gTTS
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-            tts = gTTS(text=text, lang='en', slow=False)
+            tts = gTTS(text=text, lang=gtts_lang, slow=False)
+            tts.save(tmp.name)
+            with open(tmp.name, "rb") as f:
+                audio_bytes = f.read()
+            os.unlink(tmp.name)
+            return audio_bytes, None
+
+        with open(audio_path, "rb") as f:
+            audio_bytes = f.read()
+        os.unlink(audio_path)
+        return audio_bytes, None
+
+    except Exception as e:
+        # final fallback gTTS
+        try:
+            from gtts import gTTS
+            gtts_lang = "en"
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+            tts = gTTS(text=text, lang=gtts_lang, slow=False)
             tts.save(tmp.name)
             with open(tmp.name, "rb") as f:
                 audio_bytes = f.read()

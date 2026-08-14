@@ -10,6 +10,21 @@ DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 GROQ_API_KEY = st.secrets["groq"]["api_key"]
 
+
+def detect_language(text):
+    """Detect Nigerian language based on common words."""
+    t = text.lower()
+    if any(w in t for w in ["biko", "kedu", "ndewo", "imo", "igbo"]):
+        return "ig"
+    if any(w in t for w in ["sannu", "barka", "hausa", "zamu", "ya ya"]):
+        return "ha"
+    if any(w in t for w in ["e kaaro", "bawo", "yoruba", "se", "mo wa"]):
+        return "yo"
+    if any(w in t for w in ["wetin", "how far", "abi", "dey", "pidgin"]):
+        return "pcm"
+    return "en-GB"
+
+
 st.set_page_config(page_title="GAIA - Chat & Voice Agronomist", page_icon="🍅", layout="wide")
 
 # ===== THEME TOGGLE =====
@@ -87,11 +102,11 @@ def ask_gaia(question):
     except Exception as e:
         return None, str(e)
 
-def speak_answer(text):
+def speak_answer(text, language="en-GB"):
     """Convert GAIA's answer to speech and return audio bytes."""
     try:
         from app.utils.deepseek_explainer import text_to_speech
-        audio_bytes, err = text_to_speech(text)
+        audio_bytes, err = text_to_speech(text, language)
         if audio_bytes:
             return audio_bytes, None
         return None, err or "Voice unavailable"
@@ -169,7 +184,8 @@ if st.session_state.pending_transcription:
             deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
 
         # Generate voice response and store for next run
-        audio_bytes, speech_err = speak_answer(answer)
+        lang = detect_language(text)
+        audio_bytes, speech_err = speak_answer(answer, lang)
         if audio_bytes:
             st.session_state.audio_to_play = audio_bytes
         else:
@@ -241,7 +257,8 @@ with c2:
             if "user" in st.session_state and st.session_state.user is not None:
                 deduct_scans(st.session_state.user.id, 3, "Voice Agronomist (Text)")
             # Voice reply for typed text too
-            audio_bytes, speech_err = speak_answer(answer)
+            lang = detect_language(text)
+        audio_bytes, speech_err = speak_answer(answer, lang)
             if audio_bytes:
                 st.session_state.audio_to_play = audio_bytes
             st.rerun()

@@ -38,34 +38,63 @@ if "farmer_memory" not in st.session_state:
     st.session_state.farmer_memory = {}
 if "audio_to_play" not in st.session_state:
     st.session_state.audio_to_play = None
+if "recent_chats" not in st.session_state:
+    st.session_state.recent_chats = []
 
-# ===== DATABASE MEMORY =====
+# ===== DATABASE HELPERS =====
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def load_recent_chats(user_id, limit=50):
+    """Load up to 50 recent chat messages for the user."""
+    if not user_id:
+        return []
+    supabase = init_supabase()
+    try:
+        res = supabase.table("gaia_chat_memory") \
+            .select("question, answer, created_at") \
+            .eq("user_id", user_id) \
+            .order("created_at", desc=True) \
+            .limit(limit) \
+            .execute()
+        return list(reversed(res.data)) if res.data else []
+    except Exception:
+        return []
+
+def save_chat(user_id, question, answer):
+    """Persist a chat exchange."""
+    if not user_id:
+        return
+    supabase = init_supabase()
+    try:
+        supabase.table("gaia_chat_memory").insert({
+            "user_id": user_id,
+            "question": question,
+            "answer": answer[:2000],
+            "created_at": datetime.now().isoformat()
+        }).execute()
+    except Exception:
+        pass
+
 def load_memory_from_db(user_id):
-    """Load all memory entries for the user."""
+    """Load key-value memory facts."""
     if not user_id:
         return {}
     supabase = init_supabase()
     try:
         res = supabase.table("farmer_memory").select("key, value").eq("user_id", user_id).execute()
         if res.data:
-            memory = {}
+            mem = {}
             for row in res.data:
-                key = row.get("key")
-                val = row.get("value", "")
-                if key:
-                    memory[key] = val
-            return memory
-    except Exception as e:
-        # Table might not exist yet
+                if row.get("key"):
+                    mem[row["key"]] = row.get("value", "")
+            return mem
+    except Exception:
         pass
     return {}
 
 def save_memory_to_db(user_id, key, value):
-    """Upsert a memory entry."""
     if not user_id:
         return
     supabase = init_supabase()
@@ -74,32 +103,31 @@ def save_memory_to_db(user_id, key, value):
             {"user_id": user_id, "key": key, "value": str(value), "updated_at": datetime.now().isoformat()},
             on_conflict="user_id,key"
         ).execute()
-    except Exception as e:
+    except Exception:
         pass
 
 # ===== INITIAL MEMORY LOAD =====
 if "user" in st.session_state and st.session_state.user is not None:
     user_id = st.session_state.user.id
     if not st.session_state.farmer_memory:
-        loaded_memory = load_memory_from_db(user_id)
-        st.session_state.farmer_memory.update(loaded_memory)
-        # If profile exists, pull name/crop/location into memory
+        st.session_state.farmer_memory.update(load_memory_from_db(user_id))
+        # Pull profile data
         try:
             profile_res = init_supabase().table("user_profiles").select("first_name, last_name, state, primary_crops").eq("user_id", user_id).execute()
-            if profile_res.data and len(profile_res.data) > 0:
+            if profile_res.data:
                 p = profile_res.data[0]
-                if p.get("first_name"):
-                    st.session_state.farmer_memory["name"] = p["first_name"]
-                if p.get("last_name"):
-                    st.session_state.farmer_memory["name"] = f"{p.get('first_name', '')} {p.get('last_name', '')}".strip()
+                if p.get("first_name") and p.get("last_name"):
+                    st.session_state.farmer_memory["name"] = f"{p['first_name']} {p['last_name']}".strip()
                 if p.get("state"):
                     st.session_state.farmer_memory["location"] = p["state"]
                 if p.get("primary_crops"):
                     st.session_state.farmer_memory["crop"] = p["primary_crops"]
         except:
             pass
+    if not st.session_state.recent_chats:
+        st.session_state.recent_chats = load_recent_chats(user_id)
 
-# ===== GAIA IDENTITY WITH MEMORY =====
+# ===== GAIA IDENTITY & MEMORY CONTEXT =====
 GAIA_IDENTITY = (
     "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. "
     "Help African farmers with crop diseases, pests, soil, and livestock. "
@@ -111,43 +139,61 @@ GAIA_IDENTITY = (
 )
 
 def build_memory_context():
-    if not st.session_state.farmer_memory:
-        return ""
-    ctx = "You know this about the farmer (persistent memory): "
-    for k, v in st.session_state.farmer_memory.items():
-        ctx += k + ": " + str(v) + ". "
-    return ctx
+    """Build a rich context from facts + recent chats."""
+    ctx_parts = []
+    if st.session_state.farmer_memory:
+        facts = "Known facts about farmer: " + "; ".join(
+            f"{k}: {v}" for k, v in st.session_state.farmer_memory.items()
+        )
+        ctx_parts.append(facts)
+    if st.session_state.recent_chats:
+        recent = []
+        for chat in st.session_state.recent_chats[-10:]:  # keep concise
+            q = chat.get("question", "")
+            a = chat.get("answer", "")
+            recent.append(f"Q: {q}\nA: {a[:200]}")
+        if recent:
+            ctx_parts.append("Recent conversation:\n" + "\n".join(recent))
+    return "\n\n".join(ctx_parts)
 
 def update_farmer_memory(question, answer):
-    """Extract information from conversation and save to memory."""
+    """Extract new facts and save chat."""
     q = question.lower()
     user_id = st.session_state.user.id if "user" in st.session_state and st.session_state.user else None
 
+    # Extract facts
     if "my name is" in q:
         name = q.split("my name is")[-1].strip().split()[0].title()
         st.session_state.farmer_memory["name"] = name
         save_memory_to_db(user_id, "name", name)
-
     for crop in ["maize","rice","wheat","beans","cassava","yam","tomato"]:
         if crop in q:
             st.session_state.farmer_memory["crop"] = crop
             save_memory_to_db(user_id, "crop", crop)
             break
-
     for loc in ["kaduna","kano","lagos","abuja","ibadan","enugu"]:
         if loc in q:
             st.session_state.farmer_memory["location"] = loc.title()
             save_memory_to_db(user_id, "location", loc.title())
             break
 
-    # Save recent question and answer as memory
-    st.session_state.farmer_memory["last_question"] = question
-    st.session_state.farmer_memory["last_answer"] = answer[:200]
-    save_memory_to_db(user_id, "last_question", question)
-    save_memory_to_db(user_id, "last_answer", answer[:200])
+    # Save chat to database
+    save_chat(user_id, question, answer)
+
+    # Keep local copy (cap at 50)
+    st.session_state.recent_chats.append({
+        "question": question,
+        "answer": answer,
+        "created_at": datetime.now().isoformat()
+    })
+    st.session_state.recent_chats = st.session_state.recent_chats[-50:]
 
 def ask_gaia(question):
-    system_prompt = GAIA_IDENTITY + " " + build_memory_context()
+    system_prompt = GAIA_IDENTITY
+    mem = build_memory_context()
+    if mem:
+        system_prompt += "\n\n" + mem
+
     headers = {"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
@@ -254,11 +300,9 @@ if st.session_state.pending_transcription:
         })
         update_farmer_memory(text, answer)
 
-        # Deduct scans ONCE
         if "user" in st.session_state and st.session_state.user is not None:
             deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
 
-        # Generate voice response
         lang = detect_language(text)
         audio_bytes, speech_err = speak_answer(answer, lang)
         if audio_bytes:
@@ -357,7 +401,6 @@ if st.session_state.farmer_memory:
         for k, v in st.session_state.farmer_memory.items():
             st.write(k.replace("_", " ").title() + ": **" + str(v) + "**")
         if st.button("Clear Memory"):
-            # Clear in session and optionally delete all from DB
             if "user" in st.session_state and st.session_state.user is not None:
                 try:
                     init_supabase().table("farmer_memory").delete().eq("user_id", st.session_state.user.id).execute()

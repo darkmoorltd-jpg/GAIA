@@ -1,3 +1,4 @@
+
 import streamlit as st
 import requests
 import os
@@ -33,7 +34,15 @@ if "pending_transcription" not in st.session_state:
 if "farmer_memory" not in st.session_state:
     st.session_state.farmer_memory = {}
 
-GAIA_IDENTITY = "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. Help African farmers with crop diseases, pests, soil, and livestock. Never mention any other AI company. You ARE GAIA. Be friendly and personal."
+GAIA_IDENTITY = (
+    "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. "
+    "Help African farmers with crop diseases, pests, soil, and livestock. "
+    "NEVER mention any other AI company. You ARE GAIA. Be friendly and personal. "
+    "IMPORTANT: Always reply in the same language the farmer uses. "
+    "If the farmer speaks Hausa, reply in Hausa; Yoruba, reply in Yoruba; "
+    "Igbo, reply in Igbo; Pidgin English, reply in Pidgin; English, reply in English. "
+    "Speak naturally like a local agronomist, using local farming terms."
+)
 
 def build_memory_context():
     if not st.session_state.farmer_memory:
@@ -59,14 +68,33 @@ def update_farmer_memory(question, answer):
 def ask_gaia(question):
     system_prompt = GAIA_IDENTITY + " " + build_memory_context()
     headers = {"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"}
-    payload = {"model":"deepseek-chat","messages":[{"role":"system","content":system_prompt},{"role":"user","content":question}],"temperature":0.7,"max_tokens":3000}
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 3000
+    }
     try:
         r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
         if r.status_code == 200:
             return r.json()["choices"][0]["message"]["content"], None
         return None, "Connection error"
-    except:
-        return None, "Temporarily unavailable"
+    except Exception as e:
+        return None, str(e)
+
+def speak_answer(text):
+    """Convert GAIA's answer to speech and return audio bytes."""
+    try:
+        from app.utils.deepseek_explainer import text_to_speech
+        audio_bytes, err = text_to_speech(text)
+        if audio_bytes:
+            return audio_bytes, None
+        return None, err
+    except Exception as e:
+        return None, str(e)
 
 # ===== THEME CSS =====
 if theme == "dark":
@@ -106,7 +134,7 @@ st.markdown(f"""
     <span class="dancing-tomato">🍅</span>
 </div>
 <div class="gaia-title">GAIA Chat & Voice Agronomist</div>
-<div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type - GAIA listens and responds</div>
+<div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type — GAIA listens and talks back</div>
 """, unsafe_allow_html=True)
 
 # ===== PROCESS PENDING TRANSCRIPTION =====
@@ -128,14 +156,18 @@ if st.session_state.pending_transcription:
             "hidden": False
         })
         update_farmer_memory(text, answer)
-        
-        # SHOW HUGE DEDUCTION BANNER
+
+        # Deduct scans ONCE
         if "user" in st.session_state and st.session_state.user is not None:
             deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
-        
-        # Deduct 3 scans for voice question
-        if "user" in st.session_state and st.session_state.user is not None:
-            ok, remaining = deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
+
+        # Generate and play voice response
+        audio_bytes, speech_err = speak_answer(answer)
+        if audio_bytes:
+            st.audio(audio_bytes, format="audio/mp3")
+        else:
+            st.caption(f"🔇 Voice unavailable: {speech_err}")
+
     st.rerun()
 
 # ===== VOICE INPUT =====
@@ -196,9 +228,12 @@ with c2:
                 "hidden": False
             })
             update_farmer_memory(q, answer)
-            # Deduct 3 scans for text question (same as voice)
             if "user" in st.session_state and st.session_state.user is not None:
                 deduct_scans(st.session_state.user.id, 3, "Voice Agronomist (Text)")
+            # Voice reply for typed text too
+            audio_bytes, speech_err = speak_answer(answer)
+            if audio_bytes:
+                st.audio(audio_bytes, format="audio/mp3")
             st.rerun()
 
 # ===== CONVERSATION =====
@@ -212,41 +247,11 @@ if st.session_state.voice_history:
             st.session_state.voice_history = []
             st.rerun()
     
-    visible_msgs = [item for item in st.session_state.voice_history if not item.get("hidden", False)]
-    
-    if not visible_msgs:
-        st.info("All messages are hidden. Clear history to reset.")
-        if st.button("Show All Messages"):
-            for item in st.session_state.voice_history:
-                item["hidden"] = False
-            st.rerun()
-    
     for item in reversed(st.session_state.voice_history):
-        idx = st.session_state.voice_history.index(item)
-        
-        if item.get("hidden", False):
-            with st.expander(f"🙈 Hidden message - {item['t']}", expanded=False):
-                if st.button("👁️ Show", key=f"show_{idx}"):
-                    st.session_state.voice_history[idx]["hidden"] = False
-                    st.rerun()
-            continue
-        
         st.markdown(f'<div style="text-align:right;font-size:.7rem;color:#6b7280;">You - {item["t"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="msg-bubble msg-user">{item["q"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="margin:4px 0;"><span>🍅</span><span style="font-size:.7rem;color:#6b7280;"> GAIA - {item["t"]}</span></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="msg-bubble msg-gaia">{item["a"]}</div>', unsafe_allow_html=True)
-        
-        cd, ch, ce = st.columns([1, 1, 8])
-        with cd:
-            if st.button("🗑️", key=f"del_{idx}", help="Delete this message"):
-                st.session_state.voice_history.pop(idx)
-                st.rerun()
-        with ch:
-            if st.button("🙈", key=f"hide_{idx}", help="Hide this message"):
-                st.session_state.voice_history[idx]["hidden"] = True
-                st.rerun()
-else:
-    st.markdown(f'<div style="text-align:center;padding:40px;color:#6b7280;"><div style="font-size:4rem;">🍅</div><h3>Start a Conversation</h3><p>Click the mic button above to speak, or type below</p></div>', unsafe_allow_html=True)
 
 # ===== FARMER MEMORY =====
 if st.session_state.farmer_memory:
@@ -270,53 +275,3 @@ with cols[5]: st.page_link("pages/18_Voice_Agronomist.py", label="Voice AI")
 with cols[6]: st.page_link("pages/17_Video_Scan.py", label="Video Scan")
 with cols[7]: st.page_link("pages/10_Early_Warning.py", label="Early Warning")
 with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="Buy Scans")
-
-# ============================================
-# FULL NAVIGATION — ALL PAGES
-# ============================================
-st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(10)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]:
-    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]:
-    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
-with cols[9]:
-    st.page_link("pages/10_Early_Warning.py", label="⚠️ Alerts")
-
-st.markdown("### 📱 More Features")
-cols2 = st.columns(10)
-with cols2[0]:
-    st.page_link("pages/11_Verify_Farmer.py", label="🛡️ Verify")
-with cols2[1]:
-    st.page_link("pages/12_Verification_History.py", label="📋 History")
-with cols2[2]:
-    st.page_link("pages/14_Wallet.py", label="💰 Wallet")
-with cols2[3]:
-    st.page_link("pages/15_Badges.py", label="🏅 Badges")
-with cols2[4]:
-    st.page_link("pages/16_Chat.py", label="💬 Chat")
-with cols2[5]:
-    st.page_link("pages/20_Marketplace.py", label="🌍 Market")
-with cols2[6]:
-    st.page_link("pages/21_Crop_Insurance.py", label="🏦 Insurance")
-with cols2[7]:
-    st.page_link("pages/6_Payment_History.py", label="💳 Payments")
-with cols2[8]:
-    st.page_link("pages/8_Profile.py", label="👤 Profile")
-with cols2[9]:
-    st.page_link("pages/13_Help.py", label="🆘 Help")

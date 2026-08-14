@@ -4,6 +4,7 @@ import requests
 import os
 from datetime import datetime
 import uuid
+import json
 from app.utils.scan_util import deduct_scans
 from supabase import create_client, Client
 
@@ -47,7 +48,7 @@ def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_recent_chats(user_id, limit=50):
-    """Load up to 50 recent chat messages for the user."""
+    """Load up to 50 recent chat messages for the user (only used for display, not context)."""
     if not user_id:
         return []
     supabase = init_supabase()
@@ -63,7 +64,6 @@ def load_recent_chats(user_id, limit=50):
         return []
 
 def save_chat(user_id, question, answer):
-    """Persist a chat exchange."""
     if not user_id:
         return
     supabase = init_supabase()
@@ -78,7 +78,6 @@ def save_chat(user_id, question, answer):
         pass
 
 def load_memory_from_db(user_id):
-    """Load key-value memory facts."""
     if not user_id:
         return {}
     supabase = init_supabase()
@@ -111,7 +110,6 @@ if "user" in st.session_state and st.session_state.user is not None:
     user_id = st.session_state.user.id
     if not st.session_state.farmer_memory:
         st.session_state.farmer_memory.update(load_memory_from_db(user_id))
-        # Pull profile data
         try:
             profile_res = init_supabase().table("user_profiles").select("first_name, last_name, state, primary_crops").eq("user_id", user_id).execute()
             if profile_res.data:
@@ -127,7 +125,7 @@ if "user" in st.session_state and st.session_state.user is not None:
     if not st.session_state.recent_chats:
         st.session_state.recent_chats = load_recent_chats(user_id)
 
-# ===== GAIA IDENTITY & MEMORY CONTEXT =====
+# ===== GAIA IDENTITY & CONDENSED MEMORY CONTEXT =====
 GAIA_IDENTITY = (
     "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. "
     "Help African farmers with crop diseases, pests, soil, and livestock. "
@@ -139,29 +137,28 @@ GAIA_IDENTITY = (
 )
 
 def build_memory_context():
-    """Build a rich context from facts + recent chats."""
+    """Build a compact context to keep requests fast."""
     ctx_parts = []
-    if st.session_state.farmer_memory:
-        facts = "Known facts about farmer: " + "; ".join(
-            f"{k}: {v}" for k, v in st.session_state.farmer_memory.items()
-        )
-        ctx_parts.append(facts)
+    # Include only essential facts (name, crop, location, last question)
+    essential_keys = ["name", "crop", "location"]
+    facts = {k: st.session_state.farmer_memory[k] for k in essential_keys if k in st.session_state.farmer_memory}
+    if facts:
+        ctx_parts.append("Known facts: " + "; ".join(f"{k}: {v}" for k, v in facts.items()))
+    # Include only last 5 chats, truncated to 120 chars each
     if st.session_state.recent_chats:
         recent = []
-        for chat in st.session_state.recent_chats[-10:]:  # keep concise
-            q = chat.get("question", "")
-            a = chat.get("answer", "")
-            recent.append(f"Q: {q}\nA: {a[:200]}")
+        for chat in st.session_state.recent_chats[-5:]:
+            q = chat.get("question", "")[:120]
+            a = chat.get("answer", "")[:120]
+            recent.append(f"Q: {q}\nA: {a}")
         if recent:
-            ctx_parts.append("Recent conversation:\n" + "\n".join(recent))
+            ctx_parts.append("Recent chat:\n" + "\n".join(recent))
     return "\n\n".join(ctx_parts)
 
 def update_farmer_memory(question, answer):
-    """Extract new facts and save chat."""
     q = question.lower()
     user_id = st.session_state.user.id if "user" in st.session_state and st.session_state.user else None
 
-    # Extract facts
     if "my name is" in q:
         name = q.split("my name is")[-1].strip().split()[0].title()
         st.session_state.farmer_memory["name"] = name
@@ -177,10 +174,8 @@ def update_farmer_memory(question, answer):
             save_memory_to_db(user_id, "location", loc.title())
             break
 
-    # Save chat to database
     save_chat(user_id, question, answer)
 
-    # Keep local copy (cap at 50)
     st.session_state.recent_chats.append({
         "question": question,
         "answer": answer,
@@ -188,12 +183,9 @@ def update_farmer_memory(question, answer):
     })
     st.session_state.recent_chats = st.session_state.recent_chats[-50:]
 
-def ask_gaia(question):
-    system_prompt = GAIA_IDENTITY
-    mem = build_memory_context()
-    if mem:
-        system_prompt += "\n\n" + mem
-
+def ask_gaia_stream(question):
+    """Stream response from DeepSeek and update placeholder in real time."""
+    system_prompt = GAIA_IDENTITY + "\n\n" + build_memory_context()
     headers = {"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
@@ -202,13 +194,37 @@ def ask_gaia(question):
             {"role": "user", "content": question}
         ],
         "temperature": 0.7,
-        "max_tokens": 3000
+        "max_tokens": 3000,
+        "stream": True
     }
+
+    full_answer = ""
+    placeholder = st.empty()
+
     try:
-        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
-        if r.status_code == 200:
-            return r.json()["choices"][0]["message"]["content"], None
-        return None, "Connection error"
+        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
+        if r.status_code != 200:
+            return None, f"API error: {r.status_code}"
+
+        for line in r.iter_lines():
+            if not line:
+                continue
+            line = line.decode('utf-8')
+            if line.startswith('data: '):
+                data = line[6:]
+                if data.strip() == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data)
+                    delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                    if delta:
+                        full_answer += delta
+                        placeholder.markdown(full_answer + "▌")
+                except:
+                    continue
+
+        placeholder.markdown(full_answer)
+        return full_answer, None
     except Exception as e:
         return None, str(e)
 
@@ -287,7 +303,7 @@ if st.session_state.pending_transcription:
 
     st.success("You said: " + text)
     with st.spinner("🍅 GAIA is thinking..."):
-        answer, err = ask_gaia(text)
+        answer, err = ask_gaia_stream(text)
     if err:
         st.error(err)
     else:
@@ -357,7 +373,7 @@ with c1:
 with c2:
     st.write("")
     if st.button("Ask 🍅", type="primary", use_container_width=True) and q:
-        answer, err = ask_gaia(q)
+        answer, err = ask_gaia_stream(q)
         if err:
             st.error(err)
         else:

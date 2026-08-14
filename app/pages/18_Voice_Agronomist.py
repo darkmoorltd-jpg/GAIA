@@ -33,6 +33,8 @@ if "pending_transcription" not in st.session_state:
     st.session_state.pending_transcription = ""
 if "farmer_memory" not in st.session_state:
     st.session_state.farmer_memory = {}
+if "audio_to_play" not in st.session_state:
+    st.session_state.audio_to_play = None
 
 GAIA_IDENTITY = (
     "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. "
@@ -92,7 +94,7 @@ def speak_answer(text):
         audio_bytes, err = text_to_speech(text)
         if audio_bytes:
             return audio_bytes, None
-        return None, err
+        return None, err or "Voice unavailable"
     except Exception as e:
         return None, str(e)
 
@@ -137,6 +139,11 @@ st.markdown(f"""
 <div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type — GAIA listens and talks back</div>
 """, unsafe_allow_html=True)
 
+# ===== PLAY STORED AUDIO (after rerun) =====
+if st.session_state.audio_to_play:
+    st.audio(st.session_state.audio_to_play, format="audio/mp3")
+    st.session_state.audio_to_play = None
+
 # ===== PROCESS PENDING TRANSCRIPTION =====
 if st.session_state.pending_transcription:
     text = st.session_state.pending_transcription
@@ -161,11 +168,12 @@ if st.session_state.pending_transcription:
         if "user" in st.session_state and st.session_state.user is not None:
             deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
 
-        # Generate and play voice response
+        # Generate voice response and store for next run
         audio_bytes, speech_err = speak_answer(answer)
         if audio_bytes:
-            st.audio(audio_bytes, format="audio/mp3")
+            st.session_state.audio_to_play = audio_bytes
         else:
+            st.session_state.audio_to_play = None
             st.caption(f"🔇 Voice unavailable: {speech_err}")
 
     st.rerun()
@@ -233,7 +241,7 @@ with c2:
             # Voice reply for typed text too
             audio_bytes, speech_err = speak_answer(answer)
             if audio_bytes:
-                st.audio(audio_bytes, format="audio/mp3")
+                st.session_state.audio_to_play = audio_bytes
             st.rerun()
 
 # ===== CONVERSATION =====

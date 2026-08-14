@@ -203,13 +203,15 @@ if not st.session_state.processing_audio:
                 text = resp.json().get("text","").strip()
                 if text:
                     st.session_state.pending_transcription = text
+                    st.session_state.processing_audio = False
                 else:
                     st.warning("No speech detected. Please try again.")
                     st.session_state.processing_audio = False
             else:
                 st.error(f"Transcription failed (Error {resp.status_code}). Please type instead.")
-                st.session_state.processing_audio = False
             
+            # Ensure we can record again after this run
+            st.session_state.processing_audio = False
             st.rerun()
 else:
     st.info("Processing your previous recording...")

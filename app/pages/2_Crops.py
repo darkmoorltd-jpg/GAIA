@@ -36,6 +36,17 @@ st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-
 dark = st.toggle("", value=False, key="crops_theme")
 theme = "dark" if dark else "light"
 
+# ===== VOICE LANGUAGE SELECTOR =====
+language_options = {
+    "English (UK)": "en-GB",
+    "Hausa": "ha",
+    "Yoruba": "yo",
+    "Igbo": "ig",
+    "Pidgin": "pcm"
+}
+selected_lang_label = st.selectbox("🔊 Voice language for treatment guides", list(language_options.keys()), index=0)
+voice_lang = language_options[selected_lang_label]
+
 def load_crop_model(crop_name):
     from app.utils.download_models import ensure_model
     DOWNLOAD_KEYS = {
@@ -149,27 +160,11 @@ def get_treatment_guide(disease, crop, confidence):
         return None, err
     return explanation, None
 
-def detect_language(text):
-    t = text.lower()
-    if any(w in t for w in ["biko", "kedu", "ndewo", "imo", "igbo"]):
-        return "ig"
-    if any(w in t for w in ["sannu", "barka", "hausa", "zamu", "ya ya"]):
-        return "ha"
-    if any(w in t for w in ["e kaaro", "bawo", "yoruba", "se", "mo wa"]):
-        return "yo"
-    if any(w in t for w in ["wetin", "how far", "abi", "dey", "pidgin"]):
-        return "pcm"
-    return "en-GB"
-
-def speak_answer(text, language="en-GB"):
-    try:
-        from app.utils.deepseek_explainer import text_to_speech
-        audio_bytes, err = text_to_speech(text, language)
-        if audio_bytes:
-            return audio_bytes, None
-        return None, err or "Voice unavailable"
-    except Exception as e:
-        return None, str(e)
+@st.cache_data(show_spinner=False)
+def get_voice_guide(explanation, lang):
+    from app.utils.deepseek_explainer import text_to_speech
+    audio_bytes, err = text_to_speech(explanation[:2000], lang)
+    return audio_bytes, err
 
 overlay = "rgba(0,0,0,0.55)" if theme == "dark" else "rgba(255,255,255,0.75)"
 bg_url = "https://images.unsplash.com/photo-1600112356915-089abb8fc71a"
@@ -252,35 +247,22 @@ else:
                     c2.progress(float(probs[i]))
                 deduct_one_scan()
 
-                # ---- Treatment guide on demand (cached) ----
+                # ===== AUTO TREATMENT GUIDE + VOICE =====
                 if model is not None:
                     top_disease = class_names[top_idx]
-                    if st.button("📋 Get Treatment Guide", key=f"guide_{f.name}"):
-                        with st.spinner("🧠 Generating treatment guide..."):
-                            explanation, err = get_treatment_guide(top_disease, crop, probs[top_idx]*100)
-                        if err:
-                            st.warning(f"Could not generate guide: {err}")
-                        elif explanation:
-                            with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
-                                st.markdown(explanation)
-                                st.markdown("---")
-                                st.markdown("### 🔊 Listen to Guide")
-                                lang_options = {
-                                    "English (UK)": "en-GB",
-                                    "Hausa": "ha",
-                                    "Yoruba": "yo",
-                                    "Igbo": "ig",
-                                    "Pidgin": "pcm"
-                                }
-                                selected_lang = st.selectbox("Choose voice language", list(lang_options.keys()), key=f"lang_{f.name}")
-                                lang_code = lang_options[selected_lang]
-                                if st.button("🔊 Speak Guide", key=f"speak_guide_{f.name}"):
-                                    with st.spinner("🔊 Generating voice..."):
-                                        audio_bytes, tts_err = speak_answer(explanation[:2000], lang_code)
-                                    if audio_bytes:
-                                        st.audio(audio_bytes, format="audio/mp3")
-                                    else:
-                                        st.warning(f"Voice unavailable: {tts_err}")
+                    with st.spinner("🧠 Generating treatment guide..."):
+                        explanation, err = get_treatment_guide(top_disease, crop, probs[top_idx]*100)
+                    if err:
+                        st.warning(f"Guide unavailable: {err}")
+                    elif explanation:
+                        with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
+                            st.markdown(explanation)
+                            # Auto voice (cached)
+                            audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
+                            if audio_bytes:
+                                st.audio(audio_bytes, format="audio/mp3")
+                            else:
+                                st.caption(f"🔇 Voice unavailable: {tts_err}")
 
                 col_fb1, col_fb2 = c2.columns(2)
                 if col_fb1.button("👍 Helpful", key=f"helpful_{f.name}"):

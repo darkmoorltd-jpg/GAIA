@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 import uuid
 import json
+import streamlit.components.v1 as components
 from app.utils.scan_util import deduct_scans
 from supabase import create_client, Client
 
@@ -37,8 +38,6 @@ if "pending_transcription" not in st.session_state:
     st.session_state.pending_transcription = ""
 if "farmer_memory" not in st.session_state:
     st.session_state.farmer_memory = {}
-if "audio_to_play" not in st.session_state:
-    st.session_state.audio_to_play = None
 if "recent_chats" not in st.session_state:
     st.session_state.recent_chats = []
 
@@ -48,7 +47,6 @@ def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_recent_chats(user_id, limit=50):
-    """Load up to 50 recent chat messages for the user (only used for display, not context)."""
     if not user_id:
         return []
     supabase = init_supabase()
@@ -105,7 +103,7 @@ def save_memory_to_db(user_id, key, value):
     except Exception:
         pass
 
-# ===== INITIAL MEMORY LOAD =====
+# ===== INITIAL LOAD =====
 if "user" in st.session_state and st.session_state.user is not None:
     user_id = st.session_state.user.id
     if not st.session_state.farmer_memory:
@@ -125,7 +123,7 @@ if "user" in st.session_state and st.session_state.user is not None:
     if not st.session_state.recent_chats:
         st.session_state.recent_chats = load_recent_chats(user_id)
 
-# ===== GAIA IDENTITY & CONDENSED MEMORY CONTEXT =====
+# ===== GAIA IDENTITY =====
 GAIA_IDENTITY = (
     "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. "
     "Help African farmers with crop diseases, pests, soil, and livestock. "
@@ -137,14 +135,11 @@ GAIA_IDENTITY = (
 )
 
 def build_memory_context():
-    """Build a compact context to keep requests fast."""
     ctx_parts = []
-    # Include only essential facts (name, crop, location, last question)
-    essential_keys = ["name", "crop", "location"]
-    facts = {k: st.session_state.farmer_memory[k] for k in essential_keys if k in st.session_state.farmer_memory}
+    essential = ["name", "crop", "location"]
+    facts = {k: st.session_state.farmer_memory[k] for k in essential if k in st.session_state.farmer_memory}
     if facts:
         ctx_parts.append("Known facts: " + "; ".join(f"{k}: {v}" for k, v in facts.items()))
-    # Include only last 5 chats, truncated to 120 chars each
     if st.session_state.recent_chats:
         recent = []
         for chat in st.session_state.recent_chats[-5:]:
@@ -175,7 +170,6 @@ def update_farmer_memory(question, answer):
             break
 
     save_chat(user_id, question, answer)
-
     st.session_state.recent_chats.append({
         "question": question,
         "answer": answer,
@@ -184,7 +178,7 @@ def update_farmer_memory(question, answer):
     st.session_state.recent_chats = st.session_state.recent_chats[-50:]
 
 def ask_gaia_stream(question):
-    """Stream response from DeepSeek and update placeholder in real time."""
+    """Stream response from DeepSeek and return full text."""
     system_prompt = GAIA_IDENTITY + "\n\n" + build_memory_context()
     headers = {"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"}
     payload = {
@@ -228,6 +222,33 @@ def ask_gaia_stream(question):
     except Exception as e:
         return None, str(e)
 
+# ===== CLIENT‑SIDE SPEECH SYNTHESIS =====
+def speak_browser(text, lang_code="en-GB"):
+    """Use the browser's built‑in speech synthesis to speak instantly."""
+    lang_map = {
+        "en-GB": "en-GB",
+        "en-US": "en-US",
+        "pcm": "en-NG",
+        "ha": "ha-NG",
+        "yo": "yo-NG",
+        "ig": "ig-NG",
+    }
+    voice_lang = lang_map.get(lang_code, "en-GB")
+    safe_text = json.dumps(text)
+    js = f"""
+    <script>
+        function speak() {{
+            const utter = new SpeechSynthesisUtterance({safe_text});
+            utter.lang = '{voice_lang}';
+            utter.rate = 1.0;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utter);
+        }}
+        speak();
+    </script>
+    """
+    components.html(js, height=0, width=0)
+
 def detect_language(text):
     t = text.lower()
     if any(w in t for w in ["biko", "kedu", "ndewo", "imo", "igbo"]):
@@ -239,16 +260,6 @@ def detect_language(text):
     if any(w in t for w in ["wetin", "how far", "abi", "dey", "pidgin"]):
         return "pcm"
     return "en-GB"
-
-def speak_answer(text, language="en-GB"):
-    try:
-        from app.utils.deepseek_explainer import text_to_speech
-        audio_bytes, err = text_to_speech(text, language)
-        if audio_bytes:
-            return audio_bytes, None
-        return None, err or "Voice unavailable"
-    except Exception as e:
-        return None, str(e)
 
 # ===== THEME CSS =====
 if theme == "dark":
@@ -291,11 +302,6 @@ st.markdown(f"""
 <div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type — GAIA listens and talks back</div>
 """, unsafe_allow_html=True)
 
-# ===== PLAY STORED AUDIO =====
-if st.session_state.audio_to_play:
-    st.audio(st.session_state.audio_to_play, format="audio/mp3")
-    st.session_state.audio_to_play = None
-
 # ===== PROCESS PENDING TRANSCRIPTION =====
 if st.session_state.pending_transcription:
     text = st.session_state.pending_transcription
@@ -312,19 +318,13 @@ if st.session_state.pending_transcription:
             "q": "🎤 " + text,
             "a": answer,
             "t": datetime.now().strftime("%H:%M"),
-            "hidden": False
+            "hidden": False,
+            "lang": detect_language(text)
         })
         update_farmer_memory(text, answer)
 
         if "user" in st.session_state and st.session_state.user is not None:
             deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
-
-        lang = detect_language(text)
-        audio_bytes, speech_err = speak_answer(answer, lang)
-        if audio_bytes:
-            st.session_state.audio_to_play = audio_bytes
-        else:
-            st.caption(f"🔇 Voice unavailable: {speech_err}")
 
     st.rerun()
 
@@ -382,15 +382,12 @@ with c2:
                 "q": q,
                 "a": answer,
                 "t": datetime.now().strftime("%H:%M"),
-                "hidden": False
+                "hidden": False,
+                "lang": detect_language(q)
             })
             update_farmer_memory(q, answer)
             if "user" in st.session_state and st.session_state.user is not None:
                 deduct_scans(st.session_state.user.id, 3, "Voice Agronomist (Text)")
-            lang = detect_language(q)
-            audio_bytes, speech_err = speak_answer(answer, lang)
-            if audio_bytes:
-                st.session_state.audio_to_play = audio_bytes
             st.rerun()
 
 # ===== CONVERSATION =====
@@ -404,11 +401,14 @@ if st.session_state.voice_history:
             st.session_state.voice_history = []
             st.rerun()
 
-    for item in reversed(st.session_state.voice_history):
+    for idx, item in enumerate(reversed(st.session_state.voice_history)):
         st.markdown(f'<div style="text-align:right;font-size:.7rem;color:#6b7280;">You - {item["t"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="msg-bubble msg-user">{item["q"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="margin:4px 0;"><span>🍅</span><span style="font-size:.7rem;color:#6b7280;"> GAIA - {item["t"]}</span></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="msg-bubble msg-gaia">{item["a"]}</div>', unsafe_allow_html=True)
+        
+        if st.button("🔊 Speak", key=f"speak_{idx}"):
+            speak_browser(item["a"], item.get("lang", "en-GB"))
 
 # ===== FARMER MEMORY =====
 if st.session_state.farmer_memory:

@@ -38,17 +38,13 @@ theme = "dark" if dark else "light"
 
 def load_crop_model(crop_name):
     from app.utils.download_models import ensure_model
-    
-    # Map crop names to download keys
     DOWNLOAD_KEYS = {
         "millet": "millet_3class",
         "maize": "maize",
         "rice": "rice_10class",
     }
-    
     key = DOWNLOAD_KEYS.get(crop_name, crop_name)
     checkpoint = ensure_model(key)
-    
     if checkpoint is None or not os.path.exists(checkpoint):
         return None, None
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
@@ -91,14 +87,10 @@ def load_crop_model(crop_name):
 
 
 def load_potato_lcmt():
-    """Load potato LCMT model with lesion detection (direct download)."""
     import requests as req
     from src.models.lcmt import LCMT
-
     checkpoint_dir = "models/potato_lcmt"
     checkpoint_path = os.path.join(checkpoint_dir, "model.pt")
-
-    # Download if missing or too small
     if not os.path.exists(checkpoint_path) or os.path.getsize(checkpoint_path) < 10000:
         os.makedirs(checkpoint_dir, exist_ok=True)
         url = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_potato_lcmt.pt"
@@ -113,7 +105,6 @@ def load_potato_lcmt():
             if total < 10000:
                 st.error("Potato LCMT download failed.")
                 return None
-
     model = LCMT(num_classes=7)
     state = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     model.load_state_dict(state)
@@ -150,8 +141,17 @@ def save_feedback(image_name, predicted_class, helpful):
     try: supabase.table("user_feedback").insert({"user_id": st.session_state.user.id, "image_name": image_name, "predicted_class": predicted_class, "helpful": helpful, "created_at": datetime.datetime.now().isoformat()}).execute()
     except: pass
 
+@st.cache_data(show_spinner=False)
+def get_treatment_guide(disease, crop, confidence):
+    """Cached treatment guide generation."""
+    from app.utils.deepseek_explainer import explain_diagnosis
+    explanation, err = explain_diagnosis(disease, confidence, crop, "crop")
+    if err:
+        return None, err
+    return explanation, None
+
 overlay = "rgba(0,0,0,0.55)" if theme == "dark" else "rgba(255,255,255,0.75)"
-bg_url = "https://images.unsplash.com/photo-1600112356915-089abb8fc71a"  # default background
+bg_url = "https://images.unsplash.com/photo-1600112356915-089abb8fc71a"
 bg_css = f'.stApp {{ background-color: #2c3e50; background: linear-gradient({overlay}, {overlay}), url("{bg_url}") center/cover fixed; }}'
 
 if theme == "dark":
@@ -181,7 +181,7 @@ else:
     if files:
         if crop == "potato":
             model = load_potato_lcmt()
-            img_size = 224  # LCMT expects 224x224
+            img_size = 224
             class_names = CROP_CLASSES[crop]
         else:
             model, img_size = load_crop_model(crop)
@@ -204,7 +204,6 @@ else:
                     severity = 0
                 else:
                     if crop == "potato":
-                        # LCMT returns dict with logits, lesion_count, severity
                         from torchvision.transforms import Compose, Resize, ToTensor, Normalize
                         transform = Compose([Resize((224,224)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
                         img_tensor = transform(img).unsqueeze(0)
@@ -231,30 +230,26 @@ else:
                     c2.write(f"{class_names[i]}: {probs[i]*100:.1f}%")
                     c2.progress(float(probs[i]))
                 deduct_one_scan()
-                
-                # ===== DEEPSEEK EXPLANATION + VOICE =====
+
+                # ---- Treatment guide on demand (cached, fast) ----
                 if model is not None:
-                    with st.spinner("🧠 GAIA is preparing your complete treatment guide..."):
-                        try:
-                            from app.utils.deepseek_explainer import explain_diagnosis, text_to_speech
-                            
-                            top_disease = class_names[top_idx]
-                            explanation, explain_err = explain_diagnosis(top_disease, probs[top_idx] * 100, crop, "crop")
-                            
-                            if explanation:
-                                with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
-                                    st.markdown(explanation)
-                                    
-                                    if st.button("🔊 Listen to Treatment Guide", key=f"voice_{f.name}"):
-                                        with st.spinner("🔊 Generating voice..."):
-                                            audio_bytes, tts_err = text_to_speech(explanation[:2000])
-                                            if audio_bytes:
-                                                st.audio(audio_bytes, format="audio/mp3")
-                                            else:
-                                                st.warning(f"Voice unavailable: {tts_err}")
-                        except Exception as e:
-                            st.warning(f"Treatment guide unavailable: {str(e)[:100]}")
-                
+                    top_disease = class_names[top_idx]
+                    if st.button("📋 Get Treatment Guide", key=f"guide_{f.name}"):
+                        with st.spinner("🧠 Generating treatment guide..."):
+                            explanation, err = get_treatment_guide(top_disease, crop, probs[top_idx]*100)
+                        if err:
+                            st.warning(f"Could not generate guide: {err}")
+                        elif explanation:
+                            with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
+                                st.markdown(explanation)
+                                if st.button("🔊 Listen", key=f"voice_guide_{f.name}"):
+                                    from app.utils.deepseek_explainer import text_to_speech
+                                    audio_bytes, tts_err = text_to_speech(explanation[:2000])
+                                    if audio_bytes:
+                                        st.audio(audio_bytes, format="audio/mp3")
+                                    else:
+                                        st.warning(f"Voice unavailable: {tts_err}")
+
                 col_fb1, col_fb2 = c2.columns(2)
                 if col_fb1.button("👍 Helpful", key=f"helpful_{f.name}"):
                     save_feedback(f.name, class_names[top_idx], True); col_fb1.success("Thanks!")

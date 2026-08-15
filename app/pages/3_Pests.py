@@ -1,7 +1,7 @@
 
 import streamlit as st
 from PIL import Image
-import torch, torch.nn.functional as F, numpy as np, os, sys, datetime, hashlib, io, textwrap
+import torch, torch.nn.functional as F, numpy as np, os, sys, datetime, hashlib
 from collections import Counter
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
@@ -33,7 +33,6 @@ PEST_CLASSES = [
 ]
 N = len(PEST_CLASSES)
 
-# ===== VOICE LANGUAGE SELECTOR =====
 language_options = {
     "English (UK)": "en-GB",
     "Hausa": "ha",
@@ -44,11 +43,10 @@ language_options = {
 selected_lang_label = st.selectbox("🔊 Voice language for pest guide", list(language_options.keys()), index=0)
 voice_lang = language_options[selected_lang_label]
 
-# ── Pest management guide (existing detailed guides) ──
 def get_pest_guide(pest_name):
     guides = {
         "aphids": {
-            "desc": "Small sap‑sucking insects that cluster on new growth and undersides of leaves. They weaken plants, cause leaf curling, and spread viruses.",
+            "desc": "Small sap-sucking insects that cluster on new growth and undersides of leaves. They weaken plants, cause leaf curling, and spread viruses.",
             "organic": "Neem oil spray (5ml/L water) every 7 days. Soap spray: 1 tbsp mild liquid soap in 1L water. Release ladybugs or lacewings.",
             "inorganic": "Imidacloprid 17.8% SL — 0.5ml/L water. Dimethoate 30% EC — 1ml/L water.",
             "admin": "Wear gloves and mask. Mix pesticide separately first. Target leaf undersides. Spray on calm days.",
@@ -58,34 +56,34 @@ def get_pest_guide(pest_name):
         "army worm": {
             "desc": "Caterpillars that march across fields in large numbers, devouring grasses and crops overnight. Can destroy entire fields rapidly.",
             "organic": "Neem oil (5ml/L + 1ml soap). Bt spray (2g/L). Sprinkle wood ash into whorls.",
-            "inorganic": "Emamectin benzoate 5% SG — 0.4g/L. Lambda‑cyhalothrin 5% EC — 1ml/L.",
-            "admin": "Spray directly into whorls where larvae hide. Use flat‑fan nozzle. Wear full protective gear.",
+            "inorganic": "Emamectin benzoate 5% SG — 0.4g/L. Lambda-cyhalothrin 5% EC — 1ml/L.",
+            "admin": "Spray directly into whorls where larvae hide. Use flat-fan nozzle. Wear full protective gear.",
             "timing": "Spray when 5% of plants show damage. Early morning or late evening when larvae are active.",
-            "prevention": "Plant early to avoid peak season. Rotate with legumes. Use push‑pull technique with desmodium."
+            "prevention": "Plant early to avoid peak season. Rotate with legumes. Use push-pull technique with desmodium."
         },
         "rice leaf roller": {
             "desc": "Larvae fold leaf edges and feed inside, creating longitudinal white streaks. Heavy infestation turns fields yellowish.",
             "organic": "Neem oil (5ml/L) every 7-10 days. Bacillus thuringiensis (Bt) — 2g/L water. Encourage birds with field perches.",
             "inorganic": "Chlorantraniliprole 18.5% SC — 0.4ml/L. Cartap hydrochloride 50% SP — 1g/L.",
-            "admin": "Mix in bucket first then pour into sprayer through strainer. Use flat‑fan nozzle for even coverage.",
+            "admin": "Mix in bucket first then pour into sprayer through strainer. Use flat-fan nozzle for even coverage.",
             "timing": "Spray when 1-2 damaged leaves per hill are seen. Repeat after 15 days if needed.",
             "prevention": "Use resistant varieties like IR64, IR72. Avoid excessive nitrogen fertilizer. Keep bunds clean."
         },
         "corn borer": {
-            "desc": "Larvae tunnel into stalks and ears, weakening plants and causing direct yield loss. Look for small holes and sawdust‑like frass.",
+            "desc": "Larvae tunnel into stalks and ears, weakening plants and causing direct yield loss. Look for small holes and sawdust-like frass.",
             "organic": "Bt spray (2g/L). Neem oil (5ml/L). Release Trichogramma wasps to parasitize eggs.",
             "inorganic": "Carbofuran 3G granules — 8kg/ha in whorls. Chlorpyrifos 20% EC — 2ml/L. Flubendiamide 20% WG — 0.5g/L.",
             "admin": "For granules: wear gloves, place 3-4 granules into each whorl. For sprays: target stalks and leaf axils.",
             "timing": "Apply granules 3-4 weeks after planting. Spray when moths seen or first pinholes appear.",
-            "prevention": "Plant Bt‑maize varieties. Burn crop residues after harvest. Deep plough to expose pupae."
+            "prevention": "Plant Bt-maize varieties. Burn crop residues after harvest. Deep plough to expose pupae."
         },
         "fall armyworm": {
             "desc": "Caterpillars feed on leaves, whorls, and ears of maize. Can destroy entire field in days. Look for window pane damage.",
-            "organic": "Neem oil (5ml/L + 1ml soap). Bt spray (2g/L). Chilli‑garlic spray. Wood ash in whorls.",
-            "inorganic": "Emamectin benzoate 5% SG — 0.4g/L. Spinetoram 11.7% SC — 0.5ml/L. Lambda‑cyhalothrin 5% EC — 1ml/L.",
+            "organic": "Neem oil (5ml/L + 1ml soap). Bt spray (2g/L). Chilli-garlic spray. Wood ash in whorls.",
+            "inorganic": "Emamectin benzoate 5% SG — 0.4g/L. Spinetoram 11.7% SC — 0.5ml/L. Lambda-cyhalothrin 5% EC — 1ml/L.",
             "admin": "Direct spray into whorls. Mix powder formulations into paste first then dilute. Spray when larvae are young.",
             "timing": "Scout weekly. Spray when 5% plants show damage. Early morning or late evening best.",
-            "prevention": "Plant early. Rotate with legumes. Push‑pull: plant desmodium between rows and napier grass around field."
+            "prevention": "Plant early. Rotate with legumes. Push-pull: plant desmodium between rows and napier grass around field."
         }
     }
     pest_lower = pest_name.lower()
@@ -94,8 +92,8 @@ def get_pest_guide(pest_name):
             return guide
     return {
         "desc": f"The {pest_name} is a crop pest that damages plants by feeding on leaves, stems, or fruits. Early detection and proper management are essential.",
-        "organic": "Neem oil spray (5ml/L) applied every 7 days. Insecticidal soap (1 tbsp/L). Encourage natural predators.",
-        "inorganic": "Contact local agro‑dealer for recommended pyrethroid or organophosphate insecticides.",
+        "organic": "Neem oil spray (5ml/L) every 7 days. Insecticidal soap (1 tbsp/L). Encourage natural predators.",
+        "inorganic": "Contact local agro-dealer for recommended pyrethroid or organophosphate insecticides.",
         "admin": "Wear protective gear. Mix separately. Follow label instructions.",
         "timing": "Apply at first sign. Early morning or late evening.",
         "prevention": "Crop rotation, field hygiene, weekly scouting."
@@ -167,11 +165,9 @@ if files:
     try:
         from app.utils.model_loader import create_model_from_checkpoint
         from app.utils.download_models import ensure_model
-
         cp_path = os.path.join("checkpoints", "pests_102class", "model.pt")
         if os.path.exists(cp_path):
             os.remove(cp_path)
-
         cp = ensure_model("pests_102class")
         if cp and os.path.exists(cp):
             try:
@@ -225,7 +221,7 @@ if files:
                         else:
                             st.caption(f"🔇 Voice unavailable: {tts_err}")
 
-            # Existing static guide (fallback/secondary)
+            # Static quick summary fallback
             guide = get_pest_guide(pest_name)
             with st.expander("📋 Quick Pest Summary", expanded=False):
                 st.markdown(f"**📖 About:** {strip_emoji(guide['desc'])}")

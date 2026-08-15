@@ -126,7 +126,7 @@ if files:
                 c2.progress(float(probs[i]))
             deduct_one_scan()
 
-            # ===== AI PEST GUIDE (streaming) + VOICE =====
+            # ===== STREAMING AI GUIDE + VOICE (fixed) =====
             if model is not None:
                 with st.spinner("🧠 GAIA is preparing your pest management guide..."):
                     with st.expander("📋 Complete Pest Management Guide (AI-Generated)", expanded=True):
@@ -144,6 +144,7 @@ if files:
                                 st.audio(audio_bytes, format="audio/mp3")
                             else:
                                 st.caption(f"🔇 Voice unavailable: {tts_err}")
+
             col_fb1, col_fb2 = c2.columns(2)
             if col_fb1.button("👍 Helpful", key=f"pest_help_{f.name}"):
                 save_feedback(f.name, pest_name, True)

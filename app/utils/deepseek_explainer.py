@@ -8,7 +8,7 @@ DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop"):
-    """Use DeepSeek to explain a GAIA diagnosis and provide comprehensive farming guidance."""
+    """Use DeepSeek to explain a GAIA diagnosis (non‑streaming fallback)."""
     if context_type == "crop":
         prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
 Please provide a comprehensive farmer-friendly guide covering:
@@ -22,7 +22,7 @@ Please provide a comprehensive farmer-friendly guide covering:
 8. Cost Estimate
 9. Prevention
 10. Safety
-Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian agro-dealers."""
+Be practical, specific, and use Nigerian/local context."""
     elif context_type == "pest":
         prompt = f"""GAIA identified: {diagnosis} with {confidence:.1f}% confidence.
 Please provide a comprehensive pest management guide covering:
@@ -37,27 +37,10 @@ Please provide a comprehensive pest management guide covering:
 9. Prevention
 10. Safety
 Be practical, specific, and use Nigerian/local context."""
-    elif context_type == "soil":
-        prompt = f"""GAIA identified soil type: {diagnosis} with {confidence:.1f}% confidence.
-Please provide a comprehensive soil management guide covering:
-1. Soil Characteristics
-2. Organic Improvement
-3. Fertilizer Guide
-4. Best Crops
-5. Water Management
-6. Land Preparation
-7. Yield Potential
-8. Input Cost
-9. Soil Conservation
-10. Common Mistakes
-Be practical, specific, and use Nigerian/local context."""
     else:
         prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
     
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [
@@ -68,16 +51,16 @@ Be practical, specific, and use Nigerian/local context."""
         "max_tokens": 4000
     }
     try:
-        response = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"], None
-        return None, f"API error: {response.status_code}"
+        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
+        if r.status_code == 200:
+            return r.json()["choices"][0]["message"]["content"], None
+        return None, f"API error: {r.status_code}"
     except Exception as e:
         return None, str(e)
 
 
 def explain_diagnosis_stream(diagnosis, confidence, crop_or_type, context_type="crop"):
-    """Stream the explanation from DeepSeek and yield chunks."""
+    """Stream explanation chunks from DeepSeek."""
     if context_type == "pest":
         prompt = f"""GAIA identified: {diagnosis} with {confidence:.1f}% confidence.
 Please provide a comprehensive pest management guide covering:
@@ -105,12 +88,9 @@ Please provide a comprehensive farmer-friendly guide covering:
 8. Cost Estimate
 9. Prevention
 10. Safety
-Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian agro-dealers."""
+Be practical, specific, and use Nigerian/local context."""
     
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [
@@ -144,7 +124,7 @@ Be practical, specific, and use Nigerian/local context. Mention exact product na
 
 
 def text_to_speech(text, language="en"):
-    """Convert text to speech using Edge TTS (free) with local voice selection."""
+    """Convert text to speech using Edge TTS with local voice selection."""
     import asyncio
     import edge_tts
 
@@ -157,14 +137,7 @@ def text_to_speech(text, language="en"):
         "ig": "ig-NG-ChidinmaNeural",
     }
     voice = voices.get(language, "en-GB-SoniaNeural")
-    gtts_lang = {
-        "en-GB": "en",
-        "en-US": "en",
-        "pcm": "en",
-        "ha": "ha",
-        "yo": "yo",
-        "ig": "ig",
-    }.get(language, "en")
+    gtts_lang = {"en-GB": "en", "en-US": "en", "pcm": "en", "ha": "ha", "yo": "yo", "ig": "ig"}.get(language, "en")
 
     async def generate_with_edge():
         communicate = edge_tts.Communicate(text, voice)

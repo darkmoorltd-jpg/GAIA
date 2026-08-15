@@ -43,77 +43,6 @@ language_options = {
 selected_lang_label = st.selectbox("🔊 Voice language for pest guide", list(language_options.keys()), index=0)
 voice_lang = language_options[selected_lang_label]
 
-def get_pest_guide(pest_name):
-    guides = {
-        "aphids": {
-            "desc": "Small sap-sucking insects that cluster on new growth and undersides of leaves. They weaken plants, cause leaf curling, and spread viruses.",
-            "organic": "Neem oil spray (5ml/L water) every 7 days. Soap spray: 1 tbsp mild liquid soap in 1L water. Release ladybugs or lacewings.",
-            "inorganic": "Imidacloprid 17.8% SL — 0.5ml/L water. Dimethoate 30% EC — 1ml/L water.",
-            "admin": "Wear gloves and mask. Mix pesticide separately first. Target leaf undersides. Spray on calm days.",
-            "timing": "Early morning or late afternoon. Apply at first sign of aphids. Repeat every 14 days if needed.",
-            "prevention": "Plant marigolds and nasturtiums nearby. Rotate crops yearly. Encourage ladybugs with dill and fennel."
-        },
-        "army worm": {
-            "desc": "Caterpillars that march across fields in large numbers, devouring grasses and crops overnight. Can destroy entire fields rapidly.",
-            "organic": "Neem oil (5ml/L + 1ml soap). Bt spray (2g/L). Sprinkle wood ash into whorls.",
-            "inorganic": "Emamectin benzoate 5% SG — 0.4g/L. Lambda-cyhalothrin 5% EC — 1ml/L.",
-            "admin": "Spray directly into whorls where larvae hide. Use flat-fan nozzle. Wear full protective gear.",
-            "timing": "Spray when 5% of plants show damage. Early morning or late evening when larvae are active.",
-            "prevention": "Plant early to avoid peak season. Rotate with legumes. Use push-pull technique with desmodium."
-        },
-        "rice leaf roller": {
-            "desc": "Larvae fold leaf edges and feed inside, creating longitudinal white streaks. Heavy infestation turns fields yellowish.",
-            "organic": "Neem oil (5ml/L) every 7-10 days. Bacillus thuringiensis (Bt) — 2g/L water. Encourage birds with field perches.",
-            "inorganic": "Chlorantraniliprole 18.5% SC — 0.4ml/L. Cartap hydrochloride 50% SP — 1g/L.",
-            "admin": "Mix in bucket first then pour into sprayer through strainer. Use flat-fan nozzle for even coverage.",
-            "timing": "Spray when 1-2 damaged leaves per hill are seen. Repeat after 15 days if needed.",
-            "prevention": "Use resistant varieties like IR64, IR72. Avoid excessive nitrogen fertilizer. Keep bunds clean."
-        },
-        "corn borer": {
-            "desc": "Larvae tunnel into stalks and ears, weakening plants and causing direct yield loss. Look for small holes and sawdust-like frass.",
-            "organic": "Bt spray (2g/L). Neem oil (5ml/L). Release Trichogramma wasps to parasitize eggs.",
-            "inorganic": "Carbofuran 3G granules — 8kg/ha in whorls. Chlorpyrifos 20% EC — 2ml/L. Flubendiamide 20% WG — 0.5g/L.",
-            "admin": "For granules: wear gloves, place 3-4 granules into each whorl. For sprays: target stalks and leaf axils.",
-            "timing": "Apply granules 3-4 weeks after planting. Spray when moths seen or first pinholes appear.",
-            "prevention": "Plant Bt-maize varieties. Burn crop residues after harvest. Deep plough to expose pupae."
-        },
-        "fall armyworm": {
-            "desc": "Caterpillars feed on leaves, whorls, and ears of maize. Can destroy entire field in days. Look for window pane damage.",
-            "organic": "Neem oil (5ml/L + 1ml soap). Bt spray (2g/L). Chilli-garlic spray. Wood ash in whorls.",
-            "inorganic": "Emamectin benzoate 5% SG — 0.4g/L. Spinetoram 11.7% SC — 0.5ml/L. Lambda-cyhalothrin 5% EC — 1ml/L.",
-            "admin": "Direct spray into whorls. Mix powder formulations into paste first then dilute. Spray when larvae are young.",
-            "timing": "Scout weekly. Spray when 5% plants show damage. Early morning or late evening best.",
-            "prevention": "Plant early. Rotate with legumes. Push-pull: plant desmodium between rows and napier grass around field."
-        }
-    }
-    pest_lower = pest_name.lower()
-    for key, guide in guides.items():
-        if key in pest_lower or pest_lower in key:
-            return guide
-    return {
-        "desc": f"The {pest_name} is a crop pest that damages plants by feeding on leaves, stems, or fruits. Early detection and proper management are essential.",
-        "organic": "Neem oil spray (5ml/L) every 7 days. Insecticidal soap (1 tbsp/L). Encourage natural predators.",
-        "inorganic": "Contact local agro-dealer for recommended pyrethroid or organophosphate insecticides.",
-        "admin": "Wear protective gear. Mix separately. Follow label instructions.",
-        "timing": "Apply at first sign. Early morning or late evening.",
-        "prevention": "Crop rotation, field hygiene, weekly scouting."
-    }
-
-def strip_emoji(text):
-    import re
-    emoji_pattern = re.compile("["
-        u"\U0001F600-\U0001F64F"
-        u"\U0001F300-\U0001F5FF"
-        u"\U0001F680-\U0001F6FF"
-        u"\U0001F1E0-\U0001F1FF"
-        u"\U00002702-\U000027B0"
-        u"\U000024C2-\U0001F251"
-        u"\U0001f900-\U0001f9ff"
-        u"\U0001FA00-\U0001FA6F"
-        u"\U0001FA70-\U0001FAFF"
-        "]+", flags=re.UNICODE)
-    return emoji_pattern.sub('', text)
-
 def save_feedback(image_name, predicted_class, helpful):
     if "user" not in st.session_state or st.session_state.user is None: return
     from supabase import create_client
@@ -153,7 +82,7 @@ else:
     st.markdown("""<style>.stApp{background:linear-gradient(135deg,#fff3e0,#ffe0b2);color:#3e2723}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#e65100,#ff9800,#e65100);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(230,81,0,.3);animation:pestGlowLight 2s ease-in-out infinite alternate}@keyframes pestGlowLight{from{text-shadow:0 0 10px rgba(230,81,0,.3)}to{text-shadow:0 0 25px rgba(230,81,0,.8),0 0 50px rgba(230,81,0,.5)}}.subtitle{text-align:center;font-size:1.2rem;color:#4e342e}.result-card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #e65100;box-shadow:0 0 20px rgba(230,81,0,.2)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#ff9800,#ffcc80)}</style>""", unsafe_allow_html=True)
 
 st.markdown('<div class="title">🐛 Pest Detection & Management</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Snap a photo — get identification, organic & chemical control methods, and spoken advice</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Snap a photo — get identification and an AI‑generated pest management guide</div>', unsafe_allow_html=True)
 
 with st.expander("📸 How to take a good insect photo"):
     st.markdown("1. 🔍 Get as close as possible while keeping the insect in focus.\n2. 📱 Hold phone steady.\n3. ☀️ Good lighting is essential.\n4. 📤 Upload 2‑3 photos for better results.")
@@ -205,11 +134,10 @@ if files:
                 c2.progress(float(probs[i]))
             deduct_one_scan()
 
-            # ===== AI PEST GUIDE + VOICE =====
+            # ===== AI PEST GUIDE + VOICE (cached and fast) =====
             if model is not None:
-                top_pest = pest_name
                 with st.spinner("🧠 GAIA is preparing your pest management guide..."):
-                    explanation, err = get_ai_guide(top_pest, confidence)
+                    explanation, err = get_ai_guide(pest_name, confidence)
                 if err:
                     st.warning(f"AI guide unavailable: {err}")
                 elif explanation:
@@ -220,16 +148,6 @@ if files:
                             st.audio(audio_bytes, format="audio/mp3")
                         else:
                             st.caption(f"🔇 Voice unavailable: {tts_err}")
-
-            # Static quick summary fallback
-            guide = get_pest_guide(pest_name)
-            with st.expander("📋 Quick Pest Summary", expanded=False):
-                st.markdown(f"**📖 About:** {strip_emoji(guide['desc'])}")
-                st.markdown(f"**🌿 Organic:** {strip_emoji(guide['organic'])}")
-                st.markdown(f"**🧪 Chemical:** {strip_emoji(guide['inorganic'])}")
-                st.markdown(f"**💉 How to Apply:** {strip_emoji(guide['admin'])}")
-                st.markdown(f"**⏰ Timing:** {strip_emoji(guide['timing'])}")
-                st.markdown(f"**🛡️ Prevention:** {strip_emoji(guide['prevention'])}")
 
             col_fb1, col_fb2 = c2.columns(2)
             if col_fb1.button("👍 Helpful", key=f"pest_help_{f.name}"):

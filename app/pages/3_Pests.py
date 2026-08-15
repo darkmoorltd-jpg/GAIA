@@ -3,12 +3,6 @@ import streamlit as st
 from PIL import Image
 import torch, torch.nn.functional as F, numpy as np, os, sys, datetime, hashlib, io, textwrap
 from collections import Counter
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.colors import HexColor
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
@@ -39,9 +33,19 @@ PEST_CLASSES = [
 ]
 N = len(PEST_CLASSES)
 
-# ── Pest management guide (detailed for top pests, generic for rest) ──
+# ===== VOICE LANGUAGE SELECTOR =====
+language_options = {
+    "English (UK)": "en-GB",
+    "Hausa": "ha",
+    "Yoruba": "yo",
+    "Igbo": "ig",
+    "Pidgin": "pcm"
+}
+selected_lang_label = st.selectbox("🔊 Voice language for pest guide", list(language_options.keys()), index=0)
+voice_lang = language_options[selected_lang_label]
+
+# ── Pest management guide (existing detailed guides) ──
 def get_pest_guide(pest_name):
-    """Return detailed management guide for any pest."""
     guides = {
         "aphids": {
             "desc": "Small sap‑sucking insects that cluster on new growth and undersides of leaves. They weaken plants, cause leaf curling, and spread viruses.",
@@ -84,28 +88,20 @@ def get_pest_guide(pest_name):
             "prevention": "Plant early. Rotate with legumes. Push‑pull: plant desmodium between rows and napier grass around field."
         }
     }
-    
-    # Look for partial matches
     pest_lower = pest_name.lower()
     for key, guide in guides.items():
         if key in pest_lower or pest_lower in key:
             return guide
-    
-    # Generic guide for all other pests
     return {
-        "desc": f"The {pest_name} is a crop pest that damages plants by feeding on leaves, stems, or fruits. Early detection and proper management are essential to prevent economic losses.",
-        "organic": f"Neem oil spray (5ml/L water) applied every 7 days. Insecticidal soap (1 tbsp/L water). Encourage natural predators by planting diverse crops. Hand‑pick larger insects when populations are low.",
-        "inorganic": f"Contact your local agricultural extension officer for specific chemical recommendations based on the crop affected and infestation level. Common options may include pyrethroid or organophosphate insecticides at recommended dosages.",
-        "admin": f"Always wear protective clothing, gloves, and a mask when handling pesticides. Mix in a well‑ventilated area. Follow label instructions precisely. Never mix different chemicals unless specified. Calibrate sprayer for correct application rate.",
-        "timing": f"Apply at first sign of infestation. Spray early morning or late evening when beneficial insects are less active. Avoid spraying before rain or when wind speed exceeds 8 km/h. Repeat application as recommended on the product label.",
-        "prevention": f"Practice crop rotation with non‑host crops. Use resistant varieties when available. Maintain field hygiene by removing crop residues. Scout fields weekly for early detection. Encourage natural enemies by reducing broad‑spectrum pesticide use."
+        "desc": f"The {pest_name} is a crop pest that damages plants by feeding on leaves, stems, or fruits. Early detection and proper management are essential.",
+        "organic": "Neem oil spray (5ml/L) applied every 7 days. Insecticidal soap (1 tbsp/L). Encourage natural predators.",
+        "inorganic": "Contact local agro‑dealer for recommended pyrethroid or organophosphate insecticides.",
+        "admin": "Wear protective gear. Mix separately. Follow label instructions.",
+        "timing": "Apply at first sign. Early morning or late evening.",
+        "prevention": "Crop rotation, field hygiene, weekly scouting."
     }
 
-
-
-
 def strip_emoji(text):
-    """Remove emoji characters that PDF libraries cannot render."""
     import re
     emoji_pattern = re.compile("["
         u"\U0001F600-\U0001F64F"
@@ -119,183 +115,6 @@ def strip_emoji(text):
         u"\U0001FA70-\U0001FAFF"
         "]+", flags=re.UNICODE)
     return emoji_pattern.sub('', text)
-
-
-def generate_pdf_report(pest_name, confidence, guide):
-    """Generate a professionally designed PDF using reportlab (Unicode‑safe)."""
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=15*mm, bottomMargin=15*mm)
-    styles = getSampleStyleSheet()
-    
-    # Custom styles
-    title_style = ParagraphStyle('Title', parent=styles['Title'], fontSize=20, textColor=HexColor('#ffffff'), alignment=TA_CENTER, spaceAfter=4)
-    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=9, textColor=HexColor('#ffffff'), alignment=TA_CENTER)
-    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=14, spaceBefore=12, spaceAfter=6)
-    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, leading=14, spaceAfter=8)
-    pest_name_style = ParagraphStyle('PestName', parent=styles['Normal'], fontSize=18, spaceAfter=4)
-    confidence_style = ParagraphStyle('Confidence', parent=styles['Normal'], fontSize=12, spaceAfter=10)
-    
-    story = []
-    
-    # Header table with orange background
-    header_data = [[
-        Paragraph("GAIA Pest Diagnosis Report", title_style)
-    ], [
-        Paragraph(f"Generated: {datetime.datetime.now().strftime('%d %B %Y, %H:%M')} | Powered by Darkmoor Ltd", subtitle_style)
-    ]]
-    header_table = Table(header_data, colWidths=[170*mm])
-    header_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), HexColor('#ff9800')),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING', (0,0), (-1,-1), 12),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 12),
-    ]))
-    story.append(header_table)
-    story.append(Spacer(1, 10*mm))
-    
-    # Pest identification
-    story.append(Paragraph("Pest Identified", section_style))
-    story.append(Paragraph(pest_name.title(), pest_name_style))
-    story.append(Paragraph(f"Confidence: {confidence:.1f}%", confidence_style))
-    story.append(Spacer(1, 5*mm))
-    
-    # Sections with coloured backgrounds
-    sections = [
-        ("About This Pest", guide['desc'], '#fff3e0', '#e65100'),
-        ("Organic Control Methods", guide['organic'], '#e8f5e9', '#2e7d32'),
-        ("Inorganic (Chemical) Control", guide['inorganic'], '#fff3e0', '#e65100'),
-        ("How to Administer", guide['admin'], '#e3f2fd', '#1565c0'),
-        ("When to Apply", guide['timing'], '#f3e5f5', '#6a1b9a'),
-        ("Prevention Tips", guide['prevention'], '#fff9c4', '#f57f17'),
-    ]
-    
-    for title, text, bg, fg in sections:
-        sec_data = [[Paragraph(f"<font color='{fg}'>{title}</font>", section_style)], [Paragraph(strip_emoji(text), body_style)]]
-        sec_table = Table(sec_data, colWidths=[170*mm])
-        sec_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), bg),
-            ('LEFTPADDING', (0,0), (-1,-1), 12),
-            ('RIGHTPADDING', (0,0), (-1,-1), 12),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-        ]))
-        story.append(sec_table)
-        story.append(Spacer(1, 4*mm))
-    
-    # Footer
-    story.append(Spacer(1, 8*mm))
-    footer_text = Paragraph("<font color='#999999'>Generated by GAIA — Global Agricultural Intelligence Assistant<br/>darkmoorltd@gmail.com | Powered by Darkmoor Ltd</font>", styles['Normal'])
-    story.append(footer_text)
-    
-    doc.build(story)
-    buf.seek(0)
-    return buf.getvalue()
-    """Generate a professionally designed PDF report."""
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=20)
-    
-    # ── Header ──
-    pdf.set_fill_color(255, 152, 0)
-    pdf.rect(0, 0, 210, 40, 'F')
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 22)
-    pdf.cell(0, 18, "GAIA Pest Diagnosis Report", ln=True, align="C")
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 8, f"Generated: {datetime.datetime.now().strftime('%d %B %Y, %H:%M')} | Powered by Darkmoor Ltd", ln=True, align="C")
-    pdf.ln(12)
-    
-    # ── Pest Identification ──
-    pdf.set_text_color(230, 81, 0)
-    pdf.set_font("Helvetica", "B", 18)
-    pdf.cell(0, 12, "Pest Identified", ln=True)
-    pdf.set_draw_color(255, 152, 0)
-    pdf.set_line_width(0.8)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(6)
-    
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, pest_name.title(), ln=True)
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(0, 8, f"Confidence: {confidence:.1f}%", ln=True)
-    pdf.ln(6)
-    
-    # ── About This Pest ──
-    pdf.set_fill_color(255, 243, 224)
-    pdf.set_text_color(230, 81, 0)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, "About This Pest", ln=True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_fill_color(255, 243, 224)
-    pdf.multi_cell(0, 6, strip_emoji(guide['desc']), fill=True)
-    pdf.ln(4)
-    
-    # ── Organic Control ──
-    pdf.set_fill_color(232, 245, 233)
-    pdf.set_text_color(46, 125, 50)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, "Organic Control Methods", ln=True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_fill_color(232, 245, 233)
-    pdf.multi_cell(0, 6, strip_emoji(guide['organic']), fill=True)
-    pdf.ln(4)
-    
-    # ── Inorganic Control ──
-    pdf.set_fill_color(255, 243, 224)
-    pdf.set_text_color(230, 81, 0)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, "Inorganic (Chemical) Control", ln=True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_fill_color(255, 243, 224)
-    pdf.multi_cell(0, 6, strip_emoji(guide['inorganic']), fill=True)
-    pdf.ln(4)
-    
-    # ── Administration ──
-    pdf.set_fill_color(227, 242, 253)
-    pdf.set_text_color(21, 101, 192)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, "How to Administer", ln=True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_fill_color(227, 242, 253)
-    pdf.multi_cell(0, 6, strip_emoji(guide['admin']), fill=True)
-    pdf.ln(4)
-    
-    # ── Timing ──
-    pdf.set_fill_color(243, 229, 245)
-    pdf.set_text_color(106, 27, 154)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, "When to Apply", ln=True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_fill_color(243, 229, 245)
-    pdf.multi_cell(0, 6, strip_emoji(guide['timing']), fill=True)
-    pdf.ln(4)
-    
-    # ── Prevention ──
-    pdf.set_fill_color(255, 249, 196)
-    pdf.set_text_color(245, 127, 23)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, "Prevention Tips", ln=True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_fill_color(255, 249, 196)
-    pdf.multi_cell(0, 6, strip_emoji(guide['prevention']), fill=True)
-    pdf.ln(8)
-    
-    # ── Footer ──
-    pdf.set_text_color(150, 150, 150)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.cell(0, 6, "Generated by GAIA — Global Agricultural Intelligence Assistant", ln=True, align="C")
-    pdf.cell(0, 6, "darkmoorltd@gmail.com | Powered by Darkmoor Ltd", ln=True, align="C")
-    
-    # Return as bytes
-    return pdf.output(dest="S").encode("latin-1")
 
 def save_feedback(image_name, predicted_class, helpful):
     if "user" not in st.session_state or st.session_state.user is None: return
@@ -316,13 +135,27 @@ def deduct_one_scan():
     res = supabase.table("user_scans").select("scans_remaining").eq("user_id", uid).execute()
     if res.data: st.success(f"Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
 
+@st.cache_data(show_spinner=False)
+def get_ai_guide(pest_name, confidence):
+    from app.utils.deepseek_explainer import explain_diagnosis
+    explanation, err = explain_diagnosis(pest_name, confidence, "various crops", "pest")
+    if err:
+        return None, err
+    return explanation, None
+
+@st.cache_data(show_spinner=False)
+def get_voice_guide(explanation, lang):
+    from app.utils.deepseek_explainer import text_to_speech
+    audio_bytes, err = text_to_speech(explanation[:2000], lang)
+    return audio_bytes, err
+
 if theme == "dark":
     st.markdown("""<style>.stApp{background:linear-gradient(135deg,#1a0f00,#2e1c00,#3e2a00,#1a0f00);color:#fff8e1}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#ff9800,#ffcc80,#ff9800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(255,152,0,.7);animation:pestGlow 2s ease-in-out infinite alternate}@keyframes pestGlow{from{text-shadow:0 0 25px rgba(255,152,0,.7)}to{text-shadow:0 0 50px rgba(255,152,0,1),0 0 80px rgba(255,152,0,.6)}}.subtitle{text-align:center;font-size:1.2rem;color:#bcaaa4}.result-card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #ff9800;box-shadow:0 0 30px rgba(255,152,0,.3)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#ff9800,#ffcc80)}</style>""", unsafe_allow_html=True)
 else:
     st.markdown("""<style>.stApp{background:linear-gradient(135deg,#fff3e0,#ffe0b2);color:#3e2723}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#e65100,#ff9800,#e65100);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(230,81,0,.3);animation:pestGlowLight 2s ease-in-out infinite alternate}@keyframes pestGlowLight{from{text-shadow:0 0 10px rgba(230,81,0,.3)}to{text-shadow:0 0 25px rgba(230,81,0,.8),0 0 50px rgba(230,81,0,.5)}}.subtitle{text-align:center;font-size:1.2rem;color:#4e342e}.result-card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #e65100;box-shadow:0 0 20px rgba(230,81,0,.2)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#ff9800,#ffcc80)}</style>""", unsafe_allow_html=True)
 
 st.markdown('<div class="title">🐛 Pest Detection & Management</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Snap a photo — get identification, organic & chemical control methods, and a downloadable PDF report</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Snap a photo — get identification, organic & chemical control methods, and spoken advice</div>', unsafe_allow_html=True)
 
 with st.expander("📸 How to take a good insect photo"):
     st.markdown("1. 🔍 Get as close as possible while keeping the insect in focus.\n2. 📱 Hold phone steady.\n3. ☀️ Good lighting is essential.\n4. 📤 Upload 2‑3 photos for better results.")
@@ -334,12 +167,11 @@ if files:
     try:
         from app.utils.model_loader import create_model_from_checkpoint
         from app.utils.download_models import ensure_model
-        
-        # Force delete old file to ensure fresh download
+
         cp_path = os.path.join("checkpoints", "pests_102class", "model.pt")
         if os.path.exists(cp_path):
             os.remove(cp_path)
-        
+
         cp = ensure_model("pests_102class")
         if cp and os.path.exists(cp):
             try:
@@ -348,7 +180,8 @@ if files:
                 if os.path.exists(cp_path):
                     os.remove(cp_path)
                 raise
-    except Exception as e: st.warning(f"Real model unavailable, using demo. ({e})")
+    except Exception as e:
+        st.warning(f"Real model unavailable, using demo. ({e})")
 
     predictions = []
     for f in files:
@@ -358,72 +191,64 @@ if files:
             c1.image(img, caption=f.name, width=200)
             if model:
                 t = Compose([Resize((224,224)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
-                with torch.no_grad(): probs = F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].detach().cpu().numpy()
+                with torch.no_grad():
+                    probs = F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].detach().cpu().numpy()
             else:
                 seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8],16)
                 np.random.seed(seed)
-                probs = np.random.rand(N); probs/=probs.sum()
+                probs = np.random.rand(N)
+                probs /= probs.sum()
             top_idx = np.argmax(probs)
             pest_name = PEST_CLASSES[top_idx]
-            confidence = probs[top_idx]*100
+            confidence = probs[top_idx] * 100
             predictions.append(pest_name)
-            
+
             c2.markdown(f'<div class="result-card top-result" style="border-left:5px solid #ff9800;"><h2 style="margin:0">{pest_name.title()} <span style="font-size:1.5rem;color:#ff9800">{confidence:.1f}%</span></h2></div>', unsafe_allow_html=True)
             for i in np.argsort(probs)[::-1][1:5]:
                 c2.write(f"**{PEST_CLASSES[i].title()}**: {probs[i]*100:.1f}%")
                 c2.progress(float(probs[i]))
             deduct_one_scan()
-            
-            # ===== DEEPSEEK EXPLANATION + VOICE =====
+
+            # ===== AI PEST GUIDE + VOICE =====
             if model is not None:
-                with st.spinner("GAIA is preparing your pest management guide..."):
-                    try:
-                        from app.utils.deepseek_explainer import explain_diagnosis, text_to_speech
-                        top_pest = PEST_CLASSES[top_idx]
-                        explanation, err = explain_diagnosis(top_pest, probs[top_idx] * 100, "various crops", "pest")
-                        if explanation:
-                            with st.expander("Complete Pest Management Guide", expanded=True):
-                                st.markdown(explanation)
-                                if st.button("Listen to Guide", key="v_" + f.name):
-                                    with st.spinner("Generating voice..."):
-                                        audio, e2 = text_to_speech(explanation[:2000])
-                                        if audio:
-                                            st.audio(audio, format="audio/mp3")
-                    except Exception as e:
-                        st.warning("Guide unavailable")
-            
-            # Feedback
-            col_fb1, col_fb2 = c2.columns(2)
-            if col_fb1.button("👍 Helpful", key=f"pest_help_{f.name}"): save_feedback(f.name, pest_name, True); col_fb1.success("Thanks!")
-            if col_fb2.button("👎 Not", key=f"pest_not_{f.name}"): save_feedback(f.name, pest_name, False); col_fb2.info("We'll improve.")
-            
-            # Generate management guide and PDF
+                top_pest = pest_name
+                with st.spinner("🧠 GAIA is preparing your pest management guide..."):
+                    explanation, err = get_ai_guide(top_pest, confidence)
+                if err:
+                    st.warning(f"AI guide unavailable: {err}")
+                elif explanation:
+                    with st.expander("📋 Complete Pest Management Guide (AI-Generated)", expanded=True):
+                        st.markdown(explanation)
+                        audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
+                        if audio_bytes:
+                            st.audio(audio_bytes, format="audio/mp3")
+                        else:
+                            st.caption(f"🔇 Voice unavailable: {tts_err}")
+
+            # Existing static guide (fallback/secondary)
             guide = get_pest_guide(pest_name)
-            pdf_bytes = generate_pdf_report(pest_name, confidence, guide)
-            
-            # Show summary
-            with st.expander("📋 Pest Management Summary", expanded=False):
+            with st.expander("📋 Quick Pest Summary", expanded=False):
                 st.markdown(f"**📖 About:** {strip_emoji(guide['desc'])}")
                 st.markdown(f"**🌿 Organic:** {strip_emoji(guide['organic'])}")
                 st.markdown(f"**🧪 Chemical:** {strip_emoji(guide['inorganic'])}")
                 st.markdown(f"**💉 How to Apply:** {strip_emoji(guide['admin'])}")
                 st.markdown(f"**⏰ Timing:** {strip_emoji(guide['timing'])}")
                 st.markdown(f"**🛡️ Prevention:** {strip_emoji(guide['prevention'])}")
-            
-            # PDF download button
-            st.download_button(
-                label=f"📥 Download PDF Report — {pest_name.title()}",
-                data=pdf_bytes,
-                file_name=f"GAIA_{pest_name.replace(' ', '_')}_Report.pdf",
-                mime="application/pdf",
-                help="Download a professionally designed PDF report with all management details."
-            )
+
+            col_fb1, col_fb2 = c2.columns(2)
+            if col_fb1.button("👍 Helpful", key=f"pest_help_{f.name}"):
+                save_feedback(f.name, pest_name, True)
+                col_fb1.success("Thanks!")
+            if col_fb2.button("👎 Not", key=f"pest_not_{f.name}"):
+                save_feedback(f.name, pest_name, False)
+                col_fb2.info("We'll improve.")
 
     if len(predictions) >= 2:
         vote = Counter(predictions).most_common(1)[0]
         if vote[1] > len(predictions)//2:
             st.success(f"🗳️ Majority vote: **{vote[0].title()}** ({vote[1]}/{len(predictions)} photos)")
-
+        else:
+            st.info("🗳️ No clear consensus. Consider retaking.")
 
 # ---------- Quick Navigation ----------
 st.markdown("---")

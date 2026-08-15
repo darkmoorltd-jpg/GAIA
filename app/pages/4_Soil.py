@@ -2,6 +2,7 @@
 import streamlit as st
 from PIL import Image
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import os
@@ -59,22 +60,55 @@ def load_soil_model():
     checkpoint = ensure_model("soil_11class")
     if not checkpoint or not os.path.exists(checkpoint):
         return None, None
+
     state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+
+    # Detect prefix
     prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
     embed_dim = state[f"{prefix}cls_token"].shape[-1]
     pos = state[f"{prefix}pos_embed"]
     num_patches = pos.shape[1] - 1
     grid = int(num_patches ** 0.5)
     img_size = grid * 16
+
+    # Auto‑detect depth
+    depth = len([k for k in state if k.startswith(f"{prefix}blocks") and k.endswith(".norm1.weight")])
+    num_heads = 6 if embed_dim == 384 else 3
+
     from timm.models.vision_transformer import VisionTransformer
-    backbone = VisionTransformer(img_size=img_size, patch_size=16, embed_dim=embed_dim, depth=12, num_heads=6, num_classes=0, global_pool='token')
+    backbone = VisionTransformer(
+        img_size=img_size, patch_size=16, embed_dim=embed_dim,
+        depth=depth, num_heads=num_heads, num_classes=0, global_pool='token'
+    )
     backbone_state = {k.replace(prefix, ""): v for k, v in state.items() if k.startswith(prefix)}
     backbone.load_state_dict(backbone_state, strict=False)
+
+    # Rebuild head dynamically
     n = len(SOIL_NAMES)
-    head = torch.nn.Linear(embed_dim, n)
-    head_state = {"weight": state.get("head.weight"), "bias": state.get("head.bias", torch.zeros(n))}
-    if head_state["weight"] is not None:
-        head.load_state_dict({k: v for k, v in head_state.items() if v is not None}, strict=False)
+    head_keys = [k for k in state if k.startswith("head.")]
+
+    if any(".0.weight" in k for k in head_keys):
+        # Deep sequential head
+        w_keys = sorted([k for k in head_keys if k.endswith(".weight")], key=lambda x: int(x.split('.')[1]))
+        layers = []
+        in_feat = embed_dim
+        for w_key in w_keys:
+            w = state[w_key]
+            out_feat = w.shape[0]
+            layers.append(nn.Linear(in_feat, out_feat))
+            if w_key != w_keys[-1]:
+                layers.extend([nn.GELU(), nn.Dropout(0.2)])
+            in_feat = out_feat
+        head = nn.Sequential(*layers)
+        head_state = {k.replace("head.", ""): v for k, v in state.items() if k.startswith("head.")}
+        head.load_state_dict(head_state, strict=False)
+    else:
+        head = nn.Linear(embed_dim, n)
+        head.load_state_dict({
+            "weight": state.get("head.weight"),
+            "bias": state.get("head.bias", torch.zeros(n))
+        }, strict=False)
+
     class SoilViT(torch.nn.Module):
         def __init__(self, bb, hd):
             super().__init__()
@@ -82,6 +116,7 @@ def load_soil_model():
             self.head = hd
         def forward(self, x):
             return self.head(self.backbone(x))
+
     model = SoilViT(backbone, head)
     model.eval()
     return model, img_size

@@ -22,6 +22,14 @@ st.markdown("""
     .stToggle > label { display: none !important; }
     .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
     .stToggle > div { transform: scale(1.3); }
+    .mic-button {
+        background: linear-gradient(135deg, #00c853, #4caf50);
+        color: white; border: none; border-radius: 50%;
+        width: 80px; height: 80px; font-size: 2rem; cursor: pointer;
+        box-shadow: 0 0 30px rgba(0,200,83,0.5);
+        transition: all 0.3s;
+    }
+    .mic-button:hover { transform: scale(1.1); box-shadow: 0 0 50px rgba(0,200,83,0.8); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -41,14 +49,15 @@ if "audio_to_play" not in st.session_state:
     st.session_state.audio_to_play = None
 if "recent_chats" not in st.session_state:
     st.session_state.recent_chats = []
+if "listen_again" not in st.session_state:
+    st.session_state.listen_again = False
 
-# ===== DATABASE HELPERS =====
+# ===== DATABASE HELPERS (same as before) =====
 @st.cache_resource
 def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_recent_chats(user_id, limit=50):
-    """Load up to 50 recent chat messages for the user (only used for display, not context)."""
     if not user_id:
         return []
     supabase = init_supabase()
@@ -84,11 +93,7 @@ def load_memory_from_db(user_id):
     try:
         res = supabase.table("farmer_memory").select("key, value").eq("user_id", user_id).execute()
         if res.data:
-            mem = {}
-            for row in res.data:
-                if row.get("key"):
-                    mem[row["key"]] = row.get("value", "")
-            return mem
+            return {row["key"]: row.get("value", "") for row in res.data if row.get("key")}
     except Exception:
         pass
     return {}
@@ -105,7 +110,7 @@ def save_memory_to_db(user_id, key, value):
     except Exception:
         pass
 
-# ===== INITIAL MEMORY LOAD =====
+# ===== INITIAL MEMORY =====
 if "user" in st.session_state and st.session_state.user is not None:
     user_id = st.session_state.user.id
     if not st.session_state.farmer_memory:
@@ -125,7 +130,6 @@ if "user" in st.session_state and st.session_state.user is not None:
     if not st.session_state.recent_chats:
         st.session_state.recent_chats = load_recent_chats(user_id)
 
-# ===== GAIA IDENTITY & CONDENSED MEMORY CONTEXT =====
 GAIA_IDENTITY = (
     "You are GAIA, an AI agronomist built by Darkmoor Ltd in Nigeria. "
     "Help African farmers with crop diseases, pests, soil, and livestock. "
@@ -137,19 +141,15 @@ GAIA_IDENTITY = (
 )
 
 def build_memory_context():
-    """Build a compact context to keep requests fast."""
     ctx_parts = []
-    # Include only essential facts (name, crop, location, last question)
-    essential_keys = ["name", "crop", "location"]
-    facts = {k: st.session_state.farmer_memory[k] for k in essential_keys if k in st.session_state.farmer_memory}
+    facts = {k: st.session_state.farmer_memory[k] for k in ["name","crop","location"] if k in st.session_state.farmer_memory}
     if facts:
         ctx_parts.append("Known facts: " + "; ".join(f"{k}: {v}" for k, v in facts.items()))
-    # Include only last 5 chats, truncated to 120 chars each
     if st.session_state.recent_chats:
         recent = []
         for chat in st.session_state.recent_chats[-5:]:
-            q = chat.get("question", "")[:120]
-            a = chat.get("answer", "")[:120]
+            q = chat.get("question","")[:120]
+            a = chat.get("answer","")[:120]
             recent.append(f"Q: {q}\nA: {a}")
         if recent:
             ctx_parts.append("Recent chat:\n" + "\n".join(recent))
@@ -158,7 +158,6 @@ def build_memory_context():
 def update_farmer_memory(question, answer):
     q = question.lower()
     user_id = st.session_state.user.id if "user" in st.session_state and st.session_state.user else None
-
     if "my name is" in q:
         name = q.split("my name is")[-1].strip().split()[0].title()
         st.session_state.farmer_memory["name"] = name
@@ -173,56 +172,37 @@ def update_farmer_memory(question, answer):
             st.session_state.farmer_memory["location"] = loc.title()
             save_memory_to_db(user_id, "location", loc.title())
             break
-
     save_chat(user_id, question, answer)
-
-    st.session_state.recent_chats.append({
-        "question": question,
-        "answer": answer,
-        "created_at": datetime.now().isoformat()
-    })
+    st.session_state.recent_chats.append({"question": question, "answer": answer, "created_at": datetime.now().isoformat()})
     st.session_state.recent_chats = st.session_state.recent_chats[-50:]
 
 def ask_gaia_stream(question):
-    """Stream response from DeepSeek and update placeholder in real time."""
     system_prompt = GAIA_IDENTITY + "\n\n" + build_memory_context()
     headers = {"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": question}
-        ],
-        "temperature": 0.7,
-        "max_tokens": 3000,
-        "stream": True
+        "messages": [{"role":"system","content":system_prompt},{"role":"user","content":question}],
+        "temperature": 0.7, "max_tokens": 3000, "stream": True
     }
-
     full_answer = ""
     placeholder = st.empty()
-
     try:
         r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
         if r.status_code != 200:
             return None, f"API error: {r.status_code}"
-
         for line in r.iter_lines():
-            if not line:
-                continue
+            if not line: continue
             line = line.decode('utf-8')
             if line.startswith('data: '):
                 data = line[6:]
-                if data.strip() == "[DONE]":
-                    break
+                if data.strip() == "[DONE]": break
                 try:
                     chunk = json.loads(data)
-                    delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                    delta = chunk['choices'][0].get('delta',{}).get('content','')
                     if delta:
                         full_answer += delta
                         placeholder.markdown(full_answer + "▌")
-                except:
-                    continue
-
+                except: continue
         placeholder.markdown(full_answer)
         return full_answer, None
     except Exception as e:
@@ -230,25 +210,19 @@ def ask_gaia_stream(question):
 
 def detect_language(text):
     t = text.lower()
-    if any(w in t for w in ["biko", "kedu", "ndewo", "imo", "igbo"]):
-        return "ig"
-    if any(w in t for w in ["sannu", "barka", "hausa", "zamu", "ya ya"]):
-        return "ha"
-    if any(w in t for w in ["e kaaro", "bawo", "yoruba", "se", "mo wa"]):
-        return "yo"
-    if any(w in t for w in ["wetin", "how far", "abi", "dey", "pidgin"]):
-        return "pcm"
+    if any(w in t for w in ["biko","kedu","ndewo","imo","igbo"]): return "ig"
+    if any(w in t for w in ["sannu","barka","hausa","zamu","ya ya"]): return "ha"
+    if any(w in t for w in ["e kaaro","bawo","yoruba","se","mo wa"]): return "yo"
+    if any(w in t for w in ["wetin","how far","abi","dey","pidgin"]): return "pcm"
     return "en-GB"
 
 def speak_answer(text, language="en-GB"):
     try:
         from app.utils.deepseek_explainer import text_to_speech
         audio_bytes, err = text_to_speech(text, language)
-        if audio_bytes:
-            return audio_bytes, None
+        if audio_bytes: return audio_bytes, None
         return None, err or "Voice unavailable"
-    except Exception as e:
-        return None, str(e)
+    except Exception as e: return None, str(e)
 
 # ===== THEME CSS =====
 if theme == "dark":
@@ -282,7 +256,6 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
-# ===== HEADER =====
 st.markdown(f"""
 <div style="text-align:center;padding:10px 0;">
     <span class="dancing-tomato">🍅</span>
@@ -293,7 +266,7 @@ st.markdown(f"""
 
 # ===== PLAY STORED AUDIO =====
 if st.session_state.audio_to_play:
-    st.audio(st.session_state.audio_to_play, format="audio/mp3")
+    st.audio(st.session_state.audio_to_play, format="audio/mp3", autoplay=True)
     st.session_state.audio_to_play = None
 
 # ===== PROCESS PENDING TRANSCRIPTION =====
@@ -326,43 +299,43 @@ if st.session_state.pending_transcription:
         else:
             st.caption(f"🔇 Voice unavailable: {speech_err}")
 
+    # Enable auto listen again
+    st.session_state.listen_again = True
     st.rerun()
 
-# ===== VOICE INPUT =====
-st.markdown("### 🎤 Speak to GAIA")
+# ===== BIG TAP TO SPEAK BUTTON =====
+st.markdown("---")
+st.markdown("### 🎤 Tap to Talk")
 
 if not st.session_state.processing_audio:
-    audio = st.audio_input("Record your question")
-
-    if audio is not None:
-        st.session_state.processing_audio = True
-
-        with st.spinner("🧠 Transcribing your voice..."):
-            tmp = "/tmp/gaia_voice.wav"
-            with open(tmp, "wb") as f:
-                f.write(audio.getvalue() if hasattr(audio, 'getvalue') else audio.read())
-
-            headers = {"Authorization": "Bearer " + GROQ_API_KEY}
-            with open(tmp, "rb") as f:
-                resp = requests.post("https://api.groq.com/openai/v1/audio/transcriptions",
-                                     headers=headers, files={"file":("audio.wav",f,"audio/wav")},
-                                     data={"model":"whisper-large-v3","language":"en"})
-            os.remove(tmp)
-
-            if resp.status_code == 200:
-                text = resp.json().get("text","").strip()
-                if text:
-                    st.session_state.pending_transcription = text
-                else:
-                    st.warning("No speech detected. Please try again.")
-            else:
-                st.error(f"Transcription failed (Error {resp.status_code}). Please type instead.")
-
-            st.session_state.processing_audio = False
-            st.rerun()
+    # Big mic button (custom HTML for style)
+    st.markdown('<button class="mic-button">🎤</button>', unsafe_allow_html=True)
+    audio = st.audio_input("", key="mic_recorder")
 else:
-    st.info("Processing your previous recording...")
-    st.session_state.processing_audio = False
+    st.info("Listening...")
+
+if audio is not None and not st.session_state.processing_audio:
+    st.session_state.processing_audio = True
+    with st.spinner("🧠 Transcribing your voice..."):
+        tmp = "/tmp/gaia_voice.wav"
+        with open(tmp, "wb") as f:
+            f.write(audio.getvalue() if hasattr(audio, 'getvalue') else audio.read())
+        headers = {"Authorization": "Bearer " + GROQ_API_KEY}
+        with open(tmp, "rb") as f:
+            resp = requests.post("https://api.groq.com/openai/v1/audio/transcriptions",
+                                 headers=headers, files={"file":("audio.wav",f,"audio/wav")},
+                                 data={"model":"whisper-large-v3","language":"en"})
+        os.remove(tmp)
+        if resp.status_code == 200:
+            text = resp.json().get("text","").strip()
+            if text:
+                st.session_state.pending_transcription = text
+            else:
+                st.warning("No speech detected.")
+        else:
+            st.error(f"Transcription failed. Please type instead.")
+        st.session_state.processing_audio = False
+        st.rerun()
 
 # ===== TEXT INPUT =====
 st.markdown("---")
@@ -397,8 +370,7 @@ with c2:
 st.markdown("---")
 if st.session_state.voice_history:
     c1, c2 = st.columns([5,2])
-    with c1:
-        st.markdown("### 🍅 Conversation")
+    with c1: st.markdown("### 🍅 Conversation")
     with c2:
         if st.button("🗑️ Clear All", use_container_width=True):
             st.session_state.voice_history = []
@@ -420,8 +392,7 @@ if st.session_state.farmer_memory:
             if "user" in st.session_state and st.session_state.user is not None:
                 try:
                     init_supabase().table("farmer_memory").delete().eq("user_id", st.session_state.user.id).execute()
-                except:
-                    pass
+                except: pass
             st.session_state.farmer_memory = {}
             st.rerun()
 

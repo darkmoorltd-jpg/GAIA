@@ -9,6 +9,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌾", layout="wide")
 
+# ---- SESSION STATE FOR AUDIO ----
+if "audio_to_play" not in st.session_state:
+    st.session_state.audio_to_play = None
+
 CROP_CLASSES = {
     "millet": ["Blast", "Rust", "Healthy"],
     "maize": ["Blight", "Common_Rust", "Gray_Leaf_Spot", "Healthy"],
@@ -149,7 +153,6 @@ def get_treatment_guide(disease, crop, confidence):
         return None, err
     return explanation, None
 
-# ===== VOICE HELPER (same as Voice Agronomist) =====
 def detect_language(text):
     t = text.lower()
     if any(w in t for w in ["biko", "kedu", "ndewo", "imo", "igbo"]):
@@ -180,6 +183,11 @@ if theme == "dark":
     st.markdown(f"<style>.stApp{{background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff}}header,footer{{visibility:hidden}}.title{{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}.subtitle{{font-size:1.2rem;color:#b0bec5;margin-bottom:2rem}}.pred-box{{background:rgba(255,255,255,.05);backdrop-filter:blur(12px);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}}.pred-box-high{{border-left-color:#2e7d32;background:rgba(255,255,255,.1)}}.stProgress>div>div>div>div{{background:linear-gradient(90deg,#4caf50,#81c784)}}.crop-btn{{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#fff!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}}.crop-btn:hover{{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,200,83,0.3);border-color:#00c853;background:rgba(0,200,83,0.15)}}{bg_css}</style>", unsafe_allow_html=True)
 else:
     st.markdown(f"<style>.stApp{{background:linear-gradient(135deg,#e8f5e9,#f1f8e9);color:#1b5e20}}header,footer{{visibility:hidden}}.title{{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}.subtitle{{font-size:1.2rem;color:#33691e;margin-bottom:2rem}}.pred-box{{background:rgba(255,255,255,0.9);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}}.pred-box-high{{border-left-color:#2e7d32;background:rgba(255,255,255,1)}}.stProgress>div>div>div>div{{background:linear-gradient(90deg,#4caf50,#81c784)}}.crop-btn{{background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border:1px solid rgba(0,0,0,0.1);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#1b5e20!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}}.crop-btn:hover{{transform:translateY(-8px);box-shadow:0 20px 40px rgba(46,125,50,0.2);border-color:#2e7d32;background:rgba(46,125,50,0.1)}}{bg_css}</style>", unsafe_allow_html=True)
+
+# ===== PLAY STORED AUDIO (before rendering content) =====
+if st.session_state.audio_to_play:
+    st.audio(st.session_state.audio_to_play, format="audio/mp3")
+    st.session_state.audio_to_play = None
 
 st.markdown('<div class="title">🌾 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Select a crop, upload leaf photos, and let AI detect diseases in seconds</div>', unsafe_allow_html=True)
@@ -264,7 +272,6 @@ else:
                         elif explanation:
                             with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
                                 st.markdown(explanation)
-                                # Voice option
                                 st.markdown("---")
                                 st.markdown("### 🔊 Listen to Guide")
                                 lang_options = {
@@ -280,7 +287,9 @@ else:
                                     with st.spinner("🔊 Generating voice..."):
                                         audio_bytes, tts_err = speak_answer(explanation[:2000], lang_code)
                                     if audio_bytes:
-                                        st.audio(audio_bytes, format="audio/mp3")
+                                        # Store in session state and rerun to play
+                                        st.session_state.audio_to_play = audio_bytes
+                                        st.rerun()
                                     else:
                                         st.warning(f"Voice unavailable: {tts_err}")
 

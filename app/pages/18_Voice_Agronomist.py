@@ -4,7 +4,7 @@ import requests
 import os
 from datetime import datetime
 import uuid
-import streamlit.components.v1 as components
+import json
 from app.utils.scan_util import deduct_scans
 from supabase import create_client, Client
 
@@ -37,12 +37,10 @@ if "pending_transcription" not in st.session_state:
     st.session_state.pending_transcription = ""
 if "farmer_memory" not in st.session_state:
     st.session_state.farmer_memory = {}
+if "audio_to_play" not in st.session_state:
+    st.session_state.audio_to_play = None
 if "recent_chats" not in st.session_state:
     st.session_state.recent_chats = []
-if "last_answer" not in st.session_state:
-    st.session_state.last_answer = ""
-if "last_language" not in st.session_state:
-    st.session_state.last_language = "en-GB"
 
 # ===== DATABASE HELPERS =====
 @st.cache_resource
@@ -50,6 +48,7 @@ def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def load_recent_chats(user_id, limit=50):
+    """Load up to 50 recent chat messages for the user (only used for display, not context)."""
     if not user_id:
         return []
     supabase = init_supabase()
@@ -138,11 +137,14 @@ GAIA_IDENTITY = (
 )
 
 def build_memory_context():
+    """Build a compact context to keep requests fast."""
     ctx_parts = []
+    # Include only essential facts (name, crop, location, last question)
     essential_keys = ["name", "crop", "location"]
     facts = {k: st.session_state.farmer_memory[k] for k in essential_keys if k in st.session_state.farmer_memory}
     if facts:
         ctx_parts.append("Known facts: " + "; ".join(f"{k}: {v}" for k, v in facts.items()))
+    # Include only last 5 chats, truncated to 120 chars each
     if st.session_state.recent_chats:
         recent = []
         for chat in st.session_state.recent_chats[-5:]:
@@ -173,6 +175,7 @@ def update_farmer_memory(question, answer):
             break
 
     save_chat(user_id, question, answer)
+
     st.session_state.recent_chats.append({
         "question": question,
         "answer": answer,
@@ -180,8 +183,8 @@ def update_farmer_memory(question, answer):
     })
     st.session_state.recent_chats = st.session_state.recent_chats[-50:]
 
-def ask_gaia(question):
-    """Fast non‑streaming call with small context."""
+def ask_gaia_stream(question):
+    """Stream response from DeepSeek and update placeholder in real time."""
     system_prompt = GAIA_IDENTITY + "\n\n" + build_memory_context()
     headers = {"Authorization": "Bearer " + DEEPSEEK_API_KEY, "Content-Type": "application/json"}
     payload = {
@@ -191,53 +194,69 @@ def ask_gaia(question):
             {"role": "user", "content": question}
         ],
         "temperature": 0.7,
-        "max_tokens": 1500   # reduced for speed, still complete
+        "max_tokens": 3000,
+        "stream": True
     }
+
+    full_answer = ""
+    placeholder = st.empty()
+
     try:
-        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=40)
-        if r.status_code == 200:
-            return r.json()["choices"][0]["message"]["content"], None
-        return None, f"API error: {r.status_code}"
+        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
+        if r.status_code != 200:
+            return None, f"API error: {r.status_code}"
+
+        for line in r.iter_lines():
+            if not line:
+                continue
+            line = line.decode('utf-8')
+            if line.startswith('data: '):
+                data = line[6:]
+                if data.strip() == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data)
+                    delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                    if delta:
+                        full_answer += delta
+                        placeholder.markdown(full_answer + "▌")
+                except:
+                    continue
+
+        placeholder.markdown(full_answer)
+        return full_answer, None
     except Exception as e:
         return None, str(e)
 
 def detect_language(text):
     t = text.lower()
     if any(w in t for w in ["biko", "kedu", "ndewo", "imo", "igbo"]):
-        return "ig-NG"
+        return "ig"
     if any(w in t for w in ["sannu", "barka", "hausa", "zamu", "ya ya"]):
-        return "ha-NG"
+        return "ha"
     if any(w in t for w in ["e kaaro", "bawo", "yoruba", "se", "mo wa"]):
-        return "yo-NG"
+        return "yo"
     if any(w in t for w in ["wetin", "how far", "abi", "dey", "pidgin"]):
-        return "en-NG"
+        return "pcm"
     return "en-GB"
 
-def speak_with_browser(text, lang_code):
-    safe_text = text.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ")
-    html = f"""
-    <script>
-        try {{
-            if ('speechSynthesis' in window) {{
-                var utterance = new SpeechSynthesisUtterance('{safe_text}');
-                utterance.lang = '{lang_code}';
-                utterance.rate = 1.0;
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(utterance);
-            }} else {{
-                alert('Voice not supported in this browser');
-            }}
-        }} catch(e) {{
-            alert('Speech error: ' + e);
-        }}
-    </script>
-    """
-    components.html(html, height=0)
+def speak_answer(text, language="en-GB"):
+    try:
+        from app.utils.deepseek_explainer import text_to_speech
+        audio_bytes, err = text_to_speech(text, language)
+        if audio_bytes:
+            return audio_bytes, None
+        return None, err or "Voice unavailable"
+    except Exception as e:
+        return None, str(e)
 
 # ===== THEME CSS =====
 if theme == "dark":
     st.markdown("""
     <style>
+        @keyframes bounce { 0%,100%{transform:translateY(0) rotate(0deg)} 25%{transform:translateY(-20px) rotate(15deg)} 50%{transform:translateY(0) rotate(0deg)} 75%{transform:translateY(-10px) rotate(-15deg)} }
+        @keyframes glow { 0%,100%{text-shadow:0 0 20px rgba(0,200,83,.6)} 50%{text-shadow:0 0 40px rgba(0,200,83,1),0 0 80px rgba(0,200,83,.8)} }
+        @keyframes slideIn { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
         .dancing-tomato { font-size:5rem;text-align:center;animation:bounce 1.5s infinite ease-in-out;display:inline-block }
         .gaia-title { font-size:2.5rem;font-weight:900;text-align:center;background:linear-gradient(135deg,#00c853,#69f0ae,#00c853);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:glow 2s ease-in-out infinite alternate }
         .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
@@ -250,6 +269,9 @@ if theme == "dark":
 else:
     st.markdown("""
     <style>
+        @keyframes bounce { 0%,100%{transform:translateY(0) rotate(0deg)} 25%{transform:translateY(-20px) rotate(15deg)} 50%{transform:translateY(0) rotate(0deg)} 75%{transform:translateY(-10px) rotate(-15deg)} }
+        @keyframes glowLight { 0%,100%{text-shadow:0 0 15px rgba(46,125,50,.5)} 50%{text-shadow:0 0 30px rgba(46,125,50,1),0 0 60px rgba(46,125,50,.7)} }
+        @keyframes slideIn { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
         .dancing-tomato { font-size:5rem;text-align:center;animation:bounce 1.5s infinite ease-in-out;display:inline-block }
         .gaia-title { font-size:2.5rem;font-weight:900;text-align:center;background:linear-gradient(135deg,#2e7d32,#66bb6a,#2e7d32);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:glowLight 2s ease-in-out infinite alternate }
         .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
@@ -269,6 +291,11 @@ st.markdown(f"""
 <div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type — GAIA listens and talks back</div>
 """, unsafe_allow_html=True)
 
+# ===== PLAY STORED AUDIO =====
+if st.session_state.audio_to_play:
+    st.audio(st.session_state.audio_to_play, format="audio/mp3")
+    st.session_state.audio_to_play = None
+
 # ===== PROCESS PENDING TRANSCRIPTION =====
 if st.session_state.pending_transcription:
     text = st.session_state.pending_transcription
@@ -276,7 +303,7 @@ if st.session_state.pending_transcription:
 
     st.success("You said: " + text)
     with st.spinner("🍅 GAIA is thinking..."):
-        answer, err = ask_gaia(text)
+        answer, err = ask_gaia_stream(text)
     if err:
         st.error(err)
     else:
@@ -292,8 +319,12 @@ if st.session_state.pending_transcription:
         if "user" in st.session_state and st.session_state.user is not None:
             deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
 
-        st.session_state.last_answer = answer
-        st.session_state.last_language = detect_language(text)
+        lang = detect_language(text)
+        audio_bytes, speech_err = speak_answer(answer, lang)
+        if audio_bytes:
+            st.session_state.audio_to_play = audio_bytes
+        else:
+            st.caption(f"🔇 Voice unavailable: {speech_err}")
 
     st.rerun()
 
@@ -342,7 +373,7 @@ with c1:
 with c2:
     st.write("")
     if st.button("Ask 🍅", type="primary", use_container_width=True) and q:
-        answer, err = ask_gaia(q)
+        answer, err = ask_gaia_stream(q)
         if err:
             st.error(err)
         else:
@@ -356,8 +387,10 @@ with c2:
             update_farmer_memory(q, answer)
             if "user" in st.session_state and st.session_state.user is not None:
                 deduct_scans(st.session_state.user.id, 3, "Voice Agronomist (Text)")
-            st.session_state.last_answer = answer
-            st.session_state.last_language = detect_language(q)
+            lang = detect_language(q)
+            audio_bytes, speech_err = speak_answer(answer, lang)
+            if audio_bytes:
+                st.session_state.audio_to_play = audio_bytes
             st.rerun()
 
 # ===== CONVERSATION =====
@@ -376,11 +409,6 @@ if st.session_state.voice_history:
         st.markdown(f'<div class="msg-bubble msg-user">{item["q"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="margin:4px 0;"><span>🍅</span><span style="font-size:.7rem;color:#6b7280;"> GAIA - {item["t"]}</span></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="msg-bubble msg-gaia">{item["a"]}</div>', unsafe_allow_html=True)
-
-        # 🔊 Play Voice button for the latest answer
-        if item["id"] == st.session_state.voice_history[-1]["id"]:
-            if st.button("🔊 Play Voice", key=f"play_{item['id']}"):
-                speak_with_browser(item["a"], detect_language(item["q"]))
 
 # ===== FARMER MEMORY =====
 if st.session_state.farmer_memory:

@@ -16,6 +16,17 @@ ANIMALS = {
     "poultry": ["Coccidiosis","Healthy","Newcastle Disease","Salmonella"]
 }
 
+# ===== VOICE LANGUAGE SELECTOR =====
+language_options = {
+    "English (UK)": "en-GB",
+    "Hausa": "ha",
+    "Yoruba": "yo",
+    "Igbo": "ig",
+    "Pidgin": "pcm"
+}
+selected_lang_label = st.selectbox("🔊 Voice language for treatment guides", list(language_options.keys()), index=0)
+voice_lang = language_options[selected_lang_label]
+
 def save_feedback(image_name, predicted_class, helpful):
     if "user" not in st.session_state or st.session_state.user is None: return
     from supabase import create_client
@@ -38,7 +49,6 @@ def deduct_one_scan():
 def load_animal_model(animal):
     from app.utils.download_models import ensure_model
     
-    # Force delete old file to ensure fresh download
     cp_path = os.path.join("checkpoints", animal, "model.pt")
     if os.path.exists(cp_path):
         os.remove(cp_path)
@@ -88,6 +98,20 @@ def load_animal_model(animal):
     model.eval()
     return model, img_size
 
+@st.cache_data(show_spinner=False)
+def get_treatment_guide(disease, animal, confidence):
+    from app.utils.deepseek_explainer import explain_diagnosis
+    explanation, err = explain_diagnosis(disease, confidence, animal, "livestock")
+    if err:
+        return None, err
+    return explanation, None
+
+@st.cache_data(show_spinner=False)
+def get_voice_guide(explanation, lang):
+    from app.utils.deepseek_explainer import text_to_speech
+    audio_bytes, err = text_to_speech(explanation[:2000], lang)
+    return audio_bytes, err
+
 if theme == "dark":
     st.markdown("""<style>.stApp{background:linear-gradient(135deg,#1a0f2e,#2e1c3e,#3e2a5e,#1a0f2e);color:#ede7f6}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#7c4dff,#b388ff,#7c4dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(124,77,255,.7);animation:livestockGlow 2s ease-in-out infinite alternate}@keyframes livestockGlow{from{text-shadow:0 0 25px rgba(124,77,255,.7)}to{text-shadow:0 0 50px rgba(124,77,255,1),0 0 80px rgba(124,77,255,.6)}}.subtitle{text-align:center;font-size:1.2rem;color:#b39ddb}.result-card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 30px rgba(124,77,255,.3)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}</style>""", unsafe_allow_html=True)
 else:
@@ -121,6 +145,23 @@ if files:
             if "healthy" in td.lower(): c2.success(f"✅ This {animal} appears healthy!")
             else: c2.warning(f"⚠️ Possible **{td}** detected.")
             deduct_one_scan()
+
+            # ===== AI TREATMENT GUIDE + VOICE =====
+            if model is not None:
+                top_disease = td
+                with st.spinner("🧠 Generating treatment guide..."):
+                    explanation, err = get_treatment_guide(top_disease, animal, probs[si[0]]*100)
+                if err:
+                    st.warning(f"Guide unavailable: {err}")
+                elif explanation:
+                    with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
+                        st.markdown(explanation)
+                        audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
+                        if audio_bytes:
+                            st.audio(audio_bytes, format="audio/mp3")
+                        else:
+                            st.caption(f"🔇 Voice unavailable: {tts_err}")
+
             col_fb1, col_fb2 = c2.columns(2)
             if col_fb1.button("👍 Helpful", key=f"livestock_help_{f.name}"): save_feedback(f.name, td, True); col_fb1.success("Thanks!")
             if col_fb2.button("👎 Not", key=f"livestock_not_{f.name}"): save_feedback(f.name, td, False); col_fb2.info("We'll improve.")

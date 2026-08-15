@@ -51,6 +51,19 @@ Please provide a comprehensive soil management guide covering:
 9. Soil Conservation
 10. Common Mistakes
 Be practical, specific, and use Nigerian/local context."""
+    elif context_type == "livestock":
+        prompt = f"""GAIA diagnosed: {diagnosis} in livestock with {confidence:.1f}% confidence.
+
+Please provide a comprehensive farmer-friendly guide covering:
+1. **What This Means:** Explain the disease in simple terms
+2. **Symptoms:** How to recognise it
+3. **Isolation:** Should the animal be separated?
+4. **Treatment:** Specific medicines, dosages, and administration
+5. **Prevention:** Vaccinations, hygiene, and management
+6. **Feeding:** Special nutrition during recovery
+7. **Cost Estimate:** Approximate treatment cost
+8. **Safety:** Handling sick animals, milk/meat withdrawal periods
+Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian veterinary stores."""
     else:
         prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
     

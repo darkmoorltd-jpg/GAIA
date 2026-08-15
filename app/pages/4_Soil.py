@@ -7,20 +7,32 @@ import numpy as np
 import os
 import sys
 import hashlib
+import json
 from collections import Counter
-
+import requests
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-st.set_page_config(page_title="GAIA – Soil Analysis", page_icon="🏞️", layout="wide")
+DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
+DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
+st.set_page_config(page_title="GAIA – Soil Analysis", page_icon="🏞️", layout="wide")
 st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
 dark = st.toggle("", value=False, key="soil_theme")
 theme = "dark" if dark else "light"
 
 SOIL_NAMES = ["Alluvial","Sandy","Clay","Loamy","Laterite","Black","Red","Peat","Cinder","Sandy Loam","Yellow"]
 SOIL_COLORS = {"Alluvial":"#8d6e63","Sandy":"#d4a373","Clay":"#a1887f","Loamy":"#6d4c41","Laterite":"#b7410e","Black":"#3e2723","Red":"#c62828","Peat":"#4e342e","Cinder":"#616161","Sandy Loam":"#bcaaa4","Yellow":"#f9a825"}
+
+language_options = {
+    "English (UK)": "en-GB",
+    "Hausa": "ha",
+    "Yoruba": "yo",
+    "Igbo": "ig",
+    "Pidgin": "pcm"
+}
+selected_lang_label = st.selectbox("🔊 Voice language for soil guide", list(language_options.keys()), index=0)
+voice_lang = language_options[selected_lang_label]
 
 if theme == "dark":
     st.markdown("""<style>.stApp{background:linear-gradient(135deg,#1a120b,#2e1c0d,#3e2a14,#1a0f05);color:#f5f0eb}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#d4a373,#f5e6d3,#d4a373);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(212,163,115,.7);animation:soilGlow 2s ease-in-out infinite alternate}@keyframes soilGlow{from{text-shadow:0 0 25px rgba(212,163,115,.7)}to{text-shadow:0 0 50px rgba(212,163,115,1),0 0 80px rgba(212,163,115,.6)}}.subtitle{font-size:1.2rem;color:#bcaaa4}.card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.stProgress>div>div>div>div{background:linear-gradient(90deg,#d4a373,#f5e6d3)}</style>""", unsafe_allow_html=True)
@@ -74,8 +86,57 @@ def load_soil_model():
     model.eval()
     return model, img_size
 
+def stream_deepseek_soil_guide(soil_name, confidence):
+    """Stream a soil management guide directly from DeepSeek."""
+    prompt = f"""GAIA identified soil type: {soil_name} with {confidence:.1f}% confidence.
+Please provide a comprehensive soil management guide covering:
+1. Soil Characteristics
+2. Organic Improvement
+3. Fertilizer Guide (specific NPK ratios and application rates)
+4. Best Crops for this soil
+5. Water Management
+6. Land Preparation
+7. Yield Potential
+8. Input Cost Estimate
+9. Soil Conservation
+10. Common Mistakes to Avoid
+Be practical, specific, and use Nigerian/local context."""
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "stream": True
+    }
+    r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
+    for line in r.iter_lines():
+        if not line:
+            continue
+        line = line.decode('utf-8')
+        if line.startswith('data: '):
+            data = line[6:]
+            if data.strip() == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data)
+                delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                if delta:
+                    yield delta
+            except:
+                continue
+
+@st.cache_data(show_spinner=False)
+def get_voice_guide(explanation, lang):
+    from app.utils.deepseek_explainer import text_to_speech
+    audio_bytes, err = text_to_speech(explanation[:2000], lang)
+    return audio_bytes, err
+
 st.markdown('<div class="title">🏞️ Soil Type Analysis</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Upload 2–3 photos for consensus diagnosis with farming recommendations</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Upload 2–3 photos for consensus diagnosis with AI‑generated management guide</div>', unsafe_allow_html=True)
 
 with st.expander("📸 Tips for best results", expanded=False):
     st.markdown("1. 🏞️ Take 2–3 photos from slightly different angles\n2. ☀️ Use natural daylight\n3. 📤 Upload all photos together\n4. 🔄 More photos = better accuracy")
@@ -116,57 +177,37 @@ if files:
 
     st.markdown(f"""<div class="card" style="border-left:5px solid {color};"><h3>🗳️ Consensus: {vote_count}/{len(files)} photos agree ({agreement_pct:.0f}%)</h3><h2 style="color:{color};">{consensus_name} ({confidence:.1f}%)</h2></div>""", unsafe_allow_html=True)
 
-    if confidence < 70 or agreement_pct < 60:
-        st.warning(f"⚠️ Low confidence ({confidence:.0f}%). Try more photos in daylight.")
-    elif confidence < 85:
-        st.info(f"💡 Moderate confidence ({confidence:.0f}%). 1–2 more photos help.")
-    else:
-        st.success(f"✅ High confidence ({confidence:.0f}%) — {consensus_name} soil.")
-
-    # ===== DEEPSEEK EXPLANATION + VOICE =====
-    if model is not None:
-        with st.spinner("🧠 GAIA is preparing your soil management guide..."):
-            try:
-                from app.utils.deepseek_explainer import explain_diagnosis, text_to_speech
-                top_soil = SOIL_NAMES[consensus_idx]
-                explanation, explain_err = explain_diagnosis(top_soil, confidence, "your farm", "soil")
-                if explanation:
-                    with st.expander("📋 Complete Soil Management Guide (AI-Generated)", expanded=True):
-                        st.markdown(explanation)
-                        if st.button("🔊 Listen to Soil Guide", key=f"voice_soil_{files[0].name}"):
-                            with st.spinner("🔊 Generating voice..."):
-                                audio_bytes, tts_err = text_to_speech(explanation[:2000])
-                                if audio_bytes:
-                                    st.audio(audio_bytes, format="audio/mp3")
-                                else:
-                                    st.warning(f"Voice unavailable: {tts_err}")
-            except Exception as e:
-                st.warning(f"Soil guide unavailable: {str(e)[:100]}")
+    # ===== STREAMING AI SOIL GUIDE + VOICE =====
+    with st.spinner("🧠 GAIA is preparing your soil management guide..."):
+        with st.expander("📋 Complete Soil Management Guide (AI-Generated)", expanded=True):
+            full_guide = []
+            def local_generator():
+                for chunk in stream_deepseek_soil_guide(consensus_name, confidence):
+                    full_guide.append(chunk)
+                    yield chunk
+            st.write_stream(local_generator)
+            guide_text = ''.join(full_guide)
+            if guide_text:
+                audio_bytes, tts_err = get_voice_guide(guide_text, voice_lang)
+                if audio_bytes:
+                    st.audio(audio_bytes, format="audio/mp3")
+                else:
+                    st.caption(f"🔇 Voice unavailable: {tts_err}")
 
     deduct_one_scan()
 
 st.markdown("---")
 
-
 # ---------- Quick Navigation ----------
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(9)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]:
-    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]:
-    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
+with cols[6]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
+with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
+with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

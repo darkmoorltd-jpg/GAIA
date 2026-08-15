@@ -9,7 +9,7 @@ import json
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop"):
+def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop", stream=False):
     """Stream a GAIA diagnosis explanation using st.write_stream."""
     if context_type == "crop":
         prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.

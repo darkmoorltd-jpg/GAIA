@@ -143,12 +143,34 @@ def save_feedback(image_name, predicted_class, helpful):
 
 @st.cache_data(show_spinner=False)
 def get_treatment_guide(disease, crop, confidence):
-    """Cached treatment guide generation."""
     from app.utils.deepseek_explainer import explain_diagnosis
     explanation, err = explain_diagnosis(disease, confidence, crop, "crop")
     if err:
         return None, err
     return explanation, None
+
+# ===== VOICE HELPER (same as Voice Agronomist) =====
+def detect_language(text):
+    t = text.lower()
+    if any(w in t for w in ["biko", "kedu", "ndewo", "imo", "igbo"]):
+        return "ig"
+    if any(w in t for w in ["sannu", "barka", "hausa", "zamu", "ya ya"]):
+        return "ha"
+    if any(w in t for w in ["e kaaro", "bawo", "yoruba", "se", "mo wa"]):
+        return "yo"
+    if any(w in t for w in ["wetin", "how far", "abi", "dey", "pidgin"]):
+        return "pcm"
+    return "en-GB"
+
+def speak_answer(text, language="en-GB"):
+    try:
+        from app.utils.deepseek_explainer import text_to_speech
+        audio_bytes, err = text_to_speech(text, language)
+        if audio_bytes:
+            return audio_bytes, None
+        return None, err or "Voice unavailable"
+    except Exception as e:
+        return None, str(e)
 
 overlay = "rgba(0,0,0,0.55)" if theme == "dark" else "rgba(255,255,255,0.75)"
 bg_url = "https://images.unsplash.com/photo-1600112356915-089abb8fc71a"
@@ -231,7 +253,7 @@ else:
                     c2.progress(float(probs[i]))
                 deduct_one_scan()
 
-                # ---- Treatment guide on demand (cached, fast) ----
+                # ---- Treatment guide on demand (cached) ----
                 if model is not None:
                     top_disease = class_names[top_idx]
                     if st.button("📋 Get Treatment Guide", key=f"guide_{f.name}"):
@@ -242,9 +264,21 @@ else:
                         elif explanation:
                             with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
                                 st.markdown(explanation)
-                                if st.button("🔊 Listen", key=f"voice_guide_{f.name}"):
-                                    from app.utils.deepseek_explainer import text_to_speech
-                                    audio_bytes, tts_err = text_to_speech(explanation[:2000])
+                                # Voice option
+                                st.markdown("---")
+                                st.markdown("### 🔊 Listen to Guide")
+                                lang_options = {
+                                    "English (UK)": "en-GB",
+                                    "Hausa": "ha",
+                                    "Yoruba": "yo",
+                                    "Igbo": "ig",
+                                    "Pidgin": "pcm"
+                                }
+                                selected_lang = st.selectbox("Choose voice language", list(lang_options.keys()), key=f"lang_{f.name}")
+                                lang_code = lang_options[selected_lang]
+                                if st.button("🔊 Speak Guide", key=f"speak_guide_{f.name}"):
+                                    with st.spinner("🔊 Generating voice..."):
+                                        audio_bytes, tts_err = speak_answer(explanation[:2000], lang_code)
                                     if audio_bytes:
                                         st.audio(audio_bytes, format="audio/mp3")
                                     else:

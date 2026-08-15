@@ -4,66 +4,64 @@ import requests
 import os
 import tempfile
 import time
+import json
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop"):
-    """Use DeepSeek to explain a GAIA diagnosis with retry and longer timeout."""
+    """Stream a GAIA diagnosis explanation using st.write_stream."""
     if context_type == "crop":
         prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
-
-Please provide a comprehensive farmer-friendly guide covering:
-1. **What This Means:** Explain the disease in simple terms
-2. **Organic Treatment:** Natural remedies with exact recipes and dosages
-3. **Chemical Treatment:** Specific product names, exact dosages per liter/hectare, application method
-4. **Water Management:** Irrigation advice specific to this condition
-5. **Ridges/Bed Preparation:** How to prepare land to prevent recurrence
-6. **Yield Impact:** Expected yield loss if untreated vs treated
-7. **Cost Estimate:** Approximate cost of treatment per hectare
-8. **Prevention:** How to prevent this in future seasons
-9. **Safety:** Protective gear and waiting period before harvest
-
+Provide a comprehensive farmer-friendly guide covering:
+1. What This Means
+2. Organic Treatment
+3. Chemical Treatment
+4. Water Management
+5. Ridges/Bed Preparation
+6. Yield Impact
+7. Cost Estimate
+8. Prevention
+9. Safety
 Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian agro-dealers."""
     elif context_type == "pest":
         prompt = f"""GAIA identified: {diagnosis} with {confidence:.1f}% confidence.
-
-Please provide a comprehensive pest management guide covering:
-1. **About This Pest:** Lifecycle, damage pattern, crops affected
-2. **Organic Control:** Natural predators, neem oil recipes, trap crops
-3. **Chemical Pesticides:** Specific products, exact dosages, application timing
-4. **Water & Irrigation:** How watering affects this pest
-5. **Field Management:** Ridges, spacing, intercropping to reduce pest pressure
-6. **Yield Protection:** Expected damage if untreated vs treated
-7. **Cost-Benefit:** Treatment cost vs potential loss
-8. **Prevention:** Seasonal planning to avoid recurrence
-9. **Safety:** Protective equipment, re-entry interval, pre-harvest interval"""
+Provide a comprehensive pest management guide covering:
+1. About This Pest
+2. Organic Control
+3. Chemical Pesticides
+4. Water & Irrigation
+5. Field Management
+6. Yield Protection
+7. Cost-Benefit
+8. Prevention
+9. Safety
+Be practical, specific, and use Nigerian/local context."""
     elif context_type == "soil":
         prompt = f"""GAIA identified soil type: {diagnosis} with {confidence:.1f}% confidence.
-
-Please provide a comprehensive soil management guide covering:
-1. **Soil Characteristics:** pH, drainage, nutrient profile
-2. **Organic Improvement:** Compost, green manure, cover crops
-3. **Fertilizer Guide:** Exact NPK ratios, application rates per hectare, timing
-4. **Best Crops:** Top 5 crops for this soil with expected yields
-5. **Water Management:** Irrigation frequency, drainage needs
-6. **Land Preparation:** Ridges, beds, or flat planting recommendations
-7. **Yield Potential:** Expected yields for major crops in this soil
-8. **Input Cost:** Fertilizer and amendment costs per hectare
-9. **Soil Conservation:** Preventing erosion and degradation
-10. **Common Mistakes:** What farmers often do wrong with this soil"""
+Provide a comprehensive soil management guide covering:
+1. Soil Characteristics
+2. Organic Improvement
+3. Fertilizer Guide
+4. Best Crops
+5. Water Management
+6. Land Preparation
+7. Yield Potential
+8. Input Cost
+9. Soil Conservation
+10. Common Mistakes
+Be practical, specific, and use Nigerian/local context."""
     elif context_type == "livestock":
         prompt = f"""GAIA diagnosed: {diagnosis} in livestock with {confidence:.1f}% confidence.
-
-Please provide a comprehensive farmer-friendly guide covering:
-1. **What This Means:** Explain the disease in simple terms
-2. **Symptoms:** How to recognise it
-3. **Isolation:** Should the animal be separated?
-4. **Treatment:** Specific medicines, dosages, and administration
-5. **Prevention:** Vaccinations, hygiene, and management
-6. **Feeding:** Special nutrition during recovery
-7. **Cost Estimate:** Approximate treatment cost
-8. **Safety:** Handling sick animals, milk/meat withdrawal periods
+Provide a comprehensive farmer-friendly guide covering:
+1. What This Means
+2. Symptoms
+3. Isolation
+4. Treatment
+5. Prevention
+6. Feeding
+7. Cost Estimate
+8. Safety
 Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian veterinary stores."""
     else:
         prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
@@ -79,31 +77,52 @@ Be practical, specific, and use Nigerian/local context. Mention exact product na
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.7,
-        "max_tokens": 4000
+        "max_tokens": 4000,
+        "stream": True  # <-- enable streaming
     }
 
-    # Retry up to 3 times with longer timeout
-    for attempt in range(3):
-        try:
-            response = requests.post(
-                DEEPSEEK_URL,
-                headers=headers,
-                json=payload,
-                timeout=120  # increased from 30 to 120 seconds
-            )
-            if response.status_code == 200:
-                return response.json()["choices"][0]["message"]["content"], None
-            else:
-                return None, f"API error: {response.status_code}"
-        except requests.exceptions.Timeout:
-            if attempt < 2:
-                time.sleep(2)
+    def generate():
+        for attempt in range(3):
+            try:
+                with requests.post(
+                    DEEPSEEK_URL,
+                    headers=headers,
+                    json=payload,
+                    stream=True,
+                    timeout=120
+                ) as response:
+                    if response.status_code != 200:
+                        yield f"API error: {response.status_code}"
+                        return
+                    for line in response.iter_lines():
+                        if not line:
+                            continue
+                        line = line.decode('utf-8')
+                        if line.startswith('data: '):
+                            data = line[6:]
+                            if data.strip() == "[DONE]":
+                                return
+                            try:
+                                chunk = json.loads(data)
+                                delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                                if delta:
+                                    yield delta
+                            except:
+                                continue
+                break
+            except requests.exceptions.Timeout:
+                if attempt == 2:
+                    yield "DeepSeek timed out. Please try again."
+                    return
+                time.sleep(1)
                 continue
-            return None, "DeepSeek timed out. Please try again."
-        except Exception as e:
-            return None, str(e)
+            except Exception as e:
+                yield f"Error: {str(e)}"
+                return
 
-    return None, "Failed after retries."
+    # Use st.write_stream to display tokens as they arrive
+    answer = st.write_stream(generate())
+    return answer, None
 
 
 def text_to_speech(text, language="en"):
@@ -114,10 +133,10 @@ def text_to_speech(text, language="en"):
     voices = {
         "en-GB": "en-GB-SoniaNeural",
         "en-US": "en-US-JennyNeural",
-        "pcm": "en-GB-RyanNeural",     # Nigerian Pidgin
-        "ha": "ha-NG-MuhammedNeural",  # Hausa
-        "yo": "yo-NG-AbimbolaNeural",  # Yoruba
-        "ig": "ig-NG-ChidinmaNeural",  # Igbo
+        "pcm": "en-GB-RyanNeural",
+        "ha": "ha-NG-MuhammedNeural",
+        "yo": "yo-NG-AbimbolaNeural",
+        "ig": "ig-NG-ChidinmaNeural",
     }
     voice = voices.get(language, "en-GB-SoniaNeural")
 

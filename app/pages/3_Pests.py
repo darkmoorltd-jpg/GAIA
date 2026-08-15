@@ -5,6 +5,11 @@ import torch, torch.nn.functional as F, numpy as np, os, sys, datetime, hashlib
 from collections import Counter
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+import requests
+import json
+
+DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
+DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 st.set_page_config(page_title="GAIA – Pest Detection", page_icon="🐛", layout="wide")
 st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
@@ -61,6 +66,49 @@ def deduct_one_scan():
     except: supabase.rpc("decrement_scan", {"uid": uid}).execute()
     res = supabase.table("user_scans").select("scans_remaining").eq("user_id", uid).execute()
     if res.data: st.success(f"Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
+
+def stream_deepseek_pest_guide(pest_name, confidence):
+    """Streams a pest management guide directly from DeepSeek."""
+    prompt = f"""GAIA identified: {pest_name} with {confidence:.1f}% confidence.
+Please provide a comprehensive pest management guide covering:
+1. About This Pest
+2. Organic Control
+3. Chemical Pesticides
+4. Herbicide Guide
+5. Water & Irrigation
+6. Field Management
+7. Yield Protection
+8. Cost-Benefit
+9. Prevention
+10. Safety
+Be practical, specific, and use Nigerian/local context."""
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "stream": True
+    }
+    r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
+    for line in r.iter_lines():
+        if not line:
+            continue
+        line = line.decode('utf-8')
+        if line.startswith('data: '):
+            data = line[6:]
+            if data.strip() == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data)
+                delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                if delta:
+                    yield delta
+            except:
+                continue
 
 @st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
@@ -126,17 +174,16 @@ if files:
                 c2.progress(float(probs[i]))
             deduct_one_scan()
 
-            # ===== STREAMING AI GUIDE + VOICE (fixed) =====
+            # ===== SELF-CONTAINED STREAMING GUIDE + VOICE =====
             if model is not None:
                 with st.spinner("🧠 GAIA is preparing your pest management guide..."):
                     with st.expander("📋 Complete Pest Management Guide (AI-Generated)", expanded=True):
-                        from app.utils.deepseek_explainer import explain_diagnosis_stream
                         full_guide = []
-                        def generator():
-                            for chunk in explain_diagnosis_stream(pest_name, confidence, "various crops", "pest"):
+                        def local_generator():
+                            for chunk in stream_deepseek_pest_guide(pest_name, confidence):
                                 full_guide.append(chunk)
                                 yield chunk
-                        st.write_stream(generator)
+                        st.write_stream(local_generator)
                         guide_text = ''.join(full_guide)
                         if guide_text:
                             audio_bytes, tts_err = get_voice_guide(guide_text, voice_lang)

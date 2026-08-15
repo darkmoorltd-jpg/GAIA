@@ -3,12 +3,13 @@ import streamlit as st
 import requests
 import os
 import tempfile
+import json
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop"):
-    """Use DeepSeek to explain a GAIA diagnosis (non‑streaming fallback)."""
+    """Non-streaming fallback (returns full text)."""
     if context_type == "crop":
         prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
 Please provide a comprehensive farmer-friendly guide covering:
@@ -37,9 +38,23 @@ Please provide a comprehensive pest management guide covering:
 9. Prevention
 10. Safety
 Be practical, specific, and use Nigerian/local context."""
+    elif context_type == "soil":
+        prompt = f"""GAIA identified soil type: {diagnosis} with {confidence:.1f}% confidence.
+Please provide a comprehensive soil management guide covering:
+1. Soil Characteristics
+2. Organic Improvement
+3. Fertilizer Guide
+4. Best Crops
+5. Water Management
+6. Land Preparation
+7. Yield Potential
+8. Input Cost
+9. Soil Conservation
+10. Common Mistakes
+Be practical, specific, and use Nigerian/local context."""
     else:
         prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
-    
+
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
@@ -51,7 +66,7 @@ Be practical, specific, and use Nigerian/local context."""
         "max_tokens": 4000
     }
     try:
-        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
+        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=60)
         if r.status_code == 200:
             return r.json()["choices"][0]["message"]["content"], None
         return None, f"API error: {r.status_code}"
@@ -60,22 +75,8 @@ Be practical, specific, and use Nigerian/local context."""
 
 
 def explain_diagnosis_stream(diagnosis, confidence, crop_or_type, context_type="crop"):
-    """Stream explanation chunks from DeepSeek."""
-    if context_type == "pest":
-        prompt = f"""GAIA identified: {diagnosis} with {confidence:.1f}% confidence.
-Please provide a comprehensive pest management guide covering:
-1. About This Pest
-2. Organic Control
-3. Chemical Pesticides
-4. Herbicide Guide
-5. Water & Irrigation
-6. Field Management
-7. Yield Protection
-8. Cost-Benefit
-9. Prevention
-10. Safety
-Be practical, specific, and use Nigerian/local context."""
-    else:
+    """Streaming generator for fast AI generation."""
+    if context_type == "crop":
         prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
 Please provide a comprehensive farmer-friendly guide covering:
 1. What This Means
@@ -89,7 +90,37 @@ Please provide a comprehensive farmer-friendly guide covering:
 9. Prevention
 10. Safety
 Be practical, specific, and use Nigerian/local context."""
-    
+    elif context_type == "pest":
+        prompt = f"""GAIA identified: {diagnosis} with {confidence:.1f}% confidence.
+Please provide a comprehensive pest management guide covering:
+1. About This Pest
+2. Organic Control
+3. Chemical Pesticides
+4. Herbicide Guide
+5. Water & Irrigation
+6. Field Management
+7. Yield Protection
+8. Cost-Benefit
+9. Prevention
+10. Safety
+Be practical, specific, and use Nigerian/local context."""
+    elif context_type == "soil":
+        prompt = f"""GAIA identified soil type: {diagnosis} with {confidence:.1f}% confidence.
+Please provide a comprehensive soil management guide covering:
+1. Soil Characteristics
+2. Organic Improvement
+3. Fertilizer Guide
+4. Best Crops
+5. Water Management
+6. Land Preparation
+7. Yield Potential
+8. Input Cost
+9. Soil Conservation
+10. Common Mistakes
+Be practical, specific, and use Nigerian/local context."""
+    else:
+        prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
+
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
@@ -101,8 +132,12 @@ Be practical, specific, and use Nigerian/local context."""
         "max_tokens": 4000,
         "stream": True
     }
+
     try:
         r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
+        if r.status_code != 200:
+            yield f"Error: {r.status_code}"
+            return
         for line in r.iter_lines():
             if not line:
                 continue
@@ -111,7 +146,6 @@ Be practical, specific, and use Nigerian/local context."""
                 data = line[6:]
                 if data.strip() == "[DONE]":
                     break
-                import json
                 try:
                     chunk = json.loads(data)
                     delta = chunk['choices'][0].get('delta', {}).get('content', '')
@@ -120,11 +154,11 @@ Be practical, specific, and use Nigerian/local context."""
                 except:
                     continue
     except Exception as e:
-        yield f"\n[Guide unavailable: {e}]"
+        yield f"Error: {str(e)}"
 
 
-def text_to_speech(text, language="en"):
-    """Convert text to speech using Edge TTS with local voice selection."""
+def text_to_speech(text, language="en-GB"):
+    """Convert text to speech using Edge TTS (free) with local voice selection."""
     import asyncio
     import edge_tts
 
@@ -137,7 +171,14 @@ def text_to_speech(text, language="en"):
         "ig": "ig-NG-ChidinmaNeural",
     }
     voice = voices.get(language, "en-GB-SoniaNeural")
-    gtts_lang = {"en-GB": "en", "en-US": "en", "pcm": "en", "ha": "ha", "yo": "yo", "ig": "ig"}.get(language, "en")
+    gtts_lang = {
+        "en-GB": "en",
+        "en-US": "en",
+        "pcm": "en",
+        "ha": "ha",
+        "yo": "yo",
+        "ig": "ig",
+    }.get(language, "en")
 
     async def generate_with_edge():
         communicate = edge_tts.Communicate(text, voice)
@@ -173,5 +214,5 @@ def text_to_speech(text, language="en"):
                 audio_bytes = f.read()
             os.unlink(tmp.name)
             return audio_bytes, None
-        except:
-            return None, str(e)
+        except Exception as e2:
+            return None, str(e2)

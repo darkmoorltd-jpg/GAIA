@@ -19,15 +19,6 @@ CROP_CLASSES = {
     "potato": ["Bacteria","Fungi","Healthy","Nematode","Pest","Phytopthora","Virus"],
 }
 
-CHECKPOINT_MAP = {
-    "millet": os.path.join("models", "millet_3class", "model.pt"),
-    "maize": os.path.join("models", "maize", "model.pt"),
-    "rice": os.path.join("models", "rice_10class", "model.pt"),
-    "soybean": os.path.join("models", "soybean_14class", "model.pt"),
-    "pepper": os.path.join("models", "pepper_13class", "model.pt"),
-    "cabbage": os.path.join("models", "cabbage_8class", "model.pt"),
-}
-
 if "selected_crop" not in st.session_state:
     st.session_state.selected_crop = None
 crop = st.session_state.selected_crop
@@ -36,7 +27,6 @@ st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-
 dark = st.toggle("", value=False, key="crops_theme")
 theme = "dark" if dark else "light"
 
-# ===== VOICE LANGUAGE SELECTOR =====
 language_options = {
     "English (UK)": "en-GB",
     "Hausa": "ha",
@@ -90,8 +80,12 @@ def load_crop_model(crop_name):
         head = nn.Linear(embed_dim, n)
         head.load_state_dict({"weight": state["head.weight"], "bias": state.get("head.bias", torch.zeros(n))}, strict=False)
     class CropViT(torch.nn.Module):
-        def __init__(self, backbone, head): super().__init__(); self.backbone = backbone; self.head = head
-        def forward(self, x): return self.head(self.backbone(x))
+        def __init__(self, backbone, head):
+            super().__init__()
+            self.backbone = backbone
+            self.head = head
+        def forward(self, x):
+            return self.head(self.backbone(x))
     model = CropViT(backbone, head)
     model.eval()
     return model, img_size
@@ -134,43 +128,54 @@ def green_check(image, threshold=0.2):
     return mask.mean() >= threshold, mask.mean()
 
 def deduct_one_scan():
-    if "user" not in st.session_state or st.session_state.user is None: return
+    if "user" not in st.session_state or st.session_state.user is None:
+        return
     from supabase import create_client
     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
     uid = st.session_state.user.id
-    try: supabase.table("user_scans").insert({"user_id":uid,"scans_remaining":30,"plan":"free"}).execute()
-    except: pass
-    try: supabase.table("user_scans").update({"scans_remaining": supabase.raw("scans_remaining - 1")}).eq("user_id", uid).execute()
-    except: supabase.rpc("decrement_scan", {"uid": uid}).execute()
+    try:
+        supabase.table("user_scans").insert({"user_id":uid,"scans_remaining":30,"plan":"free"}).execute()
+    except:
+        pass
+    try:
+        supabase.table("user_scans").update({"scans_remaining": supabase.raw("scans_remaining - 1")}).eq("user_id", uid).execute()
+    except:
+        supabase.rpc("decrement_scan", {"uid": uid}).execute()
     res = supabase.table("user_scans").select("scans_remaining").eq("user_id", uid).execute()
-    if res.data: st.success(f"Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
+    if res.data:
+        st.success(f"Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
 
 def save_feedback(image_name, predicted_class, helpful):
-    if "user" not in st.session_state or st.session_state.user is None: return
+    if "user" not in st.session_state or st.session_state.user is None:
+        return
     from supabase import create_client
     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
-    try: supabase.table("user_feedback").insert({"user_id": st.session_state.user.id, "image_name": image_name, "predicted_class": predicted_class, "helpful": helpful, "created_at": datetime.datetime.now().isoformat()}).execute()
-    except: pass
+    try:
+        supabase.table("user_feedback").insert({
+            "user_id": st.session_state.user.id,
+            "image_name": image_name,
+            "predicted_class": predicted_class,
+            "helpful": helpful,
+            "created_at": datetime.datetime.now().isoformat()
+        }).execute()
+    except:
+        pass
 
-@st.cache_data(show_spinner=False)
-def get_treatment_guide(disease, crop, confidence):
+def get_treatment_guide_stream(disease, crop, confidence):
+    """Returns a streaming generator for the treatment guide."""
     from app.utils.deepseek_explainer import explain_diagnosis_stream
     return explain_diagnosis_stream(disease, confidence, crop, "crop")
 
-@st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
     from app.utils.deepseek_explainer import text_to_speech
     audio_bytes, err = text_to_speech(explanation[:2000], lang)
     return audio_bytes, err
 
-overlay = "rgba(0,0,0,0.55)" if theme == "dark" else "rgba(255,255,255,0.75)"
-bg_url = "https://images.unsplash.com/photo-1600112356915-089abb8fc71a"
-bg_css = f'.stApp {{ background-color: #2c3e50; background: linear-gradient({overlay}, {overlay}), url("{bg_url}") center/cover fixed; }}'
-
+# ===== Theme & UI =====
 if theme == "dark":
-    st.markdown(f"<style>.stApp{{background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff}}header,footer{{visibility:hidden}}.title{{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}.subtitle{{font-size:1.2rem;color:#b0bec5;margin-bottom:2rem}}.pred-box{{background:rgba(255,255,255,.05);backdrop-filter:blur(12px);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}}.pred-box-high{{border-left-color:#2e7d32;background:rgba(255,255,255,.1)}}.stProgress>div>div>div>div{{background:linear-gradient(90deg,#4caf50,#81c784)}}.crop-btn{{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#fff!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}}.crop-btn:hover{{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,200,83,0.3);border-color:#00c853;background:rgba(0,200,83,0.15)}}{bg_css}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>.stApp{{background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff}}header,footer{{visibility:hidden}}.title{{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}.subtitle{{font-size:1.2rem;color:#b0bec5;margin-bottom:2rem}}.pred-box{{background:rgba(255,255,255,.05);backdrop-filter:blur(12px);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}}.pred-box-high{{border-left-color:#2e7d32;background:rgba(255,255,255,.1)}}.stProgress>div>div>div>div{{background:linear-gradient(90deg,#4caf50,#81c784)}}</style>", unsafe_allow_html=True)
 else:
-    st.markdown(f"<style>.stApp{{background:linear-gradient(135deg,#e8f5e9,#f1f8e9);color:#1b5e20}}header,footer{{visibility:hidden}}.title{{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}.subtitle{{font-size:1.2rem;color:#33691e;margin-bottom:2rem}}.pred-box{{background:rgba(255,255,255,0.9);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}}.pred-box-high{{border-left-color:#2e7d32;background:rgba(255,255,255,1)}}.stProgress>div>div>div>div{{background:linear-gradient(90deg,#4caf50,#81c784)}}.crop-btn{{background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border:1px solid rgba(0,0,0,0.1);border-radius:20px;padding:2rem 1rem;width:100%;height:120px;color:#1b5e20!important;font-size:1.3rem;font-weight:600;transition:all 0.3s ease;cursor:pointer;text-align:center}}.crop-btn:hover{{transform:translateY(-8px);box-shadow:0 20px 40px rgba(46,125,50,0.2);border-color:#2e7d32;background:rgba(46,125,50,0.1)}}{bg_css}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>.stApp{{background:linear-gradient(135deg,#e8f5e9,#f1f8e9);color:#1b5e20}}header,footer{{visibility:hidden}}.title{{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}.subtitle{{font-size:1.2rem;color:#33691e;margin-bottom:2rem}}.pred-box{{background:rgba(255,255,255,0.9);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}}.pred-box-high{{border-left-color:#2e7d32;background:rgba(255,255,255,1)}}.stProgress>div>div>div>div{{background:linear-gradient(90deg,#4caf50,#81c784)}}</style>", unsafe_allow_html=True)
 
 st.markdown('<div class="title">🌾 Crop Disease Diagnosis</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Select a crop, upload leaf photos, and let AI detect diseases in seconds</div>', unsafe_allow_html=True)
@@ -217,7 +222,6 @@ else:
                     severity = 0
                 else:
                     if crop == "potato":
-                        from torchvision.transforms import Compose, Resize, ToTensor, Normalize
                         transform = Compose([Resize((224,224)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
                         img_tensor = transform(img).unsqueeze(0)
                         with torch.no_grad():
@@ -244,22 +248,22 @@ else:
                     c2.progress(float(probs[i]))
                 deduct_one_scan()
 
-                # ===== AUTO TREATMENT GUIDE + VOICE =====
+                # ===== FAST STREAMING TREATMENT GUIDE + VOICE =====
                 if model is not None:
                     top_disease = class_names[top_idx]
-                    with st.spinner("🧠 Generating treatment guide..."):
-                        with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
-                            try:
-                                st.write_stream(get_treatment_guide(top_disease, crop, probs[top_idx]*100))
-                            except Exception as e:
-                                st.warning(f"Guide unavailable: {e}")
-                            audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
-                            if audio_bytes:
-                                st.audio(audio_bytes, format="audio/mp3")
-                            else:
-                                st.caption(f"🔇 Voice unavailable: {tts_err}")
-                            # Auto voice (cached)
-                            audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
+                    with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
+                        # Stream the guide directly (fast)
+                        guide_text = ""
+                        placeholder = st.empty()
+                        try:
+                            for chunk in get_treatment_guide_stream(top_disease, crop, probs[top_idx]*100):
+                                guide_text += chunk
+                                placeholder.markdown(guide_text + "▌")
+                            placeholder.markdown(guide_text)
+                        except Exception as e:
+                            st.warning(f"Guide unavailable: {e}")
+                        if guide_text:
+                            audio_bytes, tts_err = get_voice_guide(guide_text, voice_lang)
                             if audio_bytes:
                                 st.audio(audio_bytes, format="audio/mp3")
                             else:
@@ -277,26 +281,16 @@ else:
             else:
                 st.info("🗳️ No clear consensus. Consider retaking.")
 
-
 # ---------- Quick Navigation ----------
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(9)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]:
-    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]:
-    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
+with cols[6]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
+with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
+with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

@@ -3,52 +3,11 @@ import streamlit as st
 import requests
 import os
 import tempfile
-import json
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-def _call_deepseek(prompt, max_tokens=1500, timeout=120):
-    """Call DeepSeek with retries and a long timeout."""
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.7,
-        "max_tokens": max_tokens,
-        "stream": False
-    }
-
-    session = requests.Session()
-    retry = Retry(
-        total=2,
-        backoff_factor=1,
-        status_forcelist=[500, 502, 503, 504],
-    )
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount("https://", adapter)
-
-    response = session.post(
-        DEEPSEEK_URL,
-        headers=headers,
-        json=payload,
-        timeout=timeout,
-    )
-
-    if response.status_code == 200:
-        return response.json()["choices"][0]["message"]["content"], None
-    return None, f"API error: {response.status_code}"
-
-
-def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop", stream=False):
+def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop"):
     """Use DeepSeek to explain a GAIA diagnosis and provide comprehensive farming guidance."""
     if context_type == "crop":
         prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
@@ -92,45 +51,34 @@ Please provide a comprehensive soil management guide covering:
 9. Soil Conservation
 10. Common Mistakes
 Be practical, specific, and use Nigerian/local context."""
-    elif context_type == "livestock":
-        prompt = f"""GAIA diagnosed: {diagnosis} in livestock with {confidence:.1f}% confidence.
-Please provide a comprehensive farmer-friendly guide covering:
-1. What This Means
-2. Symptoms
-3. Isolation
-4. Treatment
-5. Prevention
-6. Feeding
-7. Cost Estimate
-8. Safety
-Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian veterinary stores."""
     else:
         prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
-
+    
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 4000
+    }
     try:
-        return _call_deepseek(prompt)
+        response = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"], None
+        return None, f"API error: {response.status_code}"
     except Exception as e:
         return None, str(e)
 
 
 def explain_diagnosis_stream(diagnosis, confidence, crop_or_type, context_type="crop"):
-    """Stream diagnostic explanation from DeepSeek."""
-    # Reuse prompt building from above, but with stream=True
-    if context_type == "crop":
-        prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
-Please provide a comprehensive farmer-friendly guide covering:
-1. What This Means
-2. Organic Treatment
-3. Chemical Treatment
-4. Pesticide/Herbicide Guide
-5. Water Management
-6. Ridges/Bed Preparation
-7. Yield Impact
-8. Cost Estimate
-9. Prevention
-10. Safety
-Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian agro-dealers."""
-    elif context_type == "pest":
+    """Stream the explanation from DeepSeek and yield chunks."""
+    if context_type == "pest":
         prompt = f"""GAIA identified: {diagnosis} with {confidence:.1f}% confidence.
 Please provide a comprehensive pest management guide covering:
 1. About This Pest
@@ -144,37 +92,23 @@ Please provide a comprehensive pest management guide covering:
 9. Prevention
 10. Safety
 Be practical, specific, and use Nigerian/local context."""
-    elif context_type == "soil":
-        prompt = f"""GAIA identified soil type: {diagnosis} with {confidence:.1f}% confidence.
-Please provide a comprehensive soil management guide covering:
-1. Soil Characteristics
-2. Organic Improvement
-3. Fertilizer Guide
-4. Best Crops
-5. Water Management
-6. Land Preparation
-7. Yield Potential
-8. Input Cost
-9. Soil Conservation
-10. Common Mistakes
-Be practical, specific, and use Nigerian/local context."""
-    elif context_type == "livestock":
-        prompt = f"""GAIA diagnosed: {diagnosis} in livestock with {confidence:.1f}% confidence.
+    else:
+        prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
 Please provide a comprehensive farmer-friendly guide covering:
 1. What This Means
-2. Symptoms
-3. Isolation
-4. Treatment
-5. Prevention
-6. Feeding
-7. Cost Estimate
-8. Safety
-Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian veterinary stores."""
-    else:
-        prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
-
+2. Organic Treatment
+3. Chemical Treatment
+4. Pesticide/Herbicide Guide
+5. Water Management
+6. Ridges/Bed Preparation
+7. Yield Impact
+8. Cost Estimate
+9. Prevention
+10. Safety
+Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian agro-dealers."""
+    
     headers = {
-        "Authorization": "Bearer " + DEEPSEEK_API_KEY,
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -184,31 +118,29 @@ Be practical, specific, and use Nigerian/local context. Mention exact product na
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.7,
-        "max_tokens": 1500,
+        "max_tokens": 4000,
         "stream": True
     }
-
     try:
-        with requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=120) as r:
-            if r.status_code != 200:
-                yield None, f"API error: {r.status_code}"
-                return
-            for line in r.iter_lines():
-                if line:
-                    line = line.decode('utf-8')
-                    if line.startswith('data: '):
-                        data = line[6:]
-                        if data.strip() == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(data)
-                            delta = chunk['choices'][0].get('delta', {}).get('content', '')
-                            if delta:
-                                yield delta, None
-                        except:
-                            continue
+        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
+        for line in r.iter_lines():
+            if not line:
+                continue
+            line = line.decode('utf-8')
+            if line.startswith('data: '):
+                data = line[6:]
+                if data.strip() == "[DONE]":
+                    break
+                import json
+                try:
+                    chunk = json.loads(data)
+                    delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                    if delta:
+                        yield delta
+                except:
+                    continue
     except Exception as e:
-        yield None, str(e)
+        yield f"\n[Guide unavailable: {e}]"
 
 
 def text_to_speech(text, language="en"):
@@ -225,7 +157,6 @@ def text_to_speech(text, language="en"):
         "ig": "ig-NG-ChidinmaNeural",
     }
     voice = voices.get(language, "en-GB-SoniaNeural")
-
     gtts_lang = {
         "en-GB": "en",
         "en-US": "en",
@@ -246,7 +177,6 @@ def text_to_speech(text, language="en"):
         asyncio.set_event_loop(loop)
         audio_path, error = loop.run_until_complete(generate_with_edge())
         loop.close()
-
         if error:
             from gtts import gTTS
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -256,12 +186,10 @@ def text_to_speech(text, language="en"):
                 audio_bytes = f.read()
             os.unlink(tmp.name)
             return audio_bytes, None
-
         with open(audio_path, "rb") as f:
             audio_bytes = f.read()
         os.unlink(audio_path)
         return audio_bytes, None
-
     except Exception as e:
         try:
             from gtts import gTTS
@@ -272,5 +200,5 @@ def text_to_speech(text, language="en"):
                 audio_bytes = f.read()
             os.unlink(tmp.name)
             return audio_bytes, None
-        except Exception as e2:
-            return None, str(e2)
+        except:
+            return None, str(e)

@@ -63,11 +63,6 @@ def deduct_one_scan():
     if res.data: st.success(f"Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
 
 @st.cache_data(show_spinner=False)
-def get_ai_guide(pest_name, confidence):
-    from app.utils.deepseek_explainer import explain_diagnosis_stream
-    return explain_diagnosis_stream(pest_name, confidence, "various crops", "pest")
-
-@st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
     from app.utils.deepseek_explainer import text_to_speech
     audio_bytes, err = text_to_speech(explanation[:2000], lang)
@@ -131,25 +126,24 @@ if files:
                 c2.progress(float(probs[i]))
             deduct_one_scan()
 
-            # ===== AI PEST GUIDE + VOICE (cached and fast) =====
+            # ===== AI PEST GUIDE (streaming) + VOICE =====
             if model is not None:
                 with st.spinner("🧠 GAIA is preparing your pest management guide..."):
                     with st.expander("📋 Complete Pest Management Guide (AI-Generated)", expanded=True):
-                        try:
-                            st.write_stream(get_ai_guide(pest_name, confidence))
-                        except Exception as e:
-                            st.warning(f"AI guide unavailable: {e}")
-                        audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
-                        if audio_bytes:
-                            st.audio(audio_bytes, format="audio/mp3")
-                        else:
-                            st.caption(f"🔇 Voice unavailable: {tts_err}")
-                        audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
-                        if audio_bytes:
-                            st.audio(audio_bytes, format="audio/mp3")
-                        else:
-                            st.caption(f"🔇 Voice unavailable: {tts_err}")
-
+                        from app.utils.deepseek_explainer import explain_diagnosis_stream
+                        full_guide = []
+                        def generator():
+                            for chunk in explain_diagnosis_stream(pest_name, confidence, "various crops", "pest"):
+                                full_guide.append(chunk)
+                                yield chunk
+                        st.write_stream(generator)
+                        guide_text = ''.join(full_guide)
+                        if guide_text:
+                            audio_bytes, tts_err = get_voice_guide(guide_text, voice_lang)
+                            if audio_bytes:
+                                st.audio(audio_bytes, format="audio/mp3")
+                            else:
+                                st.caption(f"🔇 Voice unavailable: {tts_err}")
             col_fb1, col_fb2 = c2.columns(2)
             if col_fb1.button("👍 Helpful", key=f"pest_help_{f.name}"):
                 save_feedback(f.name, pest_name, True)
@@ -169,21 +163,12 @@ if files:
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(9)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]:
-    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]:
-    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
+with cols[6]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
+with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
+with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

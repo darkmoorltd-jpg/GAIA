@@ -64,8 +64,11 @@ def deduct_one_scan():
 
 @st.cache_data(show_spinner=False)
 def get_ai_guide(pest_name, confidence):
-    from app.utils.deepseek_explainer import explain_diagnosis_stream
-    return explain_diagnosis_stream(pest_name, confidence, "various crops", "pest")
+    from app.utils.deepseek_explainer import explain_diagnosis
+    explanation, err = explain_diagnosis(pest_name, confidence, "various crops", "pest")
+    if err:
+        return None, err
+    return explanation, None
 
 @st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
@@ -134,11 +137,17 @@ if files:
             # ===== AI PEST GUIDE + VOICE (cached and fast) =====
             if model is not None:
                 with st.spinner("🧠 GAIA is preparing your pest management guide..."):
+                    explanation, err = get_ai_guide(pest_name, confidence)
+                if err:
+                    st.warning(f"AI guide unavailable: {err}")
+                elif explanation:
                     with st.expander("📋 Complete Pest Management Guide (AI-Generated)", expanded=True):
-                        try:
-                            st.write_stream(get_ai_guide(pest_name, confidence))
-                        except Exception as e:
-                            st.warning(f"AI guide unavailable: {e}")
+                        st.markdown(explanation)
+                        audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
+                        if audio_bytes:
+                            st.audio(audio_bytes, format="audio/mp3")
+                        else:
+                            st.caption(f"🔇 Voice unavailable: {tts_err}")
                         audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
                         if audio_bytes:
                             st.audio(audio_bytes, format="audio/mp3")

@@ -154,8 +154,11 @@ def save_feedback(image_name, predicted_class, helpful):
 
 @st.cache_data(show_spinner=False)
 def get_treatment_guide(disease, crop, confidence):
-    from app.utils.deepseek_explainer import explain_diagnosis_stream
-    return explain_diagnosis_stream(disease, confidence, crop, "crop")
+    from app.utils.deepseek_explainer import explain_diagnosis
+    explanation, err = explain_diagnosis(disease, confidence, crop, "crop")
+    if err:
+        return None, err
+    return explanation, None
 
 @st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
@@ -248,11 +251,17 @@ else:
                 if model is not None:
                     top_disease = class_names[top_idx]
                     with st.spinner("🧠 Generating treatment guide..."):
+                        explanation, err = get_treatment_guide(top_disease, crop, probs[top_idx]*100)
+                    if err:
+                        st.warning(f"Guide unavailable: {err}")
+                    elif explanation:
                         with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
-                            try:
-                                st.write_stream(get_treatment_guide(top_disease, crop, probs[top_idx]*100))
-                            except Exception as e:
-                                st.warning(f"Guide unavailable: {e}")
+                            st.markdown(explanation)
+                            audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
+                            if audio_bytes:
+                                st.audio(audio_bytes, format="audio/mp3")
+                            else:
+                                st.caption(f"🔇 Voice unavailable: {tts_err}")
                             # Auto voice (cached)
                             audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
                             if audio_bytes:

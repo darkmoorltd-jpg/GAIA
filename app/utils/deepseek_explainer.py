@@ -3,43 +3,84 @@ import streamlit as st
 import requests
 import os
 import tempfile
-import time
 import json
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop", stream=False):
-    """Stream a GAIA diagnosis explanation using st.write_stream."""
+def _call_deepseek(prompt, max_tokens=1500, timeout=120):
+    """Call DeepSeek with retries and a long timeout."""
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": max_tokens,
+        "stream": False
+    }
+
+    session = requests.Session()
+    retry = Retry(
+        total=2,
+        backoff_factor=1,
+        status_forcelist=[500, 502, 503, 504],
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+
+    response = session.post(
+        DEEPSEEK_URL,
+        headers=headers,
+        json=payload,
+        timeout=timeout,
+    )
+
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"], None
+    return None, f"API error: {response.status_code}"
+
+
+def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop"):
+    """Use DeepSeek to explain a GAIA diagnosis and provide comprehensive farming guidance."""
     if context_type == "crop":
         prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
-Provide a comprehensive farmer-friendly guide covering:
+Please provide a comprehensive farmer-friendly guide covering:
 1. What This Means
 2. Organic Treatment
 3. Chemical Treatment
-4. Water Management
-5. Ridges/Bed Preparation
-6. Yield Impact
-7. Cost Estimate
-8. Prevention
-9. Safety
+4. Pesticide/Herbicide Guide
+5. Water Management
+6. Ridges/Bed Preparation
+7. Yield Impact
+8. Cost Estimate
+9. Prevention
+10. Safety
 Be practical, specific, and use Nigerian/local context. Mention exact product names available in Nigerian agro-dealers."""
     elif context_type == "pest":
         prompt = f"""GAIA identified: {diagnosis} with {confidence:.1f}% confidence.
-Provide a comprehensive pest management guide covering:
+Please provide a comprehensive pest management guide covering:
 1. About This Pest
 2. Organic Control
 3. Chemical Pesticides
-4. Water & Irrigation
-5. Field Management
-6. Yield Protection
-7. Cost-Benefit
-8. Prevention
-9. Safety
+4. Herbicide Guide
+5. Water & Irrigation
+6. Field Management
+7. Yield Protection
+8. Cost-Benefit
+9. Prevention
+10. Safety
 Be practical, specific, and use Nigerian/local context."""
     elif context_type == "soil":
         prompt = f"""GAIA identified soil type: {diagnosis} with {confidence:.1f}% confidence.
-Provide a comprehensive soil management guide covering:
+Please provide a comprehensive soil management guide covering:
 1. Soil Characteristics
 2. Organic Improvement
 3. Fertilizer Guide
@@ -53,7 +94,7 @@ Provide a comprehensive soil management guide covering:
 Be practical, specific, and use Nigerian/local context."""
     elif context_type == "livestock":
         prompt = f"""GAIA diagnosed: {diagnosis} in livestock with {confidence:.1f}% confidence.
-Provide a comprehensive farmer-friendly guide covering:
+Please provide a comprehensive farmer-friendly guide covering:
 1. What This Means
 2. Symptoms
 3. Isolation
@@ -66,63 +107,10 @@ Be practical, specific, and use Nigerian/local context. Mention exact product na
     else:
         prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
 
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.7,
-        "max_tokens": 2000,
-        "stream": True  # <-- enable streaming
-    }
-
-    def generate():
-        for attempt in range(3):
-            try:
-                with requests.post(
-                    DEEPSEEK_URL,
-                    headers=headers,
-                    json=payload,
-                    stream=True,
-                    timeout=120
-                ) as response:
-                    if response.status_code != 200:
-                        yield f"API error: {response.status_code}"
-                        return
-                    for line in response.iter_lines():
-                        if not line:
-                            continue
-                        line = line.decode('utf-8')
-                        if line.startswith('data: '):
-                            data = line[6:]
-                            if data.strip() == "[DONE]":
-                                return
-                            try:
-                                chunk = json.loads(data)
-                                delta = chunk['choices'][0].get('delta', {}).get('content', '')
-                                if delta:
-                                    yield delta
-                            except:
-                                continue
-                break
-            except requests.exceptions.Timeout:
-                if attempt == 2:
-                    yield "DeepSeek timed out. Please try again."
-                    return
-                time.sleep(1)
-                continue
-            except Exception as e:
-                yield f"Error: {str(e)}"
-                return
-
-    # Use st.write_stream to display tokens as they arrive
-    answer = st.write_stream(generate())
-    return answer, None
+    try:
+        return _call_deepseek(prompt)
+    except Exception as e:
+        return None, str(e)
 
 
 def text_to_speech(text, language="en"):

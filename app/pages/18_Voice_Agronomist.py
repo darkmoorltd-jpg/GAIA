@@ -44,6 +44,8 @@ if "last_answer" not in st.session_state:
     st.session_state.last_answer = ""
 if "last_language" not in st.session_state:
     st.session_state.last_language = "en-GB"
+if "speak_trigger" not in st.session_state:
+    st.session_state.speak_trigger = False
 
 # ===== DATABASE HELPERS =====
 @st.cache_resource
@@ -234,28 +236,31 @@ def detect_language(text):
     if any(w in t for w in ["e kaaro", "bawo", "yoruba", "se", "mo wa"]):
         return "yo-NG"
     if any(w in t for w in ["wetin", "how far", "abi", "dey", "pidgin"]):
-        return "en-NG"  # Pidgin uses English voice
+        return "en-NG"
     return "en-GB"
 
 def speak_with_browser(text, lang_code):
-    """Use browser's SpeechSynthesis for instant voice output."""
-    # Escape single quotes and backslashes for JS
-    safe_text = text.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ")
-    components.html(f"""
+    """Speak using browser SpeechSynthesis (requires user gesture)."""
+    safe_text = json.dumps(text)  # Safely escape for JS
+    html = f"""
     <script>
-        function speakGAIA() {{
+        try {{
             if ('speechSynthesis' in window) {{
-                var utterance = new SpeechSynthesisUtterance('{safe_text}');
+                var utterance = new SpeechSynthesisUtterance({safe_text});
                 utterance.lang = '{lang_code}';
                 utterance.rate = 1.0;
                 utterance.pitch = 1.0;
                 window.speechSynthesis.cancel();
                 window.speechSynthesis.speak(utterance);
+            }} else {{
+                console.log('SpeechSynthesis not supported');
             }}
+        }} catch(e) {{
+            console.log('Speech error: ' + e);
         }}
-        speakGAIA();
     </script>
-    """, height=0)
+    """
+    components.html(html, height=0)
 
 # ===== THEME CSS =====
 if theme == "dark":
@@ -321,10 +326,8 @@ if st.session_state.pending_transcription:
         if "user" in st.session_state and st.session_state.user is not None:
             deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
 
-        lang = detect_language(text)
         st.session_state.last_answer = answer
-        st.session_state.last_language = lang
-        speak_with_browser(answer, lang)
+        st.session_state.last_language = detect_language(text)
 
     st.rerun()
 
@@ -387,10 +390,8 @@ with c2:
             update_farmer_memory(q, answer)
             if "user" in st.session_state and st.session_state.user is not None:
                 deduct_scans(st.session_state.user.id, 3, "Voice Agronomist (Text)")
-            lang = detect_language(q)
             st.session_state.last_answer = answer
-            st.session_state.last_language = lang
-            speak_with_browser(answer, lang)
+            st.session_state.last_language = detect_language(q)
             st.rerun()
 
 # ===== CONVERSATION =====
@@ -409,6 +410,11 @@ if st.session_state.voice_history:
         st.markdown(f'<div class="msg-bubble msg-user">{item["q"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="margin:4px 0;"><span>🍅</span><span style="font-size:.7rem;color:#6b7280;"> GAIA - {item["t"]}</span></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="msg-bubble msg-gaia">{item["a"]}</div>', unsafe_allow_html=True)
+
+        # 🔊 Play voice button for each answer
+        if item["a"] == st.session_state.last_answer and st.session_state.last_answer:
+            if st.button("🔊 Play Voice", key=f"play_{item['id']}"):
+                speak_with_browser(st.session_state.last_answer, st.session_state.last_language)
 
 # ===== FARMER MEMORY =====
 if st.session_state.farmer_memory:

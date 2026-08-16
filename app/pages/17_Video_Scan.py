@@ -305,7 +305,13 @@ def extract_frames_from_video(video_file, interval_sec=0.5):
     os.unlink(tfile.name)
     return frames
 
-def predict_on_frames(model, frames, img_size=224):
+def predict_on_frames(model, frames, img_size=None):
+    # Auto-detect model's expected input size
+    if img_size is None:
+        try:
+            img_size = model.backbone.patch_embed.img_size[0]
+        except:
+            img_size = 224
     transform = Compose([
         Resize((img_size, img_size)),
         ToTensor(),

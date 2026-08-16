@@ -3,12 +3,15 @@ import os, requests, streamlit as st
 
 MODEL_LINKS = {
     "poultry": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/poultry_best_model.pt",
-    "cattle":  "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/cattle_best_model.pt",
+    "cattle": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/cattle_best_model.pt",
     "pests_102class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/pests_102class_best_model.pt",
     "soil_11class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/soil_11class_best_model.pt",
-    "maize": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_maize_4class.pt",
     "millet_3class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_millet_3class.pt",
+    "maize": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_maize_4class.pt",
     "rice_10class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_rice_10class_384px.pt",
+    "soybean_14class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_soybean_14class.pt",
+    "pepper_13class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_pepper_13class.pt",
+    "cabbage_8class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_cabbage_8class.pt",
 }
 
 def ensure_model(model_key):

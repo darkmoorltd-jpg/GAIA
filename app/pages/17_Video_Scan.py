@@ -55,6 +55,9 @@ CROP_MODEL_KEYS = {
     "millet": "millet_3class",
     "maize": "maize",
     "rice": "rice_10class",
+    "soybean": "soybean_14class",
+    "pepper": "pepper_13class",
+    "cabbage": "cabbage_8class",
 }
 
 # ============================================

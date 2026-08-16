@@ -271,16 +271,34 @@ def load_model_for_scan(scan_type, crop_name=None):
     if scan_type == "Crop Disease":
         key = CROP_MODEL_KEYS.get(crop_name, crop_name)
         checkpoint = ensure_model(key)
-        num_classes = len(CROP_CLASSES[crop_name])
+        base_classes = CROP_CLASSES[crop_name]
     else:
         checkpoint = ensure_model("soil_11class")
-        num_classes = len(SOIL_NAMES)
+        base_classes = SOIL_NAMES
 
     if checkpoint is None or not os.path.exists(checkpoint):
-        return None, None
-    model = create_model_from_checkpoint(checkpoint, num_classes)
+        return None, base_classes
+
+    # Build model with placeholder num_classes (the loader may ignore it for deep heads)
+    model = create_model_from_checkpoint(checkpoint, len(base_classes))
     model.eval()
-    return model, num_classes
+
+    # Dynamically detect actual output dimension
+    try:
+        dummy = torch.zeros(1, 3, 224, 224)
+        with torch.no_grad():
+            out = model(dummy)
+        actual_num = out.shape[1]
+    except:
+        actual_num = len(base_classes)
+
+    # Adjust class names to match actual output
+    if actual_num == len(base_classes):
+        final_classes = base_classes
+    else:
+        final_classes = base_classes[:actual_num] + [f"Class_{i}" for i in range(len(base_classes), actual_num)]
+
+    return model, final_classes
 
 def extract_frames_from_video(video_file, interval_sec=0.5):
     if not HAS_CV2:
@@ -376,7 +394,7 @@ if uploaded_video:
             if frames is None or len(frames) < 3:
                 st.error("Could not extract enough frames from video. Please try a different file.")
                 st.stop()
-            model, num_classes = load_model_for_scan(scan_type, crop_name)
+            model, class_names = load_model_for_scan(scan_type, crop_name)
             if model is None:
                 st.warning("⚠️ Real model unavailable — using demo predictions.")
                 if scan_type == "🌾 Crop Disease":
@@ -389,8 +407,10 @@ if uploaded_video:
                 avg_probs /= avg_probs.sum()
                 agreement = 0.8
             else:
-                class_names = CROP_CLASSES[crop_name] if scan_type == "🌾 Crop Disease" else SOIL_NAMES
                 avg_probs, agreement = predict_on_frames(model, frames)
+                # Ensure class_names length matches avg_probs
+                if len(avg_probs) != len(class_names):
+                    class_names = class_names[:len(avg_probs)] + [f"Class_{i}" for i in range(len(class_names), len(avg_probs))]
             top_idx = np.argmax(avg_probs)
             top_name = class_names[top_idx]
             confidence = avg_probs[top_idx] * 100

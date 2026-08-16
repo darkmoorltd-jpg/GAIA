@@ -7,7 +7,6 @@ import torch.nn.functional as F
 from PIL import Image
 from collections import Counter
 
-# Try to import OpenCV for video frame extraction
 try:
     import cv2
     HAS_CV2 = True
@@ -25,13 +24,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 st.set_page_config(page_title="GAIA – Video Field Scanner", page_icon="🎥", layout="wide")
 
 # ============================================
-# THEME TOGGLE (hidden label, elegant switch)
+# THEME TOGGLE
 # ============================================
 st.markdown("""
 <style>
     .stToggle > label { display: none !important; }
     .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
-    .stToggle > div { transform: scale(1.3); }
+    .stToggle > div { transform: scale(1.4); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -52,7 +51,6 @@ CROP_CLASSES = {
 
 SOIL_NAMES = ["Alluvial","Sandy","Clay","Loamy","Laterite","Black","Red","Peat","Cinder","Sandy Loam","Yellow"]
 
-# Model keys for crops (matching download_models.py)
 CROP_MODEL_KEYS = {
     "millet": "millet_3class",
     "maize": "maize",
@@ -60,17 +58,35 @@ CROP_MODEL_KEYS = {
 }
 
 # ============================================
-# THEME CSS
+# ENHANCED CSS WITH ANIMATED BACKGROUND
 # ============================================
 if theme == "dark":
     st.markdown("""
     <style>
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+            25% { transform: translate(40px, -30px) scale(1.2); opacity: 0.9; }
+            50% { transform: translate(-30px, 30px) scale(0.9); opacity: 0.7; }
+            75% { transform: translate(20px, 50px) scale(1.1); opacity: 0.85; }
+            100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+        }
         @keyframes videoGlow {
-            0% { text-shadow: 0 0 25px rgba(0,200,83,0.7); }
-            100% { text-shadow: 0 0 50px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.6); }
+            0%, 100% { text-shadow: 0 0 25px rgba(0,200,83,0.7); }
+            50% { text-shadow: 0 0 50px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.6); }
+        }
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
         }
         .stApp {
-            background: linear-gradient(135deg, #0a0e1a 0%, #1a1a2e 40%, #16213e 100%);
+            background: linear-gradient(125deg, #0a0e1a, #1a1a2e, #16213e, #0f3460);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
             color: #e2e8f0;
         }
         header, footer { visibility: hidden; }
@@ -80,20 +96,47 @@ if theme == "dark":
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             animation: videoGlow 2s ease-in-out infinite alternate;
             margin-bottom: 0.3rem;
+            position: relative; z-index: 10;
         }
-        .subtitle { text-align: center; color: #94a3b8; font-size: 1.1rem; margin-bottom: 2rem; }
+        .subtitle {
+            text-align: center; color: #94a3b8; font-size: 1.1rem;
+            margin-bottom: 2rem; position: relative; z-index: 10;
+        }
+        .orb {
+            position: fixed; border-radius: 50%;
+            filter: blur(80px); z-index: 0; pointer-events: none;
+            opacity: 0.7;
+        }
+        .orb-1 { width: 300px; height: 300px; top: 5%; left: 5%; background: #00c853; animation: orbFloat 10s infinite; }
+        .orb-2 { width: 200px; height: 200px; bottom: 10%; right: 5%; background: #7c4dff; animation: orbFloat 12s infinite reverse; }
+        .orb-3 { width: 250px; height: 250px; top: 50%; left: 60%; background: #ff9800; animation: orbFloat 14s infinite; }
+        .orb-4 { width: 150px; height: 150px; bottom: 20%; left: 20%; background: #00bcd4; animation: orbFloat 11s infinite; }
+        .grid-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 40px 40px; z-index: 1; pointer-events: none;
+        }
+        .content-wrapper { position: relative; z-index: 5; }
         .scan-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 24px;
             padding: 2rem;
             backdrop-filter: blur(20px);
-            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 40px rgba(0,0,0,0.3);
             margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .scan-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, #00c853, transparent);
         }
         .stat-box {
-            background: rgba(0,200,83,0.08);
-            border: 1px solid rgba(0,200,83,0.2);
+            background: rgba(0,200,83,0.1);
+            border: 1px solid rgba(0,200,83,0.25);
             border-radius: 16px;
             padding: 1.5rem;
             text-align: center;
@@ -110,19 +153,32 @@ if theme == "dark":
             border-radius: 12px !important; padding: 12px 40px !important;
             font-weight: 700 !important; font-size: 1.1rem !important;
             transition: all 0.3s !important;
+            position: relative; z-index: 5;
         }
-        .stButton button:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,200,83,0.3); }
+        .stButton button:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,200,83,0.4); }
     </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <style>
+        @keyframes gradientShiftLight {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes orbFloatLight {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+            50% { transform: translate(30px, -20px) scale(1.2); opacity: 0.7; }
+            100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+        }
         @keyframes videoGlowLight {
-            0% { text-shadow: 0 0 15px rgba(46,125,50,0.5); }
-            100% { text-shadow: 0 0 30px rgba(46,125,50,1), 0 0 60px rgba(46,125,50,0.7); }
+            0%, 100% { text-shadow: 0 0 15px rgba(46,125,50,0.5); }
+            50% { text-shadow: 0 0 30px rgba(46,125,50,1), 0 0 60px rgba(46,125,50,0.7); }
         }
         .stApp {
-            background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 50%, #fffde7 100%);
+            background: linear-gradient(125deg, #e8f5e9, #f1f8e9, #fffde7, #e0f2f1);
+            background-size: 400% 400%;
+            animation: gradientShiftLight 15s ease infinite;
             color: #1b5e20;
         }
         header, footer { visibility: hidden; }
@@ -132,15 +188,42 @@ else:
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             animation: videoGlowLight 2s ease-in-out infinite alternate;
             margin-bottom: 0.3rem;
+            position: relative; z-index: 10;
         }
-        .subtitle { text-align: center; color: #558b2f; font-size: 1.1rem; margin-bottom: 2rem; }
+        .subtitle {
+            text-align: center; color: #558b2f; font-size: 1.1rem;
+            margin-bottom: 2rem; position: relative; z-index: 10;
+        }
+        .orb {
+            position: fixed; border-radius: 50%;
+            filter: blur(80px); z-index: 0; pointer-events: none;
+            opacity: 0.5;
+        }
+        .orb-1 { width: 280px; height: 280px; top: 5%; left: 5%; background: #a5d6a7; animation: orbFloatLight 8s infinite; }
+        .orb-2 { width: 180px; height: 180px; bottom: 10%; right: 5%; background: #b39ddb; animation: orbFloatLight 10s infinite reverse; }
+        .orb-3 { width: 220px; height: 220px; top: 50%; left: 60%; background: #ffe0b2; animation: orbFloatLight 12s infinite; }
+        .orb-4 { width: 130px; height: 130px; bottom: 20%; left: 20%; background: #b2dfdb; animation: orbFloatLight 9s infinite; }
+        .grid-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
+            background-size: 40px 40px; z-index: 1; pointer-events: none;
+        }
+        .content-wrapper { position: relative; z-index: 5; }
         .scan-card {
-            background: rgba(255,255,255,0.9);
+            background: rgba(255,255,255,0.85);
             border: 1px solid rgba(0,0,0,0.05);
             border-radius: 24px;
             padding: 2rem;
             box-shadow: 0 8px 30px rgba(0,0,0,0.05);
             margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .scan-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, #2e7d32, transparent);
         }
         .stat-box {
             background: rgba(46,125,50,0.08);
@@ -165,10 +248,23 @@ else:
     """, unsafe_allow_html=True)
 
 # ============================================
+# BACKGROUND ELEMENTS
+# ============================================
+st.markdown("""
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+<div class="orb orb-4"></div>
+<div class="grid-overlay"></div>
+""", unsafe_allow_html=True)
+
+# Wrap content in a relative container
+st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
+
+# ============================================
 # HELPER FUNCTIONS
 # ============================================
 def load_model_for_scan(scan_type, crop_name=None):
-    """Load the appropriate model for crop or soil."""
     from app.utils.download_models import ensure_model
     from app.utils.model_loader import create_model_from_checkpoint
 
@@ -176,28 +272,22 @@ def load_model_for_scan(scan_type, crop_name=None):
         key = CROP_MODEL_KEYS.get(crop_name, crop_name)
         checkpoint = ensure_model(key)
         num_classes = len(CROP_CLASSES[crop_name])
-    else:  # Soil Analysis
+    else:
         checkpoint = ensure_model("soil_11class")
         num_classes = len(SOIL_NAMES)
 
     if checkpoint is None or not os.path.exists(checkpoint):
         return None, None
-
     model = create_model_from_checkpoint(checkpoint, num_classes)
     model.eval()
     return model, num_classes
 
-
 def extract_frames_from_video(video_file, interval_sec=0.5):
-    """Extract frames from uploaded video."""
     if not HAS_CV2:
         return None
-
-    # Save video to temp file
     tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
     tfile.write(video_file.read())
     tfile.close()
-
     cap = cv2.VideoCapture(tfile.name)
     fps = cap.get(cv2.CAP_PROP_FPS) or 25
     frame_interval = max(1, int(fps * interval_sec))
@@ -208,7 +298,6 @@ def extract_frames_from_video(video_file, interval_sec=0.5):
         if not ret:
             break
         if count % frame_interval == 0:
-            # Convert BGR to RGB
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frames.append(frame_rgb)
         count += 1
@@ -216,9 +305,7 @@ def extract_frames_from_video(video_file, interval_sec=0.5):
     os.unlink(tfile.name)
     return frames
 
-
 def predict_on_frames(model, frames, img_size=224):
-    """Run model on each frame and aggregate predictions."""
     transform = Compose([
         Resize((img_size, img_size)),
         ToTensor(),
@@ -232,23 +319,18 @@ def predict_on_frames(model, frames, img_size=224):
             logits = model(tensor)
             probs = F.softmax(logits, dim=1)[0].cpu().numpy()
         all_probs.append(probs)
-
     if not all_probs:
         return None, 0
-
     avg_probs = np.mean(all_probs, axis=0)
     consensus_idx = np.argmax(avg_probs)
     agreement = sum(1 for p in all_probs if np.argmax(p) == consensus_idx) / len(all_probs)
     return avg_probs, agreement
 
-
 def deduct_scans_for_video(amount=2):
-    """Deduct scans for video analysis."""
     if "user" not in st.session_state or st.session_state.user is None:
         return
     from app.utils.scan_util import deduct_scans
     deduct_scans(st.session_state.user.id, amount, "Video Scan")
-
 
 # ============================================
 # HEADER
@@ -257,13 +339,10 @@ st.markdown('<div class="video-title">🎥 Video Field Scanner</div>', unsafe_al
 st.markdown('<div class="subtitle">Walk through your field and let GAIA analyze every leaf</div>', unsafe_allow_html=True)
 
 # ============================================
-# SCAN TYPE SELECTOR (Crop / Soil)
+# SCAN TYPE SELECTOR
 # ============================================
 scan_type = st.radio("Select Scan Type", ["🌾 Crop Disease", "🏞️ Soil Analysis"], horizontal=True)
 
-# ============================================
-# CROP SELECTION (if crop)
-# ============================================
 if scan_type == "🌾 Crop Disease":
     crop_name = st.selectbox("Select Crop", list(CROP_CLASSES.keys()))
 else:
@@ -285,23 +364,15 @@ uploaded_video = st.file_uploader("📤 Upload field video", type=["mp4", "mov",
 if uploaded_video:
     st.video(uploaded_video)
 
-    # ============================================
-    # ANALYSIS BUTTON
-    # ============================================
     if st.button("🔍 Analyze Video", type="primary", use_container_width=True):
         with st.spinner("🧠 GAIA is scanning your field video..."):
-            # Extract frames
             frames = extract_frames_from_video(uploaded_video)
-
             if frames is None or len(frames) < 3:
                 st.error("Could not extract enough frames from video. Please try a different file.")
                 st.stop()
-
-            # Load model
             model, num_classes = load_model_for_scan(scan_type, crop_name)
             if model is None:
                 st.warning("⚠️ Real model unavailable — using demo predictions.")
-                # Demo predictions
                 if scan_type == "🌾 Crop Disease":
                     class_names = CROP_CLASSES[crop_name]
                 else:
@@ -314,19 +385,13 @@ if uploaded_video:
             else:
                 class_names = CROP_CLASSES[crop_name] if scan_type == "🌾 Crop Disease" else SOIL_NAMES
                 avg_probs, agreement = predict_on_frames(model, frames)
-
             top_idx = np.argmax(avg_probs)
             top_name = class_names[top_idx]
             confidence = avg_probs[top_idx] * 100
             num_frames = len(frames)
 
-        # ============================================
-        # RESULTS DISPLAY
-        # ============================================
         st.markdown("---")
         st.subheader("📊 Video Scan Report")
-
-        # Stats row
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.markdown(f'<div class="stat-box"><div class="stat-number">{num_frames}</div><div class="stat-label">Frames Analyzed</div></div>', unsafe_allow_html=True)
@@ -337,7 +402,6 @@ if uploaded_video:
         with col4:
             st.markdown(f'<div class="stat-box"><div class="stat-number">{scan_type.split()[0]}</div><div class="stat-label">Scan Type</div></div>', unsafe_allow_html=True)
 
-        # Main result card
         st.markdown(f"""
         <div class="scan-card" style="border-left: 5px solid #00c853;">
             <h2 style="margin:0; color: {'#00c853' if theme == 'dark' else '#2e7d32'};">🏆 {top_name}</h2>
@@ -346,23 +410,20 @@ if uploaded_video:
         </div>
         """, unsafe_allow_html=True)
 
-        # Top 5 probabilities
         st.markdown("### Top 5 Probabilities")
         sorted_idx = np.argsort(avg_probs)[::-1][:5]
         for i in sorted_idx:
             st.write(f"**{class_names[i]}**: {avg_probs[i]*100:.1f}%")
             st.progress(float(avg_probs[i]))
 
-        # Deduct scans
         deduct_scans_for_video()
 
-        # DeepSeek explanation (if available)
         if model is not None:
             with st.spinner("🧠 Generating treatment guide..."):
                 try:
                     from app.utils.deepseek_explainer import explain_diagnosis
-                    explanation, _ = explain_diagnosis(top_name, confidence, 
-                                                       crop_name if scan_type == "🌾 Crop Disease" else "soil", 
+                    explanation, _ = explain_diagnosis(top_name, confidence,
+                                                       crop_name if scan_type == "🌾 Crop Disease" else "soil",
                                                        "crop" if scan_type == "🌾 Crop Disease" else "soil")
                     if explanation:
                         with st.expander("📋 Complete Treatment Guide", expanded=True):
@@ -373,9 +434,9 @@ if uploaded_video:
 else:
     st.info("👆 Upload a video to begin analysis")
 
-# ============================================
-# NAVIGATION
-# ============================================
+st.markdown('</div>', unsafe_allow_html=True)  # close content-wrapper
+
+# Navigation (outside content-wrapper but still visible)
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(10)
@@ -389,16 +450,3 @@ with cols[6]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
 with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
 with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
 with cols[9]: st.page_link("pages/10_Early_Warning.py", label="⚠️ Alerts")
-
-st.markdown("### 📱 More Features")
-cols2 = st.columns(10)
-with cols2[0]: st.page_link("pages/11_Verify_Farmer.py", label="🛡️ Verify")
-with cols2[1]: st.page_link("pages/12_Verification_History.py", label="📋 History")
-with cols2[2]: st.page_link("pages/14_Wallet.py", label="💰 Wallet")
-with cols2[3]: st.page_link("pages/15_Badges.py", label="🏅 Badges")
-with cols2[4]: st.page_link("pages/16_Chat.py", label="💬 Chat")
-with cols2[5]: st.page_link("pages/20_Marketplace.py", label="🌍 Market")
-with cols2[6]: st.page_link("pages/21_Crop_Insurance.py", label="🏦 Insurance")
-with cols2[7]: st.page_link("pages/6_Payment_History.py", label="💳 Payments")
-with cols2[8]: st.page_link("pages/8_Profile.py", label="👤 Profile")
-with cols2[9]: st.page_link("pages/13_Help.py", label="🆘 Help")

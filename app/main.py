@@ -222,7 +222,9 @@ pg = st.navigation({
     "🏠 GAIA": [dashboard_page],
     "🌿 Diagnose": [crops_page, pests_page, soil_page, livestock_page, video_page, satellite_page, voice_page, early_warning_page],
     "💳 Payments": [buy_scans_page, payment_history_page],
-    "👤 Account": [profile_page, verify_farmer_page, verify_history_page, wallet_page, badges_page, insurance_page, admin_page],
+    "👤 Account": [profile_page, verify_farmer_page, verify_history_page, wallet_page, badges_page, 
+university_page = st.Page("pages/22_University.py", title="University", icon="🎓")
+insurance_page, admin_page],
     "🌍 Community": [chat_page, marketplace_page],
     "🆘 Support": [help_page],
 })

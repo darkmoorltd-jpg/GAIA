@@ -6,7 +6,7 @@ import os
 import sys
 import requests
 import re
-import calendar as cal
+import calendar as calendar_lib
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
@@ -89,7 +89,7 @@ def render_month_calendar(planting_date, activities, theme):
     """Render a real month calendar with highlighted dates."""
     year = planting_date.year
     month = planting_date.month
-    cal_obj = cal.Calendar(firstweekday=6)  # Sunday start
+    cal_obj = calendar_lib.Calendar(firstweekday=6)  # Sunday start
     month_days = cal_obj.monthdayscalendar(year, month)
 
     # Map day -> list of activity types (for dots)
@@ -309,8 +309,8 @@ if "user" in st.session_state and st.session_state.user:
     supabase = get_service()
     res = supabase.table("farming_calendar").select("*").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
     if res.data:
-        for cal in res.data:
-            crop = cal['crop']
+        for cal_entry in res.data:
+            crop = cal_entry['crop']
             group_color = "#00c853"
             for gname, gdata in CROP_GROUPS.items():
                 if crop in gdata["crops"]:
@@ -318,8 +318,8 @@ if "user" in st.session_state and st.session_state.user:
                     break
             with st.expander(f"🌾 {crop} — planted {cal['planting_date']}"):
                 # Show mini calendar for saved item
-                cal_date = datetime.date.fromisoformat(cal['planting_date'])
-                saved_acts = json.loads(cal.get("activities", "[]"))
+                cal_date = datetime.date.fromisoformat(cal_entry['planting_date'])
+                saved_acts = json.loads(cal_entry.get("activities", "[]"))
                 st.markdown(render_month_calendar(cal_date, saved_acts, theme), unsafe_allow_html=True)
                 for act in saved_acts:
                     week = act.get("week",0)
@@ -338,10 +338,10 @@ if "user" in st.session_state and st.session_state.user:
                         <p style="margin:0.3rem 0 0 0;">{act_text}</p>
                     </div>
                     """, unsafe_allow_html=True)
-                if cal.get("location"):
+                if cal_entry.get("location"):
                     st.write(f"📍 {cal['location']}")
-                if st.button("🗑️ Delete Calendar", key=f"delete_{cal['id']}"):
-                    supabase.table("farming_calendar").delete().eq("id", cal["id"]).execute()
+                if st.button("🗑️ Delete Calendar", key=f"delete_{cal_entry['id']}"):
+                    supabase.table("farming_calendar").delete().eq("id", cal_entry["id"]).execute()
                     st.success("Calendar deleted.")
                     st.rerun()
     else:

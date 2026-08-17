@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import requests
+import re
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
@@ -95,7 +96,21 @@ FALLBACK_TEMPLATES = {
     ],
 }
 
-# ---------- GAIA Calendar Generation ----------
+# ---------- Activity type colors/icons ----------
+ACTIVITY_META = {
+    "land": {"icon": "🚜", "color": "#8d6e63"},
+    "planting": {"icon": "🌱", "color": "#2e7d32"},
+    "fertilizer": {"icon": "💩", "color": "#ff9800"},
+    "pest": {"icon": "🐛", "color": "#f44336"},
+    "disease": {"icon": "🦠", "color": "#e91e63"},
+    "water": {"icon": "💧", "color": "#2196f3"},
+    "weed": {"icon": "🌿", "color": "#4caf50"},
+    "harvest": {"icon": "🌾", "color": "#ffb300"},
+    "postharvest": {"icon": "📦", "color": "#795548"},
+    "crop": {"icon": "🌽", "color": "#689f38"},
+    "tip": {"icon": "💡", "color": "#7c4dff"},
+}
+
 def generate_calendar_with_deepseek(crop, planting_date, location):
     """Use DeepSeek to generate a personalized farming calendar."""
     prompt = f"""
@@ -128,8 +143,6 @@ Return ONLY valid JSON array, no extra text.
         resp = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
         if resp.status_code == 200:
             content = resp.json()["choices"][0]["message"]["content"]
-            # Extract JSON
-            import re
             match = re.search(r'\[.*\]', content, re.DOTALL)
             if match:
                 activities = json.loads(match.group())
@@ -164,24 +177,38 @@ if theme == "dark":
         .subtitle { text-align: center; color: #b0bec5; font-size: 1.2rem; margin-bottom: 2rem; }
         .activity-card {
             background: rgba(255,255,255,0.05);
-            border-left: 4px solid #00c853;
-            border-radius: 12px;
+            border-left: 5px solid var(--accent);
+            border-radius: 15px;
             padding: 1rem 1.5rem;
-            margin: 0.5rem 0;
+            margin: 0.7rem 0;
             backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .activity-card:hover {
+            transform: translateX(5px);
+            background: rgba(255,255,255,0.08);
         }
         .week-label {
-            font-size: 0.85rem; color: #00c853; font-weight: 700;
+            font-size: 0.85rem; font-weight: 700;
             text-transform: uppercase; letter-spacing: 0.05em;
         }
         .activity-type {
-            font-size: 0.75rem; color: #90a4ae;
+            font-size: 0.75rem; opacity: 0.8;
             text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .timeline-dot {
+            display: inline-block; width: 12px; height: 12px;
+            border-radius: 50%; margin-right: 8px;
         }
         .stButton button {
             background: linear-gradient(135deg, #00c853, #4caf50);
             color: #fff; border: none; border-radius: 10px;
             padding: 12px 30px; font-weight: 700;
+        }
+        .delete-btn {
+            background: #f44336; color: #fff; border: none;
+            border-radius: 8px; padding: 5px 15px;
+            font-weight: 600; cursor: pointer;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -196,24 +223,38 @@ else:
         .subtitle { text-align: center; color: #33691e; font-size: 1.2rem; margin-bottom: 2rem; }
         .activity-card {
             background: rgba(255,255,255,0.9);
-            border-left: 4px solid #2e7d32;
-            border-radius: 12px;
+            border-left: 5px solid var(--accent);
+            border-radius: 15px;
             padding: 1rem 1.5rem;
-            margin: 0.5rem 0;
+            margin: 0.7rem 0;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        .activity-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         .week-label {
-            font-size: 0.85rem; color: #2e7d32; font-weight: 700;
+            font-size: 0.85rem; font-weight: 700;
             text-transform: uppercase; letter-spacing: 0.05em;
         }
         .activity-type {
-            font-size: 0.75rem; color: #558b2f;
+            font-size: 0.75rem; opacity: 0.8;
             text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .timeline-dot {
+            display: inline-block; width: 12px; height: 12px;
+            border-radius: 50%; margin-right: 8px;
         }
         .stButton button {
             background: linear-gradient(135deg, #2e7d32, #4caf50);
             color: #fff; border: none; border-radius: 10px;
             padding: 12px 30px; font-weight: 700;
+        }
+        .delete-btn {
+            background: #f44336; color: #fff; border: none;
+            border-radius: 8px; padding: 5px 15px;
+            font-weight: 600; cursor: pointer;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -239,11 +280,9 @@ if st.button("Generate My Calendar", type="primary"):
     user_id = st.session_state.user.id
 
     with st.spinner("🧠 GAIA is generating your personalized farming calendar..."):
-        # Try DeepSeek first
         activities = generate_calendar_with_deepseek(crop, planting_date.isoformat(), location)
 
         if activities is None:
-            # Fallback to templates
             st.warning("GAIA is using standard template.")
             template = FALLBACK_TEMPLATES[crop]
             activities = []
@@ -257,12 +296,10 @@ if st.button("Generate My Calendar", type="primary"):
                     "type": item["type"]
                 })
         else:
-            # Add dates to DeepSeek activities
             for act in activities:
                 week = int(act.get("week", 0))
                 act["date"] = (planting_date + datetime.timedelta(weeks=week)).isoformat()
 
-        # Save to Supabase
         supabase = get_service()
         supabase.table("farming_calendar").insert({
             "user_id": user_id,
@@ -273,8 +310,6 @@ if st.button("Generate My Calendar", type="primary"):
         }).execute()
 
         st.success("✅ Calendar saved!")
-
-        # Display calendar
         st.markdown(f"### Your {crop} Farming Calendar")
         st.markdown(f"**Planting Date:** {planting_date.strftime('%d %b %Y')}")
 
@@ -286,16 +321,22 @@ if st.button("Generate My Calendar", type="primary"):
                 date_str = date_obj.strftime('%d %b %Y')
             act_type = act.get("type", "crop")
             act_text = act.get("activity", "")
+            meta = ACTIVITY_META.get(act_type, {"icon": "🌱", "color": "#00c853"})
+            icon = meta["icon"]
+            color = meta["color"]
 
             st.markdown(f"""
-            <div class="activity-card">
-                <div class="week-label">Week {week} — {date_str}</div>
-                <div class="activity-type">{act_type.upper()}</div>
+            <div class="activity-card" style="--accent:{color};">
+                <div class="week-label">
+                    <span class="timeline-dot" style="background:{color};"></span>
+                    {icon} Week {week} — {date_str}
+                </div>
+                <div class="activity-type" style="color:{color};">{act_type.upper()}</div>
                 <p style="margin:0.3rem 0 0 0;">{act_text}</p>
             </div>
             """, unsafe_allow_html=True)
 
-# ---------- Show Saved Calendars ----------
+# ---------- Show Saved Calendars with Delete ----------
 st.markdown("---")
 st.subheader("📂 My Saved Calendars")
 
@@ -307,9 +348,24 @@ if "user" in st.session_state and st.session_state.user:
             with st.expander(f"🌾 {cal['crop']} — planted {cal['planting_date']}"):
                 activities = json.loads(cal.get("activities", "[]"))
                 for act in activities:
-                    st.write(f"Week {act.get('week',0)} ({act.get('date','')}): **{act.get('activity','')}**")
+                    week = act.get("week", 0)
+                    act_type = act.get("type", "crop")
+                    act_text = act.get("activity", "")
+                    date_str = act.get("date", "")
+                    if date_str:
+                        date_obj = datetime.date.fromisoformat(date_str)
+                        date_str = date_obj.strftime('%d %b')
+                    meta = ACTIVITY_META.get(act_type, {"icon": "🌱", "color": "#00c853"})
+                    icon = meta["icon"]
+                    st.write(f"{icon} Week {week} ({date_str}): **{act_text}**")
                 if cal.get("location"):
                     st.write(f"📍 {cal['location']}")
+                
+                # Delete button
+                if st.button("🗑️ Delete Calendar", key=f"delete_{cal['id']}", use_container_width=False):
+                    supabase.table("farming_calendar").delete().eq("id", cal["id"]).execute()
+                    st.success("Calendar deleted.")
+                    st.rerun()
     else:
         st.info("No saved calendars yet.")
 else:

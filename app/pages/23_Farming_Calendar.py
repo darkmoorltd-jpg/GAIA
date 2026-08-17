@@ -316,7 +316,7 @@ if "user" in st.session_state and st.session_state.user:
                 if crop in gdata["crops"]:
                     group_color = gdata["color"]
                     break
-            with st.expander(f"🌾 {crop} — planted {cal['planting_date']}"):
+            with st.expander(f"🌾 {crop} — planted {cal_entry['planting_date']}"):
                 # Show mini calendar for saved item
                 cal_date = datetime.date.fromisoformat(cal_entry['planting_date'])
                 saved_acts = json.loads(cal_entry.get("activities", "[]"))
@@ -339,7 +339,7 @@ if "user" in st.session_state and st.session_state.user:
                     </div>
                     """, unsafe_allow_html=True)
                 if cal_entry.get("location"):
-                    st.write(f"📍 {cal['location']}")
+                    st.write(f"📍 {cal_entry['location']}")
                 if st.button("🗑️ Delete Calendar", key=f"delete_{cal_entry['id']}"):
                     supabase.table("farming_calendar").delete().eq("id", cal_entry["id"]).execute()
                     st.success("Calendar deleted.")

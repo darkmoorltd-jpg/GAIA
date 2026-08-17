@@ -219,6 +219,7 @@ badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
 insurance_page = st.Page("pages/21_Crop_Insurance.py", title="Crop Insurance", icon="🏦")
 university_page = st.Page("pages/22_University.py", title="University", icon="🎓")
 
+farming_calendar_page = st.Page("pages/23_Farming_Calendar.py", title="Farming Calendar", icon="📅")
 pg = st.navigation({
     "GAIA": [dashboard_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page, video_page, satellite_page, voice_page],
@@ -227,6 +228,6 @@ pg = st.navigation({
     "Protection": [insurance_page, early_warning_page],
     "Support": [help_page, verify_farmer_page, verify_history_page],
     "Admin": [admin_page],
-    "Education": [university_page],
+    "Education": [university_page, farming_calendar_page],
 })
 pg.run()

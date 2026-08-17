@@ -24,7 +24,6 @@ def get_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
 def normalize_phone(phone):
-    """Convert Nigerian phone to international format."""
     if not phone:
         return ""
     phone = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
@@ -54,32 +53,41 @@ user = st.session_state.user
 db = get_supabase()
 service = get_service()
 
-# Fetch scans
-res = service.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
-scans = res.data[0]["scans_remaining"] if res.data else 30
+# Fetch current scans
+res = service.table("user_scans").select("scans_remaining, plan").eq("user_id", user.id).execute()
+if res.data and len(res.data) > 0:
+    scans = res.data[0].get("scans_remaining", 30)
+    current_plan = res.data[0].get("plan", "free")
+else:
+    scans = 30
+    current_plan = "free"
 
-# 🔑 FETCH THE PAYING USER'S PHONE NUMBER
+# Fetch user phone
 user_phone = ""
 try:
     profile_res = service.table("user_profiles").select("phone").eq("user_id", user.id).execute()
     if profile_res.data and len(profile_res.data) > 0:
         raw_phone = profile_res.data[0].get("phone", "")
         user_phone = normalize_phone(raw_phone)
-except Exception as e:
-    st.sidebar.warning(f"Couldn't fetch phone: {str(e)[:50]}")
+except Exception:
+    pass
 
-# If no phone, show a message
 if not user_phone:
     st.warning("⚠️ Please update your profile with your phone number to receive SMS receipts.")
 
+# ============================================
+# NEW PLANS
+# ============================================
 PLANS = {
-    "10":  {"scans": 10,  "price": "N500",   "kobo": 50000},
-    "25":  {"scans": 25,  "price": "N1,000", "kobo": 100000},
-    "60":  {"scans": 60,  "price": "N2,000", "kobo": 200000},
-    "250": {"scans": 250, "price": "N8,000", "kobo": 800000},
-    "unl": {"scans": 9999,"price": "N20,000","kobo": 2000000},
+    "starter":   {"name": "Starter",    "scans": 150,   "price": "₦3,000",  "kobo": 300000},
+    "pro":       {"name": "Pro",        "scans": 300,   "price": "₦5,000",  "kobo": 500000},
+    "business":  {"name": "Business",   "scans": 1000,  "price": "₦10,000", "kobo": 1000000},
+    "enterprise":{"name": "Enterprise", "scans": 5000,  "price": "₦20,000", "kobo": 2000000},
 }
 
+# ============================================
+# UI
+# ============================================
 st.markdown("""
 <style>
     .stApp { background: linear-gradient(160deg, #f4faf5, #eaf5ee, #fdfefb); color: #1b5e20; }
@@ -96,7 +104,8 @@ st.markdown("""
             box-shadow: 0 10px 30px rgba(0,0,0,.05); border: 2px solid transparent; }
     .card.sel { border-color: #2e7d32; background: linear-gradient(160deg, #e8f5e9, #fff); }
     .card-name { font-size: 1.1rem; font-weight: 600; color: #546e7a; }
-    .card-price { font-size: 2.4rem; font-weight: 900; color: #1b5e20; margin: .5rem 0; }
+    .card-price { font-size: 2rem; font-weight: 900; color: #1b5e20; margin: .5rem 0; }
+    .card-scans { font-size: 0.9rem; color: #888; margin-bottom: 0.5rem; }
     .banner { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border: 2px solid #2e7d32;
               border-radius: 20px; padding: 1.5rem 2rem; text-align: center; margin: 1.8rem 0; }
     .stButton button { background: #2e7d32 !important; color: #fff !important; border: none !important;
@@ -110,32 +119,32 @@ st.markdown('<div class="subtitle">Get more AI-powered diagnoses for your farm</
 c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
     st.markdown(f'<div style="text-align:center"><div class="badge"><div class="badge-num">{scans}</div><div class="badge-lbl">Scans Remaining</div></div></div>', unsafe_allow_html=True)
+    if current_plan != "free":
+        st.markdown(f'<p style="text-align:center;color:#2e7d32;">Current Plan: {current_plan.title()}</p>', unsafe_allow_html=True)
 
 st.markdown("### Choose Your Plan")
 
-if "plan" not in st.session_state:
-    st.session_state.plan = None
+if "selected_plan" not in st.session_state:
+    st.session_state.selected_plan = None
 
 cols = st.columns(len(PLANS))
 for i, (key, p) in enumerate(PLANS.items()):
     with cols[i]:
-        label = "Unlimited" if key == "unl" else f"{p['scans']} scans"
-        sel = "sel" if st.session_state.plan == key else ""
-        st.markdown(f'<div class="card {sel}"><div class="card-name">{label}</div><div class="card-price">{p["price"]}</div></div>', unsafe_allow_html=True)
+        sel = "sel" if st.session_state.selected_plan == key else ""
+        st.markdown(f'<div class="card {sel}"><div class="card-name">{p["name"]}</div><div class="card-scans">{p["scans"]} scans</div><div class="card-price">{p["price"]}</div></div>', unsafe_allow_html=True)
         if st.button("Select", key=f"btn_{key}", use_container_width=True):
-            st.session_state.plan = key
+            st.session_state.selected_plan = key
             st.rerun()
 
-if st.session_state.plan:
-    p = PLANS[st.session_state.plan]
-    label = "Unlimited" if st.session_state.plan == "unl" else f"{p['scans']} scans"
-    ref = f"GAIA_{user.id[:8]}_{st.session_state.plan}_{uuid.uuid4().hex[:6]}"
+if st.session_state.selected_plan:
+    p = PLANS[st.session_state.selected_plan]
+    label = f"{p['name']} ({p['scans']} scans)"
+    ref = f"GAIA_{user.id[:8]}_{st.session_state.selected_plan}_{uuid.uuid4().hex[:6]}"
 
     st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
 
-    # 🔑 PASS THE PAYING USER'S PHONE TO PAYSTACK
     phone_for_sms = user_phone if user_phone else "08000000000"
-    
+
     components.html(f"""
     <!DOCTYPE html>
     <html>
@@ -153,10 +162,10 @@ if st.session_state.plan:
                     amount: {p['kobo']},
                     currency: 'NGN',
                     ref: '{ref}',
-                    label: 'GAIA {label}',
+                    label: 'GAIA {p['name']}',
                     onClose: function() {{ window.location.reload(); }},
                     callback: function(response) {{
-                        window.location.href = '/~/callback?reference=' + response.reference + '&plan={st.session_state.plan}';
+                        window.location.href = '/~/callback?reference=' + response.reference + '&plan={st.session_state.selected_plan}';
                     }}
                 }}).openIframe();
             }}
@@ -192,7 +201,7 @@ with c2:
                         cur = db.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
                         cur_scans = cur.data[0]["scans_remaining"] if cur.data else 0
                         new_total = cur_scans + add
-                        db.table("user_scans").update({"scans_remaining": new_total}).eq("user_id", user.id).execute()
+                        db.table("user_scans").update({"scans_remaining": new_total, "plan": match}).eq("user_id", user.id).execute()
                         db.table("payment_history").insert({"user_id": user.id, "amount": amt, "scans_added": add, "plan": match, "reference": ref_input}).execute()
                         st.success(f"{add} scans added! Balance: {new_total}")
                         st.rerun()
@@ -204,6 +213,7 @@ with c2:
 st.markdown("---")
 st.caption("Secure payments by Paystack. Darkmoor Ltd")
 
+# Navigation (same as before)
 cols = st.columns(9)
 with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
 with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
@@ -214,53 +224,3 @@ with cols[5]: st.page_link("pages/8_Profile.py", label="👤 Profile")
 with cols[6]: st.page_link("pages/20_Marketplace.py", label="🌍 Market")
 with cols[7]: st.page_link("pages/21_Crop_Insurance.py", label="🏦 Insurance")
 with cols[8]: st.page_link("pages/7_Admin.py", label="🔐 Admin")
-
-# ============================================
-# FULL NAVIGATION — ALL PAGES
-# ============================================
-st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(10)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]:
-    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]:
-    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
-with cols[9]:
-    st.page_link("pages/10_Early_Warning.py", label="⚠️ Alerts")
-
-st.markdown("### 📱 More Features")
-cols2 = st.columns(10)
-with cols2[0]:
-    st.page_link("pages/11_Verify_Farmer.py", label="🛡️ Verify")
-with cols2[1]:
-    st.page_link("pages/12_Verification_History.py", label="📋 History")
-with cols2[2]:
-    st.page_link("pages/14_Wallet.py", label="💰 Wallet")
-with cols2[3]:
-    st.page_link("pages/15_Badges.py", label="🏅 Badges")
-with cols2[4]:
-    st.page_link("pages/16_Chat.py", label="💬 Chat")
-with cols2[5]:
-    st.page_link("pages/20_Marketplace.py", label="🌍 Market")
-with cols2[6]:
-    st.page_link("pages/21_Crop_Insurance.py", label="🏦 Insurance")
-with cols2[7]:
-    st.page_link("pages/6_Payment_History.py", label="💳 Payments")
-with cols2[8]:
-    st.page_link("pages/8_Profile.py", label="👤 Profile")
-with cols2[9]:
-    st.page_link("pages/13_Help.py", label="🆘 Help")

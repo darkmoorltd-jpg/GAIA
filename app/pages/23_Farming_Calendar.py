@@ -85,47 +85,76 @@ def generate_calendar_with_deepseek(crop, planting_date, location):
     return None
 
 # ---------- Real Calendar Widget Function ----------
+
 def render_month_calendar(planting_date, activities, theme):
-    """Render a real month calendar with highlighted dates."""
-    year = planting_date.year
-    month = planting_date.month
-    cal_obj = calendar_lib.Calendar(firstweekday=6)  # Sunday start
-    month_days = cal_obj.monthdayscalendar(year, month)
+    """Render a series of month calendars from planting month to final activity month."""
+    # Determine the final date (latest activity date)
+    max_week = max((act.get("week", 0) for act in activities), default=0)
+    final_date = planting_date + datetime.timedelta(weeks=max_week)
+    # Start from planting month
+    start_year = planting_date.year
+    start_month = planting_date.month
+    end_year = final_date.year
+    end_month = final_date.month
 
-    # Map day -> list of activity types (for dots)
-    day_activities = {}
-    for act in activities:
-        week = act.get("week", 0)
-        act_date = planting_date + datetime.timedelta(weeks=week)
-        if act_date.year == year and act_date.month == month:
-            day = act_date.day
-            act_type = act.get("type", "crop")
-            if day not in day_activities:
-                day_activities[day] = []
-            day_activities[day].append(act_type)
+    # Build a list of (year, month) tuples from start to end
+    months = []
+    y, m = start_year, start_month
+    while (y, m) <= (end_year, end_month):
+        months.append((y, m))
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
 
-    # Build HTML table
-    days_header = "".join([f"<th>{day}</th>" for day in ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]])
-    rows_html = ""
-    for week in month_days:
-        week_html = ""
-        for day in week:
-            if day == 0:
-                week_html += "<td class='empty'></td>"
-            else:
-                classes = []
-                if day == planting_date.day:
-                    classes.append("planting-date")
-                if day in day_activities:
-                    classes.append("has-activity")
-                cls = " ".join(classes)
-                # Show dots for up to 2 activities
-                dots = ""
-                for act_type in day_activities.get(day, [])[:2]:
-                    meta = ACTIVITY_META.get(act_type, {"color":"#ccc"})
-                    dots += f"<span class='dot' style='background:{meta['color']}'></span>"
-                week_html += f"<td class='{cls}'><span class='day-number'>{day}</span>{dots}</td>"
-        rows_html += f"<tr>{week_html}</tr>"
+    html_parts = []
+    for year, month in months:
+        cal_obj = calendar_lib.Calendar(firstweekday=6)  # Sunday start
+        month_days = cal_obj.monthdayscalendar(year, month)
+
+        # Map day -> list of activity types
+        day_activities = {}
+        for act in activities:
+            week = act.get("week", 0)
+            act_date = planting_date + datetime.timedelta(weeks=week)
+            if act_date.year == year and act_date.month == month:
+                day = act_date.day
+                act_type = act.get("type", "crop")
+                if day not in day_activities:
+                    day_activities[day] = []
+                day_activities[day].append(act_type)
+
+        days_header = "".join([f"<th>{d}</th>" for d in ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]])
+        rows_html = ""
+        for week in month_days:
+            week_html = ""
+            for day in week:
+                if day == 0:
+                    week_html += "<td class='empty'></td>"
+                else:
+                    classes = []
+                    if year == planting_date.year and month == planting_date.month and day == planting_date.day:
+                        classes.append("planting-date")
+                    if day in day_activities:
+                        classes.append("has-activity")
+                    cls = " ".join(classes)
+                    dots = ""
+                    for act_type in day_activities.get(day, [])[:2]:
+                        meta = ACTIVITY_META.get(act_type, {"color":"#ccc"})
+                        dots += f"<span class='dot' style='background:{meta['color']}'></span>"
+                    week_html += f"<td class='{cls}'><span class='day-number'>{day}</span>{dots}</td>"
+            rows_html += f"<tr>{week_html}</tr>"
+
+        month_name = datetime.date(year, month, 1).strftime('%B %Y')
+        html_parts.append(f"""
+        <div class="calendar-month">
+            <h4 style="text-align:center; margin-bottom:0.5rem;">{month_name}</h4>
+            <table>
+                <tr>{days_header}</tr>
+                {rows_html}
+            </table>
+        </div>
+        """)
 
     return f"""
     <style>
@@ -137,24 +166,43 @@ def render_month_calendar(planting_date, activities, theme):
             margin: 1rem 0;
             box-shadow: 0 8px 20px rgba(0,0,0,0.2);
         }}
-        .calendar-widget table {{ width: 100%; border-collapse: collapse; }}
-        .calendar-widget th {{ padding: 0.5rem; color: {'#00c853' if theme=='dark' else '#2e7d32'}; font-weight: 700; }}
-        .calendar-widget td {{ padding: 0.3rem; text-align: center; font-size: 0.9rem; }}
-        .calendar-widget td.empty {{ background: transparent; }}
-        .calendar-widget td.planting-date {{ background: {'rgba(0,200,83,0.25)' if theme=='dark' else 'rgba(46,125,50,0.2)'}; border-radius: 50%; }}
-        .calendar-widget td.has-activity {{ position: relative; }}
-        .calendar-widget .day-number {{ display: block; }}
-        .calendar-widget .dot {{ display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin: 0 1px; }}
+        .calendar-month {{
+            margin-bottom: 1.5rem;
+        }}
+        .calendar-month h4 {{
+            color: {'#00c853' if theme=='dark' else '#2e7d32'};
+        }}
+        .calendar-month table {{ width: 100%; border-collapse: collapse; }}
+        .calendar-month th {{
+            padding: 0.4rem;
+            color: {'#00c853' if theme=='dark' else '#2e7d32'};
+            font-weight: 700;
+            font-size: 0.8rem;
+        }}
+        .calendar-month td {{
+            padding: 0.3rem;
+            text-align: center;
+            font-size: 0.85rem;
+        }}
+        .calendar-month td.empty {{ background: transparent; }}
+        .calendar-month td.planting-date {{
+            background: {'rgba(0,200,83,0.25)' if theme=='dark' else 'rgba(46,125,50,0.2)'};
+            border-radius: 50%;
+        }}
+        .calendar-month td.has-activity {{ position: relative; }}
+        .calendar-month .day-number {{ display: block; }}
+        .calendar-month .dot {{
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin: 0 1px;
+        }}
     </style>
     <div class="calendar-widget">
-        <h3 style="text-align:center; margin-bottom:0.5rem;">{planting_date.strftime('%B %Y')}</h3>
-        <table>
-            <tr>{days_header}</tr>
-            {rows_html}
-        </table>
+        {"".join(html_parts)}
     </div>
     """
-
 # ---------- Page Config ----------
 st.set_page_config(page_title="GAIA – Farming Calendar", page_icon="📅", layout="wide")
 st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)

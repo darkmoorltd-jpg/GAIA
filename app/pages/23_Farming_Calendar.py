@@ -140,7 +140,7 @@ FALLBACK_TEMPLATES = {
     ],
 }
 
-# Generic fallback if no specific template and DeepSeek fails
+# Generic fallback
 GENERIC_ACTIVITIES = [
     {"week": 0, "activity": "Prepare land and plant seeds", "type": "planting"},
     {"week": 2, "activity": "First weeding", "type": "weed"},
@@ -168,7 +168,6 @@ ACTIVITY_META = {
 }
 
 def generate_calendar_with_deepseek(crop, planting_date, location):
-    """Use DeepSeek to generate a personalized farming calendar."""
     prompt = f"""
 You are an expert agricultural advisor. Generate a detailed farming calendar for {crop} in {location or 'Nigeria'}.
 Planting date: {planting_date}.
@@ -182,10 +181,7 @@ Make it practical, specific, and appropriate for smallholder farmers. Use exact 
 
 Return ONLY valid JSON array, no extra text.
 """
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [
@@ -224,12 +220,16 @@ theme = "dark" if dark_mode else "light"
 if theme == "dark":
     st.markdown("""
     <style>
+        @keyframes glow {
+            0%,100% { text-shadow: 0 0 25px rgba(0,200,83,0.7); }
+            50% { text-shadow: 0 0 50px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.6); }
+        }
         .stApp { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); color: #fff; }
         header, footer { visibility: hidden; }
         .title { font-size: 3rem; font-weight: 900; text-align: center;
                  background: linear-gradient(135deg, #00c853, #69f0ae);
                  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-                 text-shadow: 0 0 25px rgba(0,200,83,0.7); }
+                 animation: glow 2s ease-in-out infinite alternate; }
         .subtitle { text-align: center; color: #b0bec5; font-size: 1.2rem; margin-bottom: 2rem; }
         .group-card {
             background: rgba(255,255,255,0.05);
@@ -241,11 +241,7 @@ if theme == "dark":
             transition: all 0.3s ease;
             backdrop-filter: blur(10px);
         }
-        .group-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--accent);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-        }
+        .group-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
         .group-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
         .group-name { font-weight: 700; font-size: 1.1rem; }
         .crop-chip {
@@ -269,33 +265,33 @@ if theme == "dark":
             transition: all 0.3s ease;
         }
         .activity-card:hover { transform: translateX(5px); background: rgba(255,255,255,0.08); }
-        .week-label {
-            font-size: 0.85rem; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 0.05em;
+        .week-label { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .activity-type { font-size: 0.75rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.08em; }
+        .timeline-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .saved-calendar-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        .activity-type {
-            font-size: 0.75rem; opacity: 0.8;
-            text-transform: uppercase; letter-spacing: 0.08em;
-        }
-        .timeline-dot {
-            display: inline-block; width: 12px; height: 12px;
-            border-radius: 50%; margin-right: 8px;
-        }
-        .stButton button {
-            background: linear-gradient(135deg, #00c853, #4caf50);
-            color: #fff; border: none; border-radius: 10px;
-            padding: 12px 30px; font-weight: 700;
-        }
+        .stButton button { background: linear-gradient(135deg, #00c853, #4caf50); color: #fff; border: none; border-radius: 10px; padding: 12px 30px; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <style>
+        @keyframes glowLight {
+            0%,100% { text-shadow: 0 0 15px rgba(46,125,50,0.5); }
+            50% { text-shadow: 0 0 30px rgba(46,125,50,1), 0 0 60px rgba(46,125,50,0.7); }
+        }
         .stApp { background: linear-gradient(135deg, #e8f5e9, #f1f8e9); color: #1b5e20; }
         header, footer { visibility: hidden; }
         .title { font-size: 3rem; font-weight: 900; text-align: center;
                  background: linear-gradient(135deg, #2e7d32, #4caf50);
-                 -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                 -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+                 animation: glowLight 2s ease-in-out infinite alternate; }
         .subtitle { text-align: center; color: #33691e; font-size: 1.2rem; margin-bottom: 2rem; }
         .group-card {
             background: rgba(255,255,255,0.9);
@@ -307,11 +303,7 @@ else:
             transition: all 0.3s ease;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        .group-card:hover {
-            transform: translateY(-5px);
-            border-color: var(--accent);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        }
+        .group-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
         .group-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
         .group-name { font-weight: 700; font-size: 1.1rem; color: #1b5e20; }
         .crop-chip {
@@ -336,47 +328,41 @@ else:
             transition: all 0.3s ease;
         }
         .activity-card:hover { transform: translateX(5px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .week-label {
-            font-size: 0.85rem; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 0.05em;
+        .week-label { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .activity-type { font-size: 0.75rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.08em; }
+        .timeline-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .saved-calendar-card {
+            background: rgba(255,255,255,0.9);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.05);
         }
-        .activity-type {
-            font-size: 0.75rem; opacity: 0.8;
-            text-transform: uppercase; letter-spacing: 0.08em;
-        }
-        .timeline-dot {
-            display: inline-block; width: 12px; height: 12px;
-            border-radius: 50%; margin-right: 8px;
-        }
-        .stButton button {
-            background: linear-gradient(135deg, #2e7d32, #4caf50);
-            color: #fff; border: none; border-radius: 10px;
-            padding: 12px 30px; font-weight: 700;
-        }
+        .stButton button { background: linear-gradient(135deg, #2e7d32, #4caf50); color: #fff; border: none; border-radius: 10px; padding: 12px 30px; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
 
 st.markdown('<div class="title">📅 AI Farming Calendar</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Select a crop group, choose your crop, and GAIA will generate a personalized season plan</div>', unsafe_allow_html=True)
 
-# ---------- Session state for navigation ----------
+# ---------- Session state ----------
 if "selected_group" not in st.session_state:
     st.session_state.selected_group = None
 if "selected_crop" not in st.session_state:
     st.session_state.selected_crop = None
 
-# ---------- STEP 1: Select Group ----------
+# ---------- Step 1: Select Group ----------
 if st.session_state.selected_group is None:
     st.markdown("### Choose a Crop Group")
     cols = st.columns(4)
     for i, (group_name, group_data) in enumerate(CROP_GROUPS.items()):
         with cols[i % 4]:
-            # Using button to select group
             if st.button(f"{group_data['icon']}\n\n{group_name}", key=f"group_{group_name}", use_container_width=True):
                 st.session_state.selected_group = group_name
                 st.rerun()
 
-# ---------- STEP 2: Select Crop from Group ----------
+# ---------- Step 2: Select Crop ----------
 elif st.session_state.selected_crop is None:
     group_name = st.session_state.selected_group
     group_data = CROP_GROUPS[group_name]
@@ -388,18 +374,16 @@ elif st.session_state.selected_crop is None:
             if st.button(crop, key=f"crop_{crop}", use_container_width=True):
                 st.session_state.selected_crop = crop
                 st.rerun()
-    # Back button
     if st.button("← Back to Groups"):
         st.session_state.selected_group = None
         st.rerun()
 
-# ---------- STEP 3: Input and Generate ----------
+# ---------- Step 3: Generate ----------
 else:
     group_name = st.session_state.selected_group
     crop = st.session_state.selected_crop
     group_data = CROP_GROUPS[group_name]
     st.markdown(f"### {group_data['icon']} {crop}")
-    st.markdown("Enter planting details:")
     col1, col2 = st.columns(2)
     with col1:
         planting_date = st.date_input("📅 Planting Date", value=datetime.date.today())
@@ -418,7 +402,6 @@ else:
                     activities = FALLBACK_TEMPLATES[crop].copy()
                 else:
                     activities = GENERIC_ACTIVITIES.copy()
-                # Add dates
                 final_activities = []
                 for item in activities:
                     week = item["week"]
@@ -467,12 +450,11 @@ else:
                 </div>
                 """, unsafe_allow_html=True)
 
-    # Back button
     if st.button("← Change Crop"):
         st.session_state.selected_crop = None
         st.rerun()
 
-# ---------- Show Saved Calendars with Delete ----------
+# ---------- Saved Calendars ----------
 st.markdown("---")
 st.subheader("📂 My Saved Calendars")
 
@@ -481,7 +463,17 @@ if "user" in st.session_state and st.session_state.user:
     res = supabase.table("farming_calendar").select("*").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
     if res.data:
         for cal in res.data:
-            with st.expander(f"🌾 {cal['crop']} — planted {cal['planting_date']}"):
+            # Determine group color for border accent
+            crop = cal['crop']
+            group_color = "#00c853"
+            for gname, gdata in CROP_GROUPS.items():
+                if crop in gdata["crops"]:
+                    group_color = gdata["color"]
+                    break
+            with st.expander(f"🌾 {crop} — planted {cal['planting_date']}"):
+                st.markdown(f"""
+                <div style="border-left:5px solid {group_color}; padding-left:1rem;">
+                """, unsafe_allow_html=True)
                 activities = json.loads(cal.get("activities", "[]"))
                 for act in activities:
                     week = act.get("week", 0)
@@ -492,11 +484,21 @@ if "user" in st.session_state and st.session_state.user:
                         date_obj = datetime.date.fromisoformat(date_str)
                         date_str = date_obj.strftime('%d %b')
                     meta = ACTIVITY_META.get(act_type, {"icon": "🌱", "color": "#00c853"})
-                    icon = meta["icon"]
-                    st.write(f"{icon} Week {week} ({date_str}): **{act_text}**")
+                    icon = meta["icon"]; color = meta["color"]
+                    st.markdown(f"""
+                    <div class="activity-card" style="--accent:{color};">
+                        <div class="week-label">
+                            <span class="timeline-dot" style="background:{color};"></span>
+                            {icon} Week {week} ({date_str})
+                        </div>
+                        <div class="activity-type" style="color:{color};">{act_type.upper()}</div>
+                        <p style="margin:0.3rem 0 0 0;">{act_text}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
                 if cal.get("location"):
                     st.write(f"📍 {cal['location']}")
-                if st.button("🗑️ Delete Calendar", key=f"delete_{cal['id']}", use_container_width=False):
+                st.markdown("</div>", unsafe_allow_html=True)
+                if st.button("🗑️ Delete Calendar", key=f"delete_{cal['id']}"):
                     supabase.table("farming_calendar").delete().eq("id", cal["id"]).execute()
                     st.success("Calendar deleted.")
                     st.rerun()

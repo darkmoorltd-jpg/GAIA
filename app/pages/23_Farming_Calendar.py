@@ -86,18 +86,19 @@ def generate_calendar_with_deepseek(crop, planting_date, location):
 
 # ---------- Real Calendar Widget Function ----------
 
-def render_month_calendar(planting_date, activities, theme):
-    """Render a series of month calendars from planting month to final activity month."""
-    # Determine the final date (latest activity date)
+
+from PIL import Image, ImageDraw, ImageFont
+
+def generate_calendar_image(planting_date, activities, theme):
+    """Generate an actual calendar image for the entire season."""
+    import calendar as calendar_lib
+
+    # Determine range of months
     max_week = max((act.get("week", 0) for act in activities), default=0)
     final_date = planting_date + datetime.timedelta(weeks=max_week)
-    # Start from planting month
-    start_year = planting_date.year
-    start_month = planting_date.month
-    end_year = final_date.year
-    end_month = final_date.month
+    start_year, start_month = planting_date.year, planting_date.month
+    end_year, end_month = final_date.year, final_date.month
 
-    # Build a list of (year, month) tuples from start to end
     months = []
     y, m = start_year, start_month
     while (y, m) <= (end_year, end_month):
@@ -107,102 +108,75 @@ def render_month_calendar(planting_date, activities, theme):
             m = 1
             y += 1
 
-    html_parts = []
+    images = []
+    font = ImageFont.load_default()
+    big_font = ImageFont.load_default()  # using default for simplicity
+
+    # Colors
+    bg_color = (30, 30, 30) if theme == "dark" else (255, 255, 255)
+    text_color = (255, 255, 255) if theme == "dark" else (30, 30, 30)
+    header_color = (0, 200, 83) if theme == "dark" else (46, 125, 50)
+    cell_color = (60, 60, 60) if theme == "dark" else (220, 220, 220)
+    highlight_color = (0, 200, 83, 100) if theme == "dark" else (46, 125, 50, 100)  # with transparency not easy; use solid fill
+
     for year, month in months:
-        cal_obj = calendar_lib.Calendar(firstweekday=6)  # Sunday start
+        cal_obj = calendar_lib.Calendar(firstweekday=6)
         month_days = cal_obj.monthdayscalendar(year, month)
 
-        # Map day -> list of activity types
-        day_activities = {}
-        for act in activities:
-            week = act.get("week", 0)
-            act_date = planting_date + datetime.timedelta(weeks=week)
-            if act_date.year == year and act_date.month == month:
-                day = act_date.day
-                act_type = act.get("type", "crop")
-                if day not in day_activities:
-                    day_activities[day] = []
-                day_activities[day].append(act_type)
+        # Image dimensions
+        img_width = 600
+        img_height = 400
+        img = Image.new("RGBA", (img_width, img_height), bg_color + (255,))
+        draw = ImageDraw.Draw(img)
 
-        days_header = "".join([f"<th>{d}</th>" for d in ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]])
-        rows_html = ""
-        for week in month_days:
-            week_html = ""
-            for day in week:
-                if day == 0:
-                    week_html += "<td class='empty'></td>"
-                else:
-                    classes = []
-                    if year == planting_date.year and month == planting_date.month and day == planting_date.day:
-                        classes.append("planting-date")
-                    if day in day_activities:
-                        classes.append("has-activity")
-                    cls = " ".join(classes)
-                    dots = ""
-                    for act_type in day_activities.get(day, [])[:2]:
-                        meta = ACTIVITY_META.get(act_type, {"color":"#ccc"})
-                        dots += f"<span class='dot' style='background:{meta['color']}'></span>"
-                    week_html += f"<td class='{cls}'><span class='day-number'>{day}</span>{dots}</td>"
-            rows_html += f"<tr>{week_html}</tr>"
-
+        # Month title
         month_name = datetime.date(year, month, 1).strftime('%B %Y')
-        html_parts.append(f"""
-        <div class="calendar-month">
-            <h4 style="text-align:center; margin-bottom:0.5rem;">{month_name}</h4>
-            <table>
-                <tr>{days_header}</tr>
-                {rows_html}
-            </table>
-        </div>
-        """)
+        draw.text((img_width//2, 20), month_name, fill=header_color, font=big_font, anchor="mm")
 
-    return f"""
-    <style>
-        .calendar-widget {{
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(15px);
-            border-radius: 20px;
-            padding: 1.5rem;
-            margin: 1rem 0;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-        }}
-        .calendar-month {{
-            margin-bottom: 1.5rem;
-        }}
-        .calendar-month h4 {{
-            color: {'#00c853' if theme=='dark' else '#2e7d32'};
-        }}
-        .calendar-month table {{ width: 100%; border-collapse: collapse; }}
-        .calendar-month th {{
-            padding: 0.4rem;
-            color: {'#00c853' if theme=='dark' else '#2e7d32'};
-            font-weight: 700;
-            font-size: 0.8rem;
-        }}
-        .calendar-month td {{
-            padding: 0.3rem;
-            text-align: center;
-            font-size: 0.85rem;
-        }}
-        .calendar-month td.empty {{ background: transparent; }}
-        .calendar-month td.planting-date {{
-            background: {'rgba(0,200,83,0.25)' if theme=='dark' else 'rgba(46,125,50,0.2)'};
-            border-radius: 50%;
-        }}
-        .calendar-month td.has-activity {{ position: relative; }}
-        .calendar-month .day-number {{ display: block; }}
-        .calendar-month .dot {{
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            margin: 0 1px;
-        }}
-    </style>
-    <div class="calendar-widget">
-        {"".join(html_parts)}
-    </div>
-    """
+        # Day headers
+        days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        cell_width = img_width // 7
+        cell_height = 50
+        start_y = 60
+        for i, day in enumerate(days):
+            x = i * cell_width + cell_width//2
+            draw.text((x, start_y), day, fill=header_color, font=font, anchor="mm")
+
+        # Grid
+        for week_idx, week in enumerate(month_days):
+            for day_idx, day in enumerate(week):
+                x0 = day_idx * cell_width
+                y0 = start_y + 30 + week_idx * cell_height
+                x1 = x0 + cell_width
+                y1 = y0 + cell_height
+                draw.rectangle([x0, y0, x1, y1], outline=cell_color, width=1)
+
+                if day == 0:
+                    continue
+
+                # Day number
+                draw.text((x0 + 5, y0 + 2), str(day), fill=text_color, font=font)
+
+                # Highlight planting date
+                if year == planting_date.year and month == planting_date.month and day == planting_date.day:
+                    draw.rectangle([x0, y0, x1, y1], fill=highlight_color)
+
+                # Activity dots
+                y_dot = y0 + cell_height - 10
+                for act in activities:
+                    week = act.get("week", 0)
+                    act_date = planting_date + datetime.timedelta(weeks=week)
+                    if act_date.year == year and act_date.month == month and act_date.day == day:
+                        act_type = act.get("type", "crop")
+                        color = ACTIVITY_META.get(act_type, {"color":"#ccc"})["color"]
+                        # Convert hex to RGB
+                        color_rgb = tuple(int(color[i:i+2], 16) for i in (1,3,5))
+                        dot_radius = 4
+                        draw.ellipse([x0 + 5 + (len([d for d in []]) * 10), y_dot, x0 + 5 + 10, y_dot + 10], fill=color_rgb)
+
+        images.append(img)
+
+    return images
 # ---------- Page Config ----------
 st.set_page_config(page_title="GAIA – Farming Calendar", page_icon="📅", layout="wide")
 st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
@@ -325,7 +299,8 @@ else:
             supabase.table("farming_calendar").insert({"user_id": user_id, "crop": crop, "planting_date": planting_date.isoformat(), "location": location, "activities": json.dumps(activities)}).execute()
             st.success("✅ Calendar saved!")
             # Render real calendar widget
-            st.markdown(render_month_calendar(planting_date, activities, theme), unsafe_allow_html=True)
+            for cal_img in generate_calendar_image(planting_date, activities, theme):
+                st.image(cal_img, use_container_width=True)
             st.markdown(f"### Your {crop} Farming Calendar")
             st.markdown(f"**Planting Date:** {planting_date.strftime('%d %b %Y')}")
             for act in activities:
@@ -368,7 +343,8 @@ if "user" in st.session_state and st.session_state.user:
                 # Show mini calendar for saved item
                 cal_date = datetime.date.fromisoformat(cal_entry['planting_date'])
                 saved_acts = json.loads(cal_entry.get("activities", "[]"))
-                st.markdown(render_month_calendar(cal_date, saved_acts, theme), unsafe_allow_html=True)
+                for cal_img in generate_calendar_image(cal_date, saved_acts, theme):
+                    st.image(cal_img, use_container_width=True)
                 for act in saved_acts:
                     week = act.get("week",0)
                     act_type = act.get("type","crop")

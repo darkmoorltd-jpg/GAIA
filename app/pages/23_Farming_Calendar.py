@@ -224,7 +224,7 @@ if theme == "dark":
             0%,100% { text-shadow: 0 0 25px rgba(0,200,83,0.7); }
             50% { text-shadow: 0 0 50px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.6); }
         }
-        .stApp { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); color: #fff; }
+        .stApp { background: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)), url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'); background-size: cover; background-attachment: fixed; background-position: center; color: #fff; }
         header, footer { visibility: hidden; }
         .title { font-size: 3rem; font-weight: 900; text-align: center;
                  background: linear-gradient(135deg, #00c853, #69f0ae);
@@ -286,7 +286,7 @@ else:
             0%,100% { text-shadow: 0 0 15px rgba(46,125,50,0.5); }
             50% { text-shadow: 0 0 30px rgba(46,125,50,1), 0 0 60px rgba(46,125,50,0.7); }
         }
-        .stApp { background: linear-gradient(135deg, #e8f5e9, #f1f8e9); color: #1b5e20; }
+        .stApp { background: linear-gradient(rgba(255,255,255,0.75), rgba(255,255,255,0.75)), url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'); background-size: cover; background-attachment: fixed; background-position: center; color: #1b5e20; }
         header, footer { visibility: hidden; }
         .title { font-size: 3rem; font-weight: 900; text-align: center;
                  background: linear-gradient(135deg, #2e7d32, #4caf50);

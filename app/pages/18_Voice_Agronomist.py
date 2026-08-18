@@ -25,7 +25,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""<style>.stApp{background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');background-size:cover;background-attachment:fixed;background-position:center;}</style>""", unsafe_allow_html=True)
+st.markdown("""<style>.stApp{background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');background-size:cover;background-attachment:fixed;background-position:center;}</style>""", unsafe_allow_html=True)
 
 dark_mode = st.toggle("", value=False, key="voice_theme_toggle")
 theme = "dark" if dark_mode else "light"
@@ -264,7 +264,7 @@ if theme == "dark":
         .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
         .msg-user { background:linear-gradient(135deg,#1a5c30,#0d3320);color:#e8f5e9;margin-left:60px;border-bottom-right-radius:4px }
         .msg-gaia { background:#151d18;color:#d1d5db;border:1px solid #1e2d23;margin-right:60px;border-bottom-left-radius:4px }
-        .stApp { background: linear-gradient(rgba(13,17,16,0.4), rgba(13,17,16,0.4)), url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80") center/cover fixed; }
+        .stApp { background: linear-gradient(rgba(13,17,16,0.4), rgba(13,17,16,0.4)), url("https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80") center/cover fixed; }
         header,footer { visibility:hidden }
         .msg-user, .msg-gaia, .gaia-title, .subtitle, .dancing-tomato, .stMarkdown, .stMarkdown p { text-shadow: 1px 1px 4px rgba(0,0,0,0.3); }
     </style>
@@ -280,7 +280,7 @@ else:
         .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
         .msg-user { background:#2e7d32;color:#fff;margin-left:60px;border-bottom-right-radius:4px }
         .msg-gaia { background:#f1f5f9;color:#1e293b;border:1px solid #e2e8f0;margin-right:60px;border-bottom-left-radius:4px }
-        .stApp { background: linear-gradient(rgba(248,250,252,0.5), rgba(248,250,252,0.5)), url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80") center/cover fixed; }
+        .stApp { background: linear-gradient(rgba(248,250,252,0.5), rgba(248,250,252,0.5)), url("https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80") center/cover fixed; }
         header,footer { visibility:hidden }
         .msg-user, .msg-gaia, .gaia-title, .subtitle, .dancing-tomato, .stMarkdown, .stMarkdown p { text-shadow: 1px 1px 4px rgba(0,0,0,0.3); }
     </style>

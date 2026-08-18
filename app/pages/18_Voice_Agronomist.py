@@ -264,7 +264,7 @@ if theme == "dark":
         .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
         .msg-user { background:linear-gradient(135deg,#1a5c30,#0d3320);color:#e8f5e9;margin-left:60px;border-bottom-right-radius:4px }
         .msg-gaia { background:#151d18;color:#d1d5db;border:1px solid #1e2d23;margin-right:60px;border-bottom-left-radius:4px }
-        .stApp { background:#0d1110 }
+        .stApp { background: linear-gradient(rgba(13,17,16,0.7), rgba(13,17,16,0.7)), url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80") center/cover fixed; }
         header,footer { visibility:hidden }
     </style>
     """, unsafe_allow_html=True)
@@ -279,7 +279,7 @@ else:
         .msg-bubble { padding:14px 18px;border-radius:16px;margin:10px 0;font-size:.92rem;line-height:1.6;animation:slideIn .4s ease }
         .msg-user { background:#2e7d32;color:#fff;margin-left:60px;border-bottom-right-radius:4px }
         .msg-gaia { background:#f1f5f9;color:#1e293b;border:1px solid #e2e8f0;margin-right:60px;border-bottom-left-radius:4px }
-        .stApp { background:#f8fafc }
+        .stApp { background: linear-gradient(rgba(248,250,252,0.85), rgba(248,250,252,0.85)), url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80") center/cover fixed; }
         header,footer { visibility:hidden }
     </style>
     """, unsafe_allow_html=True)

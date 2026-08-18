@@ -84,7 +84,7 @@ if theme == "dark":
             50% { text-shadow: 0 0 50px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.6); }
         }
         .stApp {
-            background: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.15)), url('https://images.unsplash.com/photo-1535837487710-a3738a33cf8f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'); background-size: cover; background-attachment: fixed;
+            background: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.15)), url('https://images.unsplash.com/photo-1615485290382-441e4d049cb5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'); background-size: cover; background-attachment: fixed;
             background-size: 400% 400%;
             animation: gradientShift 15s ease infinite;
             color: #e2e8f0;
@@ -176,7 +176,7 @@ else:
             50% { text-shadow: 0 0 30px rgba(46,125,50,1), 0 0 60px rgba(46,125,50,0.7); }
         }
         .stApp {
-            background: linear-gradient(rgba(255,255,255,0.3), rgba(255,255,255,0.3)), url('https://images.unsplash.com/photo-1535837487710-a3738a33cf8f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'); background-size: cover; background-attachment: fixed;
+            background: linear-gradient(rgba(255,255,255,0.3), rgba(255,255,255,0.3)), url('https://images.unsplash.com/photo-1615485290382-441e4d049cb5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'); background-size: cover; background-attachment: fixed;
             background-size: 400% 400%;
             animation: gradientShiftLight 15s ease infinite;
             color: #1b5e20;

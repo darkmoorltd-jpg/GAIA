@@ -25,24 +25,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
-<style>
-    .stApp {
-        background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
-        background-size: cover;
-        background-attachment: fixed;
-        background-position: center;
-    }
-    .voice-hero {
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .voice-hero img {
-        border-radius: 20px;
-        box-shadow: 0 0 30px rgba(0,0,0,0.3);
-        max-width: 100%;
-    }
-</style>
+st.markdown("""<style>.stApp{background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1500937386664-56d1dfef3854?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');background-size:cover;background-attachment:fixed;background-position:center;}</style>""", unsafe_allow_html=True)
 
 dark_mode = st.toggle("", value=False, key="voice_theme_toggle")
 theme = "dark" if dark_mode else "light"
@@ -307,7 +290,6 @@ st.markdown(f"""
     <span class="dancing-tomato">🍅</span>
 </div>
 <div class="gaia-title">GAIA Chat & Voice Agronomist</div>
-<div class="voice-hero"><img src="https://images.unsplash.com/photo-1591857177580-dc82b9ac4e1e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="GAIA Agronomist"></div>
 <div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type — GAIA listens and talks back</div>
 """, unsafe_allow_html=True)
 

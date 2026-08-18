@@ -3,6 +3,7 @@ import streamlit as st
 import os, sys, hashlib, time, tempfile
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from PIL import Image
 from collections import Counter
@@ -51,7 +52,8 @@ CROP_CLASSES = {
 
 SOIL_NAMES = ["Alluvial","Sandy","Clay","Loamy","Laterite","Black","Red","Peat","Cinder","Sandy Loam","Yellow"]
 
-CROP_MODEL_KEYS = {
+# Mapping used in Crops page (same keys)
+DOWNLOAD_KEYS = {
     "millet": "millet_3class",
     "maize": "maize",
     "rice": "rice_10class",
@@ -61,247 +63,138 @@ CROP_MODEL_KEYS = {
 }
 
 # ============================================
-# ENHANCED CSS WITH ANIMATED BACKGROUND
+# MODEL LOADING — COPIED FROM CROPS PAGE (PROVEN)
 # ============================================
-if theme == "dark":
-    st.markdown("""
-    <style>
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        @keyframes orbFloat {
-            0% { transform: translate(0, 0) scale(1); opacity: 0.6; }
-            25% { transform: translate(40px, -30px) scale(1.2); opacity: 0.9; }
-            50% { transform: translate(-30px, 30px) scale(0.9); opacity: 0.7; }
-            75% { transform: translate(20px, 50px) scale(1.1); opacity: 0.85; }
-            100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
-        }
-        @keyframes videoGlow {
-            0%, 100% { text-shadow: 0 0 25px rgba(0,200,83,0.7); }
-            50% { text-shadow: 0 0 50px rgba(0,200,83,1), 0 0 80px rgba(0,200,83,0.6); }
-        }
-        @keyframes scanline {
-            0% { transform: translateY(-100%); }
-            100% { transform: translateY(100%); }
-        }
-        .stApp {
-            background: linear-gradient(125deg, #0a0e1a, #1a1a2e, #16213e, #0f3460);
-            background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
-            color: #e2e8f0;
-        }
-        header, footer { visibility: hidden; }
-        .video-title {
-            font-size: 3.5rem; font-weight: 900; text-align: center;
-            background: linear-gradient(135deg, #00c853, #69f0ae, #00c853);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            animation: videoGlow 2s ease-in-out infinite alternate;
-            margin-bottom: 0.3rem;
-            position: relative; z-index: 10;
-        }
-        .subtitle {
-            text-align: center; color: #94a3b8; font-size: 1.1rem;
-            margin-bottom: 2rem; position: relative; z-index: 10;
-        }
-        .orb {
-            position: fixed; border-radius: 50%;
-            filter: blur(80px); z-index: 0; pointer-events: none;
-            opacity: 0.7;
-        }
-        .orb-1 { width: 300px; height: 300px; top: 5%; left: 5%; background: #00c853; animation: orbFloat 10s infinite; }
-        .orb-2 { width: 200px; height: 200px; bottom: 10%; right: 5%; background: #7c4dff; animation: orbFloat 12s infinite reverse; }
-        .orb-3 { width: 250px; height: 250px; top: 50%; left: 60%; background: #ff9800; animation: orbFloat 14s infinite; }
-        .orb-4 { width: 150px; height: 150px; bottom: 20%; left: 20%; background: #00bcd4; animation: orbFloat 11s infinite; }
-        .grid-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 40px 40px; z-index: 1; pointer-events: none;
-        }
-        .content-wrapper { position: relative; z-index: 5; }
-        .scan-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 24px;
-            padding: 2rem;
-            backdrop-filter: blur(20px);
-            box-shadow: 0 8px 40px rgba(0,0,0,0.3);
-            margin-bottom: 2rem;
-            position: relative;
-            overflow: hidden;
-        }
-        .scan-card::before {
-            content: '';
-            position: absolute; top: 0; left: 0; right: 0; height: 2px;
-            background: linear-gradient(90deg, transparent, #00c853, transparent);
-        }
-        .stat-box {
-            background: rgba(0,200,83,0.1);
-            border: 1px solid rgba(0,200,83,0.25);
-            border-radius: 16px;
-            padding: 1.5rem;
-            text-align: center;
-        }
-        .stat-number { font-size: 2.2rem; font-weight: 800; color: #00c853; }
-        .stat-label { font-size: 0.85rem; color: #94a3b8; }
-        .stProgress > div > div > div > div {
-            background: linear-gradient(90deg, #00c853, #69f0ae);
-            border-radius: 10px;
-        }
-        .stButton button {
-            background: linear-gradient(135deg, #00c853, #4caf50) !important;
-            color: #fff !important; border: none !important;
-            border-radius: 12px !important; padding: 12px 40px !important;
-            font-weight: 700 !important; font-size: 1.1rem !important;
-            transition: all 0.3s !important;
-            position: relative; z-index: 5;
-        }
-        .stButton button:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,200,83,0.4); }
-    </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <style>
-        @keyframes gradientShiftLight {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        @keyframes orbFloatLight {
-            0% { transform: translate(0, 0) scale(1); opacity: 0.4; }
-            50% { transform: translate(30px, -20px) scale(1.2); opacity: 0.7; }
-            100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
-        }
-        @keyframes videoGlowLight {
-            0%, 100% { text-shadow: 0 0 15px rgba(46,125,50,0.5); }
-            50% { text-shadow: 0 0 30px rgba(46,125,50,1), 0 0 60px rgba(46,125,50,0.7); }
-        }
-        .stApp {
-            background: linear-gradient(125deg, #e8f5e9, #f1f8e9, #fffde7, #e0f2f1);
-            background-size: 400% 400%;
-            animation: gradientShiftLight 15s ease infinite;
-            color: #1b5e20;
-        }
-        header, footer { visibility: hidden; }
-        .video-title {
-            font-size: 3.5rem; font-weight: 900; text-align: center;
-            background: linear-gradient(135deg, #2e7d32, #66bb6a, #2e7d32);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            animation: videoGlowLight 2s ease-in-out infinite alternate;
-            margin-bottom: 0.3rem;
-            position: relative; z-index: 10;
-        }
-        .subtitle {
-            text-align: center; color: #558b2f; font-size: 1.1rem;
-            margin-bottom: 2rem; position: relative; z-index: 10;
-        }
-        .orb {
-            position: fixed; border-radius: 50%;
-            filter: blur(80px); z-index: 0; pointer-events: none;
-            opacity: 0.5;
-        }
-        .orb-1 { width: 280px; height: 280px; top: 5%; left: 5%; background: #a5d6a7; animation: orbFloatLight 8s infinite; }
-        .orb-2 { width: 180px; height: 180px; bottom: 10%; right: 5%; background: #b39ddb; animation: orbFloatLight 10s infinite reverse; }
-        .orb-3 { width: 220px; height: 220px; top: 50%; left: 60%; background: #ffe0b2; animation: orbFloatLight 12s infinite; }
-        .orb-4 { width: 130px; height: 130px; bottom: 20%; left: 20%; background: #b2dfdb; animation: orbFloatLight 9s infinite; }
-        .grid-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-image: linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
-                              linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
-            background-size: 40px 40px; z-index: 1; pointer-events: none;
-        }
-        .content-wrapper { position: relative; z-index: 5; }
-        .scan-card {
-            background: rgba(255,255,255,0.85);
-            border: 1px solid rgba(0,0,0,0.05);
-            border-radius: 24px;
-            padding: 2rem;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.05);
-            margin-bottom: 2rem;
-            position: relative;
-            overflow: hidden;
-        }
-        .scan-card::before {
-            content: '';
-            position: absolute; top: 0; left: 0; right: 0; height: 2px;
-            background: linear-gradient(90deg, transparent, #2e7d32, transparent);
-        }
-        .stat-box {
-            background: rgba(46,125,50,0.08);
-            border: 1px solid rgba(46,125,50,0.2);
-            border-radius: 16px;
-            padding: 1.5rem;
-            text-align: center;
-        }
-        .stat-number { font-size: 2.2rem; font-weight: 800; color: #2e7d32; }
-        .stat-label { font-size: 0.85rem; color: #558b2f; }
-        .stProgress > div > div > div > div {
-            background: linear-gradient(90deg, #2e7d32, #66bb6a);
-            border-radius: 10px;
-        }
-        .stButton button {
-            background: linear-gradient(135deg, #2e7d32, #4caf50) !important;
-            color: #fff !important; border: none !important;
-            border-radius: 12px !important; padding: 12px 40px !important;
-            font-weight: 700 !important; font-size: 1.1rem !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-# ============================================
-# BACKGROUND ELEMENTS
-# ============================================
-st.markdown("""
-<div class="orb orb-1"></div>
-<div class="orb orb-2"></div>
-<div class="orb orb-3"></div>
-<div class="orb orb-4"></div>
-<div class="grid-overlay"></div>
-""", unsafe_allow_html=True)
-
-# Wrap content in a relative container
-st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
-
-# ============================================
-# HELPER FUNCTIONS
-# ============================================
-def load_model_for_scan(scan_type, crop_name=None):
+def load_crop_model_from_checkpoint(crop_name):
+    """Load crop model exactly like the Crops page."""
     from app.utils.download_models import ensure_model
-    from app.utils.model_loader import create_model_from_checkpoint
 
-    if scan_type == "Crop Disease":
-        key = CROP_MODEL_KEYS.get(crop_name, crop_name)
-        checkpoint = ensure_model(key)
-        base_classes = CROP_CLASSES[crop_name]
-    else:
-        checkpoint = ensure_model("soil_11class")
-        base_classes = SOIL_NAMES
+    key = DOWNLOAD_KEYS.get(crop_name, crop_name)
+    checkpoint = ensure_model(key)
 
     if checkpoint is None or not os.path.exists(checkpoint):
-        return None, base_classes
+        return None, None, None
 
-    # Build model with placeholder num_classes (the loader may ignore it for deep heads)
-    model = create_model_from_checkpoint(checkpoint, len(base_classes))
-    model.eval()
+    state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
+    embed_dim = state[f"{prefix}cls_token"].shape[-1]
+    pos_embed = state[f"{prefix}pos_embed"]
+    num_patches = pos_embed.shape[1] - 1
+    grid = int(num_patches ** 0.5)
+    img_size = grid * 16
+    depth = len([k for k in state if k.startswith(f"{prefix}blocks") and k.endswith(".norm1.weight")])
+    num_heads = 6 if embed_dim == 384 else 3
 
-    # Dynamically detect actual output dimension
-    try:
-        dummy = torch.zeros(1, 3, 224, 224)
-        with torch.no_grad():
-            out = model(dummy)
-        actual_num = out.shape[1]
-    except:
-        actual_num = len(base_classes)
+    backbone = VisionTransformer(
+        img_size=img_size, patch_size=16, embed_dim=embed_dim,
+        depth=depth, num_heads=num_heads, num_classes=0, global_pool='token'
+    )
+    backbone_state = {k.replace(prefix, ""): v for k, v in state.items() if k.startswith(prefix)}
+    backbone.load_state_dict(backbone_state, strict=False)
 
-    # Adjust class names to match actual output
-    if actual_num == len(base_classes):
-        final_classes = base_classes
+    # Build head
+    head_keys = [k for k in state if k.startswith("head.")]
+    if any(".0.weight" in k for k in head_keys):
+        w_keys = sorted([k for k in head_keys if k.endswith(".weight")], key=lambda x: int(x.split('.')[1]))
+        layers = []
+        in_feat = embed_dim
+        for w_key in w_keys:
+            w = state[w_key]
+            out_feat = w.shape[0]
+            layers.append(nn.Linear(in_feat, out_feat))
+            if w_key != w_keys[-1]:
+                layers.extend([nn.GELU(), nn.Dropout(0.2)])
+            in_feat = out_feat
+        head = nn.Sequential(*layers)
+        head_state = {k.replace("head.", ""): v for k, v in state.items() if k.startswith("head.")}
+        head.load_state_dict(head_state, strict=False)
     else:
-        final_classes = base_classes[:actual_num] + [f"Class_{i}" for i in range(len(base_classes), actual_num)]
+        n = len(CROP_CLASSES[crop_name])
+        head = nn.Linear(embed_dim, n)
+        head.load_state_dict({
+            "weight": state["head.weight"],
+            "bias": state.get("head.bias", torch.zeros(n))
+        }, strict=False)
 
-    return model, final_classes
+    class CropViT(torch.nn.Module):
+        def __init__(self, backbone, head):
+            super().__init__()
+            self.backbone = backbone
+            self.head = head
+        def forward(self, x):
+            return self.head(self.backbone(x))
+
+    model = CropViT(backbone, head)
+    model.eval()
+    return model, img_size, len(CROP_CLASSES[crop_name])
+
+def load_soil_model_from_checkpoint():
+    """Load soil model like the Soil page."""
+    from app.utils.download_models import ensure_model
+
+    checkpoint = ensure_model("soil_11class")
+    if checkpoint is None or not os.path.exists(checkpoint):
+        return None, None, None
+
+    state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
+    embed_dim = state[f"{prefix}cls_token"].shape[-1]
+    pos = state[f"{prefix}pos_embed"]
+    num_patches = pos.shape[1] - 1
+    grid = int(num_patches ** 0.5)
+    img_size = grid * 16
+
+    backbone = VisionTransformer(
+        img_size=img_size, patch_size=16, embed_dim=embed_dim,
+        depth=12, num_heads=6, num_classes=0, global_pool='token'
+    )
+    backbone_state = {k.replace(prefix, ""): v for k, v in state.items() if k.startswith(prefix)}
+    backbone.load_state_dict(backbone_state, strict=False)
+
+    n = len(SOIL_NAMES)
+    head = nn.Linear(embed_dim, n)
+    head_state = {
+        "weight": state.get("head.weight"),
+        "bias": state.get("head.bias", torch.zeros(n))
+    }
+    if head_state["weight"] is not None:
+        head.load_state_dict({k: v for k, v in head_state.items() if v is not None}, strict=False)
+
+    class SoilViT(torch.nn.Module):
+        def __init__(self, backbone, head):
+            super().__init__()
+            self.backbone = backbone
+            self.head = head
+        def forward(self, x):
+            return self.head(self.backbone(x))
+
+    model = SoilViT(backbone, head)
+    model.eval()
+    return model, img_size, len(SOIL_NAMES)
+
+# ============================================
+# PREDICTION HELPERS
+# ============================================
+def predict_on_frames(model, frames, img_size):
+    transform = Compose([
+        Resize((img_size, img_size)),
+        ToTensor(),
+        Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    all_probs = []
+    for frame in frames:
+        pil_img = Image.fromarray(frame)
+        tensor = transform(pil_img).unsqueeze(0)
+        with torch.no_grad():
+            logits = model(tensor)
+            probs = F.softmax(logits, dim=1)[0].cpu().numpy()
+        all_probs.append(probs)
+    if not all_probs:
+        return None, 0
+    avg_probs = np.mean(all_probs, axis=0)
+    consensus_idx = np.argmax(avg_probs)
+    agreement = sum(1 for p in all_probs if np.argmax(p) == consensus_idx) / len(all_probs)
+    return avg_probs, agreement
 
 def extract_frames_from_video(video_file, interval_sec=0.5):
     if not HAS_CV2:
@@ -326,33 +219,6 @@ def extract_frames_from_video(video_file, interval_sec=0.5):
     os.unlink(tfile.name)
     return frames
 
-def predict_on_frames(model, frames, img_size=None):
-    # Auto-detect model's expected input size
-    if img_size is None:
-        try:
-            img_size = model.backbone.patch_embed.img_size[0]
-        except:
-            img_size = 224
-    transform = Compose([
-        Resize((img_size, img_size)),
-        ToTensor(),
-        Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
-    all_probs = []
-    for frame in frames:
-        pil_img = Image.fromarray(frame)
-        tensor = transform(pil_img).unsqueeze(0)
-        with torch.no_grad():
-            logits = model(tensor)
-            probs = F.softmax(logits, dim=1)[0].cpu().numpy()
-        all_probs.append(probs)
-    if not all_probs:
-        return None, 0
-    avg_probs = np.mean(all_probs, axis=0)
-    consensus_idx = np.argmax(avg_probs)
-    agreement = sum(1 for p in all_probs if np.argmax(p) == consensus_idx) / len(all_probs)
-    return avg_probs, agreement
-
 def deduct_scans_for_video(amount=2):
     if "user" not in st.session_state or st.session_state.user is None:
         return
@@ -365,9 +231,6 @@ def deduct_scans_for_video(amount=2):
 st.markdown('<div class="video-title">🎥 Video Field Scanner</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Walk through your field and let GAIA analyze every leaf</div>', unsafe_allow_html=True)
 
-# ============================================
-# SCAN TYPE SELECTOR
-# ============================================
 scan_type = st.radio("Select Scan Type", ["🌾 Crop Disease", "🏞️ Soil Analysis"], horizontal=True)
 
 if scan_type == "🌾 Crop Disease":
@@ -375,9 +238,6 @@ if scan_type == "🌾 Crop Disease":
 else:
     crop_name = None
 
-# ============================================
-# VIDEO UPLOAD
-# ============================================
 with st.expander("📸 How to record the best video", expanded=False):
     st.markdown("""
     1. Walk slowly through your field, holding the phone 20‑30 cm from leaves.
@@ -395,11 +255,19 @@ if uploaded_video:
         with st.spinner("🧠 GAIA is scanning your field video..."):
             frames = extract_frames_from_video(uploaded_video)
             if frames is None or len(frames) < 3:
-                st.error("Could not extract enough frames from video. Please try a different file.")
+                st.error("Could not extract enough frames. Try a different video.")
                 st.stop()
-            model, class_names = load_model_for_scan(scan_type, crop_name)
+
+            # Load correct model
+            if scan_type == "🌾 Crop Disease":
+                model, img_size, num_classes = load_crop_model_from_checkpoint(crop_name)
+                class_names = CROP_CLASSES[crop_name]
+            else:
+                model, img_size, num_classes = load_soil_model_from_checkpoint()
+                class_names = SOIL_NAMES
+
             if model is None:
-                st.warning("⚠️ Real model unavailable — using demo predictions.")
+                st.warning("⚠️ Real model unavailable — using demo.")
                 if scan_type == "🌾 Crop Disease":
                     class_names = CROP_CLASSES[crop_name]
                 else:
@@ -410,10 +278,10 @@ if uploaded_video:
                 avg_probs /= avg_probs.sum()
                 agreement = 0.8
             else:
-                avg_probs, agreement = predict_on_frames(model, frames)
-                # Ensure class_names length matches avg_probs
+                avg_probs, agreement = predict_on_frames(model, frames, img_size)
                 if len(avg_probs) != len(class_names):
                     class_names = class_names[:len(avg_probs)] + [f"Class_{i}" for i in range(len(class_names), len(avg_probs))]
+
             top_idx = np.argmax(avg_probs)
             top_name = class_names[top_idx]
             confidence = avg_probs[top_idx] * 100
@@ -463,9 +331,7 @@ if uploaded_video:
 else:
     st.info("👆 Upload a video to begin analysis")
 
-st.markdown('</div>', unsafe_allow_html=True)  # close content-wrapper
-
-# Navigation (outside content-wrapper but still visible)
+# Navigation
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(10)

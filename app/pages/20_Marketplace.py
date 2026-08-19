@@ -17,7 +17,6 @@ def normalize_phone(phone):
         return "234" + phone
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
-SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_PUBLIC = "pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057"
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
@@ -35,19 +34,6 @@ def upload_listing_image(file_bytes, filename):
         return supabase.storage.from_(bucket).get_public_url(unique_name), None
     except Exception as e:
         return None, str(e)[:200]
-
-def verify_payment(reference):
-    url = f"https://api.paystack.co/transaction/verify/{reference}"
-    headers = {"Authorization": f"Bearer {PAYSTACK_SECRET}"}
-    try:
-        r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            if data.get("status") and data["data"]["status"] == "success":
-                return data["data"]
-    except:
-        pass
-    return None
 
 def get_listing_by_id(listing_id):
     supabase = get_service()
@@ -148,24 +134,15 @@ def get_saved_searches(user_id):
     res = supabase.table("marketplace_saved_searches").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
     return res.data if res.data else []
 
-def get_price_index(crop=None, state=None):
+def get_price_index():
     supabase = get_service()
-    query = supabase.table("marketplace_price_index").select("*")
-    if crop:
-        query = query.eq("crop", crop)
-    if state:
-        query = query.eq("state", state)
-    res = query.execute()
+    res = supabase.table("marketplace_price_index").select("*").execute()
     return res.data if res.data else []
 
 def get_notifications(user_id):
     supabase = get_service()
     res = supabase.table("notifications").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(20).execute()
     return res.data if res.data else []
-
-def create_notification(user_id, title, body, notif_type):
-    supabase = get_service()
-    supabase.table("notifications").insert({"user_id": user_id, "title": title, "body": body, "type": notif_type}).execute()
 
 def get_currency_rates():
     supabase = get_service()
@@ -175,13 +152,45 @@ def get_currency_rates():
     except:
         return [{"code":"NGN","rate":1}]
 
-def get_delivery_partners():
+def send_chat_message(listing_id, sender_id, receiver_id, message):
     supabase = get_service()
-    try:
-        res = supabase.table("delivery_partners").select("*").execute()
-        return res.data if res.data else []
-    except:
-        return []
+    supabase.table("marketplace_chat").insert({
+        "listing_id": listing_id, "sender_id": sender_id,
+        "receiver_id": receiver_id, "message": message
+    }).execute()
+
+def get_chat_messages(listing_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_chat").select("*").eq("listing_id", listing_id).order("created_at").execute()
+    return res.data if res.data else []
+
+def add_delivery_tracking(order_id):
+    supabase = get_service()
+    supabase.table("marketplace_delivery_tracking").insert({
+        "order_id": order_id, "status": "pending"
+    }).execute()
+
+def update_delivery_status(order_id, status):
+    supabase = get_service()
+    supabase.table("marketplace_delivery_tracking").update({
+        "status": status, "updated_at": datetime.now().isoformat()
+    }).eq("order_id", order_id).execute()
+
+def get_delivery_status(order_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_delivery_tracking").select("*").eq("order_id", order_id).execute()
+    return res.data[0] if res.data else {"status": "pending"}
+
+def create_price_alert(user_id, listing_id, target_price):
+    supabase = get_service()
+    supabase.table("marketplace_price_alerts").insert({
+        "user_id": user_id, "listing_id": listing_id, "target_price": target_price
+    }).execute()
+
+def get_price_alerts(user_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_price_alerts").select("*").eq("user_id", user_id).eq("active", True).execute()
+    return res.data if res.data else []
 
 st.set_page_config(page_title="GAIA Market", page_icon="🌍", layout="wide")
 
@@ -196,8 +205,6 @@ if "cart" not in st.session_state:
     st.session_state.cart = []
 if "selected_listing" not in st.session_state:
     st.session_state.selected_listing = None
-if "selected_currency" not in st.session_state:
-    st.session_state.selected_currency = "NGN"
 
 @st.cache_data(ttl=60)
 def fetch_listings():
@@ -219,8 +226,6 @@ st.markdown("""
     .jiji-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
     .jiji-card .image-area { height: 160px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 3rem; position: relative; overflow: hidden; }
     .jiji-card .image-area img { width: 100%; height: 100%; object-fit: cover; }
-    .jiji-card .featured-badge { position: absolute; top: 8px; left: 8px; background: #ff9800; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
-    .jiji-card .organic-badge { position: absolute; top: 8px; right: 8px; background: #4caf50; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; }
     .jiji-card .info-area { padding: 12px; }
     .jiji-card .crop-name { font-size: 1rem; font-weight: 600; color: #222; margin-bottom: 4px; }
     .jiji-card .price { font-size: 1.2rem; font-weight: 800; color: #2e7d32; }
@@ -230,7 +235,6 @@ st.markdown("""
     .empty-state { text-align: center; padding: 60px 20px; color: #888; }
     .contact-btn { background: #25d366; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; display: inline-block; font-weight: 600; }
     .call-btn { background: #2196f3; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; display: inline-block; font-weight: 600; }
-    .review-card { background: #fff; border-radius: 10px; padding: 12px; margin: 8px 0; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
     .stTabs [data-baseweb="tab-list"] { gap: 0; }
     .stTabs [data-baseweb="tab"] { padding: 8px 20px; font-weight: 600; }
     .stTabs [data-baseweb="tab"][aria-selected="true"] { background: #e8f5e9; border-radius: 10px; }
@@ -240,68 +244,19 @@ st.markdown("""
 st.markdown('<div style="font-size:2.5rem;font-weight:800;text-align:center;color:#2e7d32;">🌍 GAIA Market</div>', unsafe_allow_html=True)
 st.markdown('<div style="text-align:center;color:#607d8b;margin-bottom:2rem;">Buy, sell, negotiate, and deliver farm produce securely</div>', unsafe_allow_html=True)
 
-tab_browse, tab_sell, tab_store, tab_orders, tab_cart, tab_favs, tab_neg, tab_alerts, tab_prices, tab_saved = st.tabs([
-    "🛒 Browse", "📝 Sell", "👤 Store", "📦 Orders", "💳 Cart", "❤️ Saved", "🤝 Negotiate", "🔔 Alerts", "📊 Prices", "🔍 Searches"
+tab_browse, tab_sell, tab_store, tab_orders, tab_cart, tab_favs, tab_neg, tab_chat, tab_alerts, tab_prices, tab_saved = st.tabs([
+    "🛒 Browse", "📝 Sell", "👤 Store", "📦 Orders", "💳 Cart", "❤️ Saved", "🤝 Negotiate", "💬 Chat", "🔔 Alerts", "📊 Prices", "🔍 Searches"
 ])
 
-# ===== BROWSE TAB (with advanced search and filters) =====
+# BROWSE TAB
 with tab_browse:
-    st.markdown("### 🛒 Browse Listings")
-
-    # Filter row
-    col_search, col_category, col_price = st.columns([3, 2, 2])
-    with col_search:
-        search = st.text_input("🔍 Search", placeholder="Crop, variety, location...", label_visibility="collapsed")
-    with col_category:
-        unique_crops = sorted(set(l.get("crop","") for l in LISTINGS))
-        category = st.selectbox("Crop", ["All"] + unique_crops)
-    with col_price:
-        if LISTINGS:
-            max_price = max(l.get("price", 0) for l in LISTINGS)
-            min_price = min(l.get("price", 0) for l in LISTINGS)
-        else:
-            max_price, min_price = 1000, 0
-        # Prevent slider error when min == max
-        if min_price == max_price:
-            max_price = min_price + 1
-        price_range = st.slider("Price range (₦)", min_price, max_price, (min_price, max_price))
-
-    # Rating and sorting
-    col_rating, col_sort = st.columns(2)
-    with col_rating:
-        min_rating = st.slider("Minimum rating", 0.0, 5.0, 0.0, 0.5)
-    with col_sort:
-        sort_option = st.selectbox("Sort by", ["Newest", "Price: Low to High", "Price: High to Low", "Top Rated"])
-
-    # Apply filters
-    filtered = LISTINGS.copy()
+    search = st.text_input("🔍 Search", label_visibility="collapsed")
     if search:
-        filtered = [l for l in filtered if search.lower() in (l.get("crop","")+" "+l.get("variety","")+" "+l.get("location","")+" "+l.get("state","")+" "+l.get("description","")).lower()]
-    if category != "All":
-        filtered = [l for l in filtered if l.get("crop","") == category]
-    filtered = [l for l in filtered if price_range[0] <= l.get("price",0) <= price_range[1]]
-
-    # Rating filter (needs seller rating)
-    if min_rating > 0:
-        temp = []
-        for l in filtered:
-            rating, _ = get_seller_rating(l.get("user_id"))
-            if rating >= min_rating:
-                temp.append(l)
-        filtered = temp
-
-    # Sorting
-    if sort_option == "Price: Low to High":
-        filtered.sort(key=lambda x: x.get("price",0))
-    elif sort_option == "Price: High to Low":
-        filtered.sort(key=lambda x: x.get("price",0), reverse=True)
-    elif sort_option == "Top Rated":
-        filtered.sort(key=lambda x: get_seller_rating(x.get("user_id"))[0], reverse=True)
-    else:  # Newest
-        filtered.sort(key=lambda x: x.get("created_at",""), reverse=True)
-
+        filtered = [l for l in LISTINGS if search.lower() in (l.get("crop","")+" "+l.get("variety","")+" "+l.get("location","")).lower()]
+    else:
+        filtered = LISTINGS
     if not filtered:
-        st.markdown('<div class="empty-state"><h3>🌱 No listings match your filters</h3><p>Try adjusting your search or filters.</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="empty-state"><h3>🌱 No listings yet</h3></div>', unsafe_allow_html=True)
     else:
         cols = st.columns(3)
         for i, listing in enumerate(filtered):
@@ -314,7 +269,6 @@ with tab_browse:
                 variety = listing.get("variety", "")
                 seller_id = listing.get("user_id")
                 rating, count = get_seller_rating(seller_id)
-
                 card_html = f'''
                 <div class="jiji-card" onclick="window.location.href='?listing_id={listing["id"]}';">
                     <div class="image-area" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
@@ -329,7 +283,6 @@ with tab_browse:
                 </div>
                 '''
                 st.markdown(card_html, unsafe_allow_html=True)
-
                 col_btn, col_fav = st.columns([4,1])
                 with col_btn:
                     if st.button("Details", key=f"view_{listing['id']}", use_container_width=True):
@@ -340,8 +293,6 @@ with tab_browse:
                     if st.button("❤️" if fav else "🤍", key=f"fav_{listing['id']}"):
                         toggle_favorite(user.id, listing["id"])
                         st.rerun()
-
-    # Listing details
     if st.session_state.get("selected_listing"):
         listing = st.session_state.selected_listing
         st.markdown("---")
@@ -383,11 +334,18 @@ with tab_browse:
                     if st.form_submit_button("Send Negotiation"):
                         create_negotiation(listing["id"], user.id, listing["user_id"], neg_price, neg_qty, neg_msg)
                         st.success("Negotiation sent!")
+            # Price alert
+            with st.expander("🔔 Set Price Alert"):
+                with st.form(f"alert_{listing['id']}"):
+                    target = st.number_input("Target Price", min_value=0.0)
+                    if st.form_submit_button("Set Alert"):
+                        create_price_alert(user.id, listing["id"], target)
+                        st.success("Alert set!")
             if st.button("Close"):
                 st.session_state.selected_listing = None
                 st.rerun()
 
-# ===== SELL TAB =====
+# SELL TAB
 with tab_sell:
     st.markdown("### 📝 Sell Your Produce")
     with st.form("sell_form"):
@@ -420,7 +378,7 @@ with tab_sell:
                 st.success("Listing published!")
                 st.rerun()
 
-# ===== STORE TAB =====
+# STORE TAB
 with tab_store:
     st.markdown("### 👤 My Store")
     my_listings = service.table("marketplace_listings").select("*").eq("user_id", user.id).execute().data or []
@@ -430,7 +388,7 @@ with tab_store:
                 service.table("marketplace_listings").delete().eq("id", listing["id"]).execute()
                 st.rerun()
 
-# ===== ORDERS TAB =====
+# ORDERS TAB
 with tab_orders:
     st.markdown("### 📦 Orders")
     orders = service.table("marketplace_orders").select("*").or_(f"buyer_id.eq.{user.id},seller_id.eq.{user.id}").order("created_at", desc=True).execute().data or []
@@ -442,6 +400,14 @@ with tab_orders:
                 st.write(f"Item: {listing.get('crop','')} {listing.get('variety','')}")
             st.write(f"Amount: ₦{order.get('total_amount',0):,}")
             st.write(f"Delivery: {order.get('delivery_method','pickup')}")
+            delivery_status = get_delivery_status(order["id"])
+            st.write(f"Delivery status: {delivery_status.get('status')}")
+            # Update delivery for seller
+            if order.get('seller_id') == user.id:
+                new_status = st.selectbox("Update Delivery Status", ["pending", "packed", "shipped", "delivered"], key=f"dstatus_{order['id']}")
+                if st.button(f"Update Status {order['id'][:8]}"):
+                    update_delivery_status(order["id"], new_status)
+                    st.rerun()
             escrow = service.table("marketplace_escrow").select("*").eq("order_id", order["id"]).execute().data
             if escrow:
                 esc = escrow[0]
@@ -458,7 +424,7 @@ with tab_orders:
                         create_dispute(order["id"], user.id, reason)
                         st.rerun()
 
-# ===== CART TAB =====
+# CART TAB
 with tab_cart:
     st.markdown("### 💳 Cart")
     if not st.session_state.cart:
@@ -484,6 +450,7 @@ with tab_cart:
             service.table("marketplace_orders").insert(order_data).execute()
             order_id = service.table("marketplace_orders").select("*").eq("payment_reference", ref).execute().data[0]["id"]
             create_escrow(order_id, final)
+            add_delivery_tracking(order_id)
             components.html(f"""
             <script src="https://js.paystack.co/v1/inline.js"></script>
             <script>
@@ -491,7 +458,7 @@ with tab_cart:
             </script>
             """, height=100)
 
-# ===== FAVORITES TAB =====
+# FAVORITES TAB
 with tab_favs:
     st.markdown("### ❤️ Favorites")
     favs = get_favorites(user.id)
@@ -501,7 +468,7 @@ with tab_favs:
             toggle_favorite(user.id, listing["id"])
             st.rerun()
 
-# ===== NEGOTIATIONS TAB =====
+# NEGOTIATIONS TAB
 with tab_neg:
     st.markdown("### 🤝 Negotiations")
     negs = get_negotiations(user.id)
@@ -514,18 +481,44 @@ with tab_neg:
             st.write(f"Message: {neg['message']}")
         st.markdown("---")
 
-# ===== ALERTS TAB =====
-with tab_alerts:
-    st.markdown("### 🔔 Notifications")
-    notifs = get_notifications(user.id)
-    if not notifs:
-        st.info("No notifications.")
+# CHAT TAB
+with tab_chat:
+    st.markdown("### 💬 Seller Chat")
+    # This is a simplified version; full chat is in the main Chat page.
+    # We'll show messages for the selected listing if any.
+    if st.session_state.get("selected_listing"):
+        listing = st.session_state.selected_listing
+        st.write(f"Chatting about {listing.get('crop','')} {listing.get('variety','')}")
+        messages = get_chat_messages(listing["id"])
+        for msg in messages:
+            sender = "You" if msg["sender_id"] == user.id else "Seller"
+            st.markdown(f"**{sender}:** {msg['message']}")
+        with st.form("chat_msg"):
+            msg_text = st.text_input("Message")
+            if st.form_submit_button("Send"):
+                send_chat_message(listing["id"], user.id, listing["user_id"], msg_text)
+                st.rerun()
     else:
-        for n in notifs:
-            st.markdown(f"**{n.get('title')}** — {n.get('body')}")
-            st.caption(n.get("created_at",""))
+        st.info("Select a listing to chat with the seller.")
 
-# ===== PRICES TAB =====
+# ALERTS TAB
+with tab_alerts:
+    st.markdown("### 🔔 Price Alerts")
+    alerts = get_price_alerts(user.id)
+    if alerts:
+        for alert in alerts:
+            listing = get_listing_by_id(alert["listing_id"])
+            if listing:
+                st.write(f"**{listing.get('crop','')}** — Alert at ₦{alert.get('target_price',0):,}")
+    else:
+        st.info("No price alerts set.")
+    st.markdown("---")
+    st.markdown("### Notifications")
+    notifs = get_notifications(user.id)
+    for n in notifs:
+        st.markdown(f"**{n.get('title')}** — {n.get('body')}")
+
+# PRICES TAB
 with tab_prices:
     st.markdown("### 📊 Market Prices")
     price_data = get_price_index()
@@ -535,7 +528,7 @@ with tab_prices:
     else:
         st.info("No price data yet.")
 
-# ===== SAVED SEARCHES TAB =====
+# SAVED SEARCHES TAB
 with tab_saved:
     st.markdown("### 🔍 Saved Searches")
     saved = get_saved_searches(user.id)

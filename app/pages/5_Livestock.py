@@ -13,8 +13,12 @@ DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
 st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
-dark = st.toggle("", value=False, key="livestock_theme")
-theme = "dark" if dark else "light"
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+dark = st.toggle("", value=st.session_state.theme == "dark", key="livestock_theme")
+st.session_state.theme = "dark" if dark else "light"
+theme = st.session_state.theme
 
 ANIMALS = {
     "cattle": ["Foot‑and‑Mouth Disease","Healthy","Lumpy Skin Disease"],
@@ -150,9 +154,25 @@ def get_voice_guide(explanation, lang):
     return audio_bytes, err
 
 if theme == "dark":
-    st.markdown("""<style>.stApp{background:linear-gradient(135deg,#1a0f2e,#2e1c3e,#3e2a5e,#1a0f2e);color:#ede7f6}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#7c4dff,#b388ff,#7c4dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(124,77,255,.7);animation:livestockGlow 2s ease-in-out infinite alternate}@keyframes livestockGlow{from{text-shadow:0 0 25px rgba(124,77,255,.7)}to{text-shadow:0 0 50px rgba(124,77,255,1),0 0 80px rgba(124,77,255,.6)}}.subtitle{text-align:center;font-size:1.2rem;color:#b39ddb}.result-card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 30px rgba(124,77,255,.3)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}</style>""", unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+        .stApp {
+            background: linear-gradient(135deg, rgba(26,15,46,0.92), rgba(46,28,62,0.9), rgba(62,42,94,0.92)),
+                        url('https://images.unsplash.com/photo-1516467508483-a7212febe31a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80') center/cover fixed;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+,#2e1c3e,#3e2a5e,#1a0f2e);color:#ede7f6}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#7c4dff,#b388ff,#7c4dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(124,77,255,.7);animation:livestockGlow 2s ease-in-out infinite alternate}@keyframes livestockGlow{from{text-shadow:0 0 25px rgba(124,77,255,.7)}to{text-shadow:0 0 50px rgba(124,77,255,1),0 0 80px rgba(124,77,255,.6)}}.subtitle{text-align:center;font-size:1.2rem;color:#b39ddb}.result-card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 30px rgba(124,77,255,.3)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}</style>""", unsafe_allow_html=True)
 else:
-    st.markdown("""<style>.stApp{background:linear-gradient(135deg,#ede7f6,#d1c4e9);color:#311b92}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#4a148c,#7c4dff,#4a148c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(74,20,140,.3);animation:livestockGlowLight 2s ease-in-out infinite alternate}@keyframes livestockGlowLight{from{text-shadow:0 0 10px rgba(74,20,140,.3)}to{text-shadow:0 0 25px rgba(74,20,140,.8),0 0 50px rgba(74,20,140,.5)}}.subtitle{text-align:center;font-size:1.2rem;color:#4a148c}.result-card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 20px rgba(74,20,140,.2)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}</style>""", unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+        .stApp {
+            background: linear-gradient(135deg, rgba(237,231,246,0.9), rgba(209,196,233,0.85)),
+                        url('https://images.unsplash.com/photo-1516467508483-a7212febe31a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80') center/cover fixed;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+;color:#311b92}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#4a148c,#7c4dff,#4a148c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(74,20,140,.3);animation:livestockGlowLight 2s ease-in-out infinite alternate}@keyframes livestockGlowLight{from{text-shadow:0 0 10px rgba(74,20,140,.3)}to{text-shadow:0 0 25px rgba(74,20,140,.8),0 0 50px rgba(74,20,140,.5)}}.subtitle{text-align:center;font-size:1.2rem;color:#4a148c}.result-card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 20px rgba(74,20,140,.2)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}</style>""", unsafe_allow_html=True)
 
 st.markdown('<div class="title">🐄 Livestock Health</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload photos of your animals and detect diseases instantly</div>', unsafe_allow_html=True)

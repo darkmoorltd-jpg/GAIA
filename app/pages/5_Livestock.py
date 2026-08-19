@@ -12,10 +12,12 @@ DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
-st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
+
+# Theme toggle
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
 
+st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
 dark = st.toggle("", value=st.session_state.theme == "dark", key="livestock_theme")
 st.session_state.theme = "dark" if dark else "light"
 theme = st.session_state.theme
@@ -25,7 +27,6 @@ ANIMALS = {
     "poultry": ["Coccidiosis","Healthy","Newcastle Disease","Salmonella"]
 }
 
-# ===== VOICE LANGUAGE SELECTOR =====
 language_options = {
     "English (UK)": "en-GB",
     "Hausa": "ha",
@@ -66,9 +67,7 @@ def load_animal_model(animal):
     try:
         state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     except:
-        if os.path.exists(cp_path):
-            os.remove(cp_path)
-        raise
+        return None, None
     prefix = "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
     embed_dim = state[f"{prefix}cls_token"].shape[-1]
     pos_embed = state[f"{prefix}pos_embed"]
@@ -105,7 +104,6 @@ def load_animal_model(animal):
     return model, img_size
 
 def stream_deepseek_livestock_guide(disease, animal, confidence):
-    """Stream a livestock treatment guide from DeepSeek."""
     prompt = f"""GAIA diagnosed: {disease} in {animal} with {confidence:.1f}% confidence.
 Please provide a comprehensive farmer-friendly guide covering:
 1. What This Means
@@ -126,26 +124,20 @@ Be practical, specific, and use Nigerian/local context."""
             {"role": "system", "content": "You are GAIA, an expert veterinary advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
             {"role": "user", "content": prompt}
         ],
-        "temperature": 0.7,
-        "max_tokens": 4000,
-        "stream": True
+        "temperature": 0.7, "max_tokens": 4000, "stream": True
     }
     r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
     for line in r.iter_lines():
-        if not line:
-            continue
+        if not line: continue
         line = line.decode('utf-8')
         if line.startswith('data: '):
             data = line[6:]
-            if data.strip() == "[DONE]":
-                break
+            if data.strip() == "[DONE]": break
             try:
                 chunk = json.loads(data)
                 delta = chunk['choices'][0].get('delta', {}).get('content', '')
-                if delta:
-                    yield delta
-            except:
-                continue
+                if delta: yield delta
+            except: continue
 
 @st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
@@ -153,31 +145,44 @@ def get_voice_guide(explanation, lang):
     audio_bytes, err = text_to_speech(explanation[:2000], lang)
     return audio_bytes, err
 
+# CSS
 if theme == "dark":
     st.markdown("""
     <style>
         .stApp {
-            background: linear-gradient(135deg, rgba(26,15,46,0.92), rgba(46,28,62,0.9), rgba(62,42,94,0.92)),
+            background: linear-gradient(135deg, rgba(26,15,46,0.93), rgba(46,28,62,0.88), rgba(62,42,94,0.93)),
                         url('https://images.unsplash.com/photo-1516467508483-a7212febe31a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80') center/cover fixed;
+            color: #ede7f6;
         }
+        header,footer{visibility:hidden}
+        .title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#7c4dff,#b388ff,#7c4dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(124,77,255,.7);animation:livestockGlow 2s ease-in-out infinite alternate}
+        @keyframes livestockGlow{from{text-shadow:0 0 25px rgba(124,77,255,.7)}to{text-shadow:0 0 50px rgba(124,77,255,1),0 0 80px rgba(124,77,255,.6)}}
+        .subtitle{text-align:center;font-size:1.2rem;color:#b39ddb}
+        .result-card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}
+        .result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 30px rgba(124,77,255,.3)}
+        .stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}
     </style>
     """, unsafe_allow_html=True)
-,#2e1c3e,#3e2a5e,#1a0f2e);color:#ede7f6}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#7c4dff,#b388ff,#7c4dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(124,77,255,.7);animation:livestockGlow 2s ease-in-out infinite alternate}@keyframes livestockGlow{from{text-shadow:0 0 25px rgba(124,77,255,.7)}to{text-shadow:0 0 50px rgba(124,77,255,1),0 0 80px rgba(124,77,255,.6)}}.subtitle{text-align:center;font-size:1.2rem;color:#b39ddb}.result-card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 30px rgba(124,77,255,.3)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}</style>""", unsafe_allow_html=True)
 else:
     st.markdown("""
     <style>
         .stApp {
-            background: linear-gradient(135deg, rgba(237,231,246,0.9), rgba(209,196,233,0.85)),
+            background: linear-gradient(135deg, rgba(237,231,246,0.88), rgba(209,196,233,0.82)),
                         url('https://images.unsplash.com/photo-1516467508483-a7212febe31a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80') center/cover fixed;
+            color: #311b92;
         }
+        header,footer{visibility:hidden}
+        .title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#4a148c,#7c4dff,#4a148c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(74,20,140,.3);animation:livestockGlowLight 2s ease-in-out infinite alternate}
+        @keyframes livestockGlowLight{from{text-shadow:0 0 10px rgba(74,20,140,.3)}to{text-shadow:0 0 25px rgba(74,20,140,.8),0 0 50px rgba(74,20,140,.5)}}
+        .subtitle{text-align:center;font-size:1.2rem;color:#4a148c}
+        .result-card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}
+        .result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 20px rgba(74,20,140,.2)}
+        .stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}
     </style>
     """, unsafe_allow_html=True)
-;color:#311b92}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#4a148c,#7c4dff,#4a148c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(74,20,140,.3);animation:livestockGlowLight 2s ease-in-out infinite alternate}@keyframes livestockGlowLight{from{text-shadow:0 0 10px rgba(74,20,140,.3)}to{text-shadow:0 0 25px rgba(74,20,140,.8),0 0 50px rgba(74,20,140,.5)}}.subtitle{text-align:center;font-size:1.2rem;color:#4a148c}.result-card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 20px rgba(74,20,140,.2)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}</style>""", unsafe_allow_html=True)
 
 st.markdown('<div class="title">🐄 Livestock Health</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Upload photos of your animals and detect diseases instantly</div>', unsafe_allow_html=True)
-with st.expander("📸 Tips for animal photos"):
-    st.markdown("1. 🐄 Show the affected area clearly.\n2. 📱 Hold the phone steady.\n3. ☀️ Good light is important.\n4. 📤 Upload 2‑3 photos if possible.")
 animal = st.selectbox("🐾 Choose animal", list(ANIMALS.keys()))
 files = st.file_uploader("📤 Upload animal photos", type=["jpg","jpeg","png"], accept_multiple_files=True)
 
@@ -205,8 +210,6 @@ if files:
             if "healthy" in td.lower(): c2.success(f"✅ This {animal} appears healthy!")
             else: c2.warning(f"⚠️ Possible **{td}** detected.")
             deduct_one_scan()
-
-            # ===== SELF-CONTAINED STREAMING GUIDE + VOICE =====
             if model is not None:
                 with st.spinner("🧠 GAIA is preparing your treatment guide..."):
                     with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
@@ -219,23 +222,13 @@ if files:
                         guide_text = ''.join(full_guide)
                         if guide_text:
                             audio_bytes, tts_err = get_voice_guide(guide_text, voice_lang)
-                            if audio_bytes:
-                                st.audio(audio_bytes, format="audio/mp3")
-                            else:
-                                st.caption(f"🔇 Voice unavailable: {tts_err}")
-
+                            if audio_bytes: st.audio(audio_bytes, format="audio/mp3")
+                            else: st.caption(f"🔇 Voice unavailable: {tts_err}")
             col_fb1, col_fb2 = c2.columns(2)
             if col_fb1.button("👍 Helpful", key=f"livestock_help_{f.name}"): save_feedback(f.name, td, True); col_fb1.success("Thanks!")
             if col_fb2.button("👎 Not", key=f"livestock_not_{f.name}"): save_feedback(f.name, td, False); col_fb2.info("We'll improve.")
 
-    if len(predictions) >= 2:
-        vote = Counter(predictions).most_common(1)[0]
-        if vote[1] > len(predictions)//2:
-            st.success(f"🗳️ Majority vote: **{vote[0]}** ({vote[1]}/{len(predictions)} photos)")
-        else:
-            st.info("🗳️ No clear consensus. Consider retaking.")
-
-# ---------- Quick Navigation ----------
+# Navigation
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(9)

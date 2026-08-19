@@ -44,7 +44,7 @@ PEST_CLASSES = [
 N = len(PEST_CLASSES)
 
 # BACKGROUND IMAGE
-BG_URL = "https://images.unsplash.com/photo-1590691566903-692bf5ca7493?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
+BG_URL = "https://images.unsplash.com/photo-1540835296355-dbb6f3b4d4c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
 
 language_options = {
     "English (UK)": "en-GB",

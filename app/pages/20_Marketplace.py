@@ -138,22 +138,6 @@ def get_negotiations(user_id):
     res = supabase.table("marketplace_negotiations").select("*").or_(f"buyer_id.eq.{user_id},seller_id.eq.{user_id}").order("created_at", desc=True).execute()
     return res.data if res.data else []
 
-def get_price_index():
-    supabase = get_service()
-    res = supabase.table("marketplace_listings").select("crop, state, price").eq("status", "active").execute()
-    if not res.data:
-        return []
-    df = {}
-    for l in res.data:
-        key = (l["crop"], l["state"])
-        if key not in df:
-            df[key] = []
-        df[key].append(l["price"])
-    result = []
-    for (crop, state), prices in df.items():
-        result.append({"crop": crop, "state": state, "avg_price": sum(prices)/len(prices), "sample_count": len(prices)})
-    return sorted(result, key=lambda x: x["avg_price"], reverse=True)
-
 def generate_description(crop, variety, location):
     try:
         from app.utils.deepseek_explainer import DEEPSEEK_API_KEY
@@ -174,7 +158,7 @@ def generate_description(crop, variety, location):
 # ============================================================
 # PAGE CONFIG
 # ============================================================
-st.set_page_config(page_title="GAIA Market", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="GAIA Marketplace", page_icon="🌍", layout="wide")
 
 if "user" not in st.session_state or not st.session_state.user:
     st.warning("Please log in first.")
@@ -189,7 +173,15 @@ if "selected_listing" not in st.session_state:
     st.session_state.selected_listing = None
 
 # ============================================================
-# FETCH ALL LISTINGS
+# HEADER
+# ============================================================
+st.markdown("""
+<div style="font-size:2.5rem;font-weight:800;text-align:center;color:#2e7d32;">🌍 GAIA Marketplace</div>
+<div style="text-align:center;color:#607d8b;margin-bottom:2rem;">Buy and sell farm produce securely</div>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# FETCH LISTINGS
 # ============================================================
 all_listings = service.table("marketplace_listings").select("*").eq("status", "active").order("created_at", desc=True).execute().data or []
 
@@ -197,7 +189,7 @@ all_listings = service.table("marketplace_listings").select("*").eq("status", "a
 # SEARCH & FILTERS
 # ============================================================
 st.markdown("## 🔍 Search & Filter")
-col_search, col_crop, col_state, col_price, col_org, col_rating = st.columns([3, 2, 2, 2, 1, 1])
+col_search, col_crop, col_state, col_price, col_org = st.columns([3, 2, 2, 2, 1])
 with col_search:
     search_query = st.text_input("Search", placeholder="crop, variety, location...", label_visibility="collapsed")
 with col_crop:
@@ -208,8 +200,6 @@ with col_price:
     price_filter = st.selectbox("Price", ["Any", "Under ₦50k", "₦50k–₦200k", "₦200k–₦500k", "Over ₦500k"])
 with col_org:
     organic_filter = st.checkbox("🌿 Organic", value=False)
-with col_rating:
-    rating_filter = st.checkbox("⭐ 4+", value=False)
 
 filtered = all_listings.copy()
 if search_query:
@@ -220,8 +210,6 @@ if state_filter != "All":
     filtered = [l for l in filtered if l.get("state") == state_filter]
 if organic_filter:
     filtered = [l for l in filtered if l.get("organic", False)]
-if rating_filter:
-    filtered = [l for l in filtered if get_seller_rating(l.get("user_id"))[0] >= 4]
 
 st.write(f"**{len(filtered)} listings found**")
 
@@ -234,7 +222,6 @@ else:
     cols = st.columns(3)
     for i, listing in enumerate(filtered):
         with cols[i % 3]:
-            image_urls = listing.get("image_urls") or []
             crop = listing.get("crop", "")
             variety = listing.get("variety", "")
             price_ngn = listing.get("price", 0)
@@ -277,8 +264,6 @@ if st.session_state.selected_listing:
     c1, c2 = st.columns([2, 1])
 
     with c1:
-        for img in listing.get("image_urls", []):
-            st.image(img, use_container_width=True)
         st.markdown(f"**Description:** {listing.get('description','No description')}")
         st.markdown("### ⭐ Reviews")
         reviews = get_reviews(listing["id"])
@@ -286,14 +271,6 @@ if st.session_state.selected_listing:
             st.info("No reviews yet.")
         for rev in reviews:
             st.markdown(f'<div style="background:#fff;border-radius:8px;padding:10px;margin:5px 0;">{"⭐"*rev.get("rating",0)}<br>{rev.get("comment","")}</div>', unsafe_allow_html=True)
-        with st.expander("✍️ Write Review"):
-            with st.form(f"rev_{listing['id']}"):
-                rating = st.slider("Rating", 1, 5, 5)
-                comment = st.text_area("Comment")
-                if st.form_submit_button("Submit Review"):
-                    add_review(listing["id"], listing["user_id"], user.id, rating, comment)
-                    st.success("Review submitted!")
-                    st.rerun()
 
     with c2:
         seller_profile = get_seller_profile(listing.get("user_id"))
@@ -348,41 +325,54 @@ else:
     st.markdown(f"**Delivery:** ₦{delivery_fee:,.0f}")
     st.markdown(f"### **Total: ₦{final_total:,.0f}**")
 
-    if st.button("💳 Checkout with Paystack", use_container_width=True):
-        ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
-        seller_id = st.session_state.cart[0]["seller_id"]
-        listing_id = st.session_state.cart[0]["listing_id"]
-        order_data = {
-            "listing_id": listing_id,
-            "buyer_id": user.id,
-            "seller_id": seller_id,
-            "quantity": sum(item["quantity"] for item in st.session_state.cart),
-            "total_amount": final_total,
-            "status": "pending",
-            "payment_reference": ref,
-            "delivery_method": delivery.lower(),
-            "delivery_fee": delivery_fee
-        }
-        service.table("marketplace_orders").insert(order_data).execute()
-        order_id = service.table("marketplace_orders").select("*").eq("payment_reference", ref).execute().data[0]["id"]
-        create_escrow(order_id, final_total)
+    # Paystack payment button
+    ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
+    seller_id = st.session_state.cart[0]["seller_id"]
+    listing_id = st.session_state.cart[0]["listing_id"]
 
-        components.html(f"""
+    # Create order in database BEFORE payment
+    order_data = {
+        "listing_id": listing_id,
+        "buyer_id": user.id,
+        "seller_id": seller_id,
+        "quantity": sum(item["quantity"] for item in st.session_state.cart),
+        "total_amount": final_total,
+        "status": "pending",
+        "payment_reference": ref,
+        "delivery_method": delivery.lower(),
+        "delivery_fee": delivery_fee
+    }
+    service.table("marketplace_orders").insert(order_data).execute()
+    order_id = service.table("marketplace_orders").select("*").eq("payment_reference", ref).execute().data[0]["id"]
+    create_escrow(order_id, final_total)
+
+    components.html(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
         <script src="https://js.paystack.co/v1/inline.js"></script>
+    </head>
+    <body>
+        <button onclick="payWithPaystack()" style="background:linear-gradient(135deg,#2e7d32,#4caf50);color:#fff;border:none;padding:18px 50px;border-radius:50px;font-weight:700;font-size:1.2rem;cursor:pointer;width:100%;">💳 Pay ₦{final_total:,.0f} with Paystack</button>
         <script>
-            PaystackPop.setup({{
-                key: '{PAYSTACK_PUBLIC}',
-                email: '{user.email}',
-                amount: {final_total * 100},
-                currency: 'NGN',
-                ref: '{ref}',
-                label: 'GAIA Market',
-                callback: function(response) {{
-                    window.location.href = '/~/payment_callback?reference=' + response.reference + '&order_type=market';
-                }}
-            }}).openIframe();
+            function payWithPaystack() {{
+                PaystackPop.setup({{
+                    key: '{PAYSTACK_PUBLIC}',
+                    email: '{user.email}',
+                    amount: {final_total * 100},
+                    currency: 'NGN',
+                    ref: '{ref}',
+                    label: 'GAIA Market',
+                    onClose: function() {{ window.location.reload(); }},
+                    callback: function(response) {{
+                        window.location.href = '/~/payment_callback?reference=' + response.reference + '&order_type=market';
+                    }}
+                }}).openIframe();
+            }}
         </script>
-        """, height=150)
+    </body>
+    </html>
+    """, height=200)
 
     if st.button("🗑️ Clear Cart"):
         st.session_state.cart = []

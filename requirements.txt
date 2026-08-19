@@ -24,4 +24,4 @@ scipy
 edge-tts
 gTTS
 
-gtts
+gttsplotly

@@ -11,41 +11,8 @@ DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 st.set_page_config(page_title="GAIA – Pest Detection", page_icon="🐛", layout="wide")
-st.markdown(
-    """
-    <div style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background-image: url('https://images.unsplash.com/photo-1540835296355-dbb6f3b4d4c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80');
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        z-index: -2;
-    "></div>
-    """,
-    unsafe_allow_html=True
-)
 
-# ============ BACKGROUND IMAGE (GUARANTEED VISIBLE) ============
-st.markdown(
-    """
-    <style>
-        .stApp {
-            background-image: url('https://images.unsplash.com/photo-1540835296355-dbb6f3b4d4c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# THEME
+# THEME (light default)
 if "theme" not in st.session_state:
     st.session_state.theme = "light"
 
@@ -75,6 +42,9 @@ PEST_CLASSES = [
     'Cicadellidae'
 ]
 N = len(PEST_CLASSES)
+
+# BACKGROUND IMAGE
+BG_URL = "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
 
 language_options = {
     "English (UK)": "en-GB",
@@ -146,6 +116,41 @@ def get_voice_guide(explanation, lang):
     from app.utils.deepseek_explainer import text_to_speech
     audio_bytes, err = text_to_speech(explanation[:2000], lang)
     return audio_bytes, err
+
+if theme == "dark":
+    st.markdown(f"""
+    <style>
+        .stApp {{
+            background: linear-gradient(135deg, rgba(26,15,0,0.68), rgba(46,28,0,0.58), rgba(62,42,0,0.68)),
+                        url('{BG_URL}') center/cover fixed;
+            color: #fff8e1;
+        }}
+        header,footer{{visibility:hidden}}
+        .title{{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#ff9800,#ffcc80,#ff9800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(255,152,0,.7);animation:pestGlow 2s ease-in-out infinite alternate}}
+        @keyframes pestGlow{{from{{text-shadow:0 0 25px rgba(255,152,0,.7)}}to{{text-shadow:0 0 50px rgba(255,152,0,1),0 0 80px rgba(255,152,0,.6)}}}}
+        .subtitle{{text-align:center;font-size:1.2rem;color:#bcaaa4}}
+        .result-card{{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}}
+        .result-card.top-result{{border:1px solid #ff9800;box-shadow:0 0 30px rgba(255,152,0,.3)}}
+        .stProgress>div>div>div>div{{background:linear-gradient(90deg,#ff9800,#ffcc80)}}
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown(f"""
+    <style>
+        .stApp {{
+            background: linear-gradient(135deg, rgba(255,243,224,0.55), rgba(255,224,178,0.45)),
+                        url('{BG_URL}') center/cover fixed;
+            color: #3e2723;
+        }}
+        header,footer{{visibility:hidden}}
+        .title{{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#e65100,#ff9800,#e65100);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(230,81,0,.3);animation:pestGlowLight 2s ease-in-out infinite alternate}}
+        @keyframes pestGlowLight{{from{{text-shadow:0 0 10px rgba(230,81,0,.3)}}to{{text-shadow:0 0 25px rgba(230,81,0,.8),0 0 50px rgba(230,81,0,.5)}}}}
+        .subtitle{{text-align:center;font-size:1.2rem;color:#4e342e}}
+        .result-card{{background:rgba(255,255,255,.75);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}}
+        .result-card.top-result{{border:1px solid #e65100;box-shadow:0 0 20px rgba(230,81,0,.2)}}
+        .stProgress>div>div>div>div{{background:linear-gradient(90deg,#ff9800,#ffcc80)}}
+    </style>
+    """, unsafe_allow_html=True)
 
 st.markdown('<div class="title">🐛 Pest Detection & Management</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Snap a photo — get identification and an AI-generated pest management guide</div>', unsafe_allow_html=True)

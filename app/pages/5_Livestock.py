@@ -159,7 +159,7 @@ if theme == "dark":
     st.markdown(f"""
     <style>
         .stApp {{
-            background: linear-gradient(135deg, rgba(26,15,46,0.82), rgba(46,28,62,0.75), rgba(62,42,94,0.82)),
+            background: linear-gradient(135deg, rgba(26,15,46,0.68), rgba(46,28,62,0.58), rgba(62,42,94,0.68)),
                         url('{bg_url}') center/cover fixed;
             color: #ede7f6;
         }}
@@ -176,7 +176,7 @@ else:
     st.markdown(f"""
     <style>
         .stApp {{
-            background: linear-gradient(135deg, rgba(237,231,246,0.72), rgba(209,196,233,0.65)),
+            background: linear-gradient(135deg, rgba(237,231,246,0.55), rgba(209,196,233,0.45)),
                         url('{bg_url}') center/cover fixed;
             color: #311b92;
         }}

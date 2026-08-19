@@ -5,7 +5,10 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 import uuid, requests, hashlib, hmac, json, os
 import pandas as pd
-import plotly.express as px
+try:
+    import plotly.express as px
+except ImportError:
+    px = None
 
 # CONFIG
 SUPABASE_URL = st.secrets["supabase"]["url"]
@@ -566,8 +569,11 @@ with tab_trends:
         df = pd.DataFrame(trends)
         df["date"] = pd.to_datetime(df["created_at"]).dt.date
         avg_by_date = df.groupby("date")["price"].mean().reset_index()
-        fig = px.line(avg_by_date, x="date", y="price", title=f"Average Price — {crop_for_trend}")
-        st.plotly_chart(fig, use_container_width=True)
+        if px:
+            fig = px.line(avg_by_date, x="date", y="price", title=f"Average Price — {crop_for_trend}")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.line_chart(avg_by_date.set_index("date"))
     else:
         st.info("No data yet.")
 

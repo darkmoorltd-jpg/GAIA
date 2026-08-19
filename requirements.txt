@@ -25,3 +25,4 @@ edge-tts
 gTTS
 
 gttsplotly
+plotly

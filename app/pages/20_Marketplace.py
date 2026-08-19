@@ -4,12 +4,8 @@ import streamlit.components.v1 as components
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 import uuid
+import requests
 from app.utils.phone_util import normalize_phone
-from app.utils.marketplace_util import (
-    get_service_client, upload_listing_image, verify_payment,
-    get_listing_by_id, get_seller_profile, add_review, get_reviews,
-    toggle_favorite, is_favorite, get_favorites
-)
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -20,6 +16,86 @@ PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 @st.cache_resource
 def get_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
+
+# ---------- Inline helper functions (no external imports) ----------
+def upload_listing_image(file_bytes, filename):
+    supabase = get_service()
+    unique_name = f"{uuid.uuid4().hex[:12]}_{filename}"
+    bucket = "listing-images"
+    try:
+        supabase.storage.from_(bucket).upload(unique_name, file_bytes, {"content-type": "image/jpeg"})
+        return supabase.storage.from_(bucket).get_public_url(unique_name), None
+    except Exception as e:
+        return None, str(e)[:200]
+
+def verify_payment(reference):
+    url = f"https://api.paystack.co/transaction/verify/{reference}"
+    headers = {"Authorization": f"Bearer {PAYSTACK_SECRET}"}
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            if data.get("status") and data["data"]["status"] == "success":
+                return data["data"]
+    except:
+        pass
+    return None
+
+def get_listing_by_id(listing_id):
+    supabase = get_service()
+    try:
+        res = supabase.table("marketplace_listings").select("*").eq("id", listing_id).execute()
+        return res.data[0] if res.data else None
+    except:
+        return None
+
+def get_seller_profile(seller_id):
+    supabase = get_service()
+    try:
+        res = supabase.table("user_profiles").select("*").eq("user_id", seller_id).execute()
+        return res.data[0] if res.data else {}
+    except:
+        return {}
+
+def add_review(listing_id, seller_id, reviewer_id, rating, comment):
+    supabase = get_service()
+    supabase.table("marketplace_reviews").insert({
+        "listing_id": listing_id,
+        "seller_id": seller_id,
+        "reviewer_id": reviewer_id,
+        "rating": rating,
+        "comment": comment
+    }).execute()
+
+def get_reviews(listing_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_reviews").select("*").eq("listing_id", listing_id).order("created_at", desc=True).execute()
+    return res.data if res.data else []
+
+def toggle_favorite(user_id, listing_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_favorites").select("*").eq("user_id", user_id).eq("listing_id", listing_id).execute()
+    if res.data:
+        supabase.table("marketplace_favorites").delete().eq("user_id", user_id).eq("listing_id", listing_id).execute()
+        return False
+    else:
+        supabase.table("marketplace_favorites").insert({"user_id": user_id, "listing_id": listing_id}).execute()
+        return True
+
+def is_favorite(user_id, listing_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_favorites").select("*").eq("user_id", user_id).eq("listing_id", listing_id).execute()
+    return len(res.data) > 0
+
+def get_favorites(user_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_favorites").select("listing_id").eq("user_id", user_id).execute()
+    ids = [r["listing_id"] for r in res.data] if res.data else []
+    if not ids:
+        return []
+    listings = supabase.table("marketplace_listings").select("*").in_("id", ids).execute()
+    return listings.data if listings.data else []
+# ---------- End of inline helpers ----------
 
 st.set_page_config(page_title="GAIA Market", page_icon="🌍", layout="wide")
 
@@ -34,12 +110,6 @@ if "cart" not in st.session_state:
     st.session_state.cart = []
 if "selected_listing" not in st.session_state:
     st.session_state.selected_listing = None
-if "delivery_method" not in st.session_state:
-    st.session_state.delivery_method = "pickup"
-if "delivery_address" not in st.session_state:
-    st.session_state.delivery_address = ""
-if "delivery_fee" not in st.session_state:
-    st.session_state.delivery_fee = 0
 
 @st.cache_data(ttl=60)
 def fetch_listings():
@@ -149,8 +219,6 @@ with tab1:
             else:
                 st.markdown('<div style="font-size:5rem;text-align:center;">🌱</div>', unsafe_allow_html=True)
             st.markdown(f"**Description:** {listing.get('description','')}")
-            
-            # Reviews section
             st.markdown("### ⭐ Reviews")
             reviews = get_reviews(listing["id"])
             if not reviews:
@@ -159,8 +227,6 @@ with tab1:
                 for rev in reviews:
                     stars = "⭐" * rev.get("rating", 0)
                     st.markdown(f'<div class="review-card"><strong>{stars}</strong><br>{rev.get("comment","")}</div>', unsafe_allow_html=True)
-            
-            # Add review form
             with st.expander("Write a Review", expanded=False):
                 with st.form(f"review_form_{listing['id']}"):
                     rating = st.slider("Rating", 1, 5, 5)
@@ -181,7 +247,6 @@ with tab1:
             if seller_phone:
                 st.markdown(f'<a class="call-btn" href="tel:{seller_phone}">📞 Call Seller</a>', unsafe_allow_html=True)
                 st.markdown(f'<a class="contact-btn" href="https://wa.me/{normalize_phone(seller_phone)}">💬 WhatsApp</a>', unsafe_allow_html=True)
-            
             quantity = st.number_input("Quantity", min_value=1, value=1)
             if st.button("Add to Cart", key="add_to_cart", use_container_width=True):
                 st.session_state.cart.append({
@@ -212,7 +277,6 @@ with tab2:
         organic = st.checkbox("Organic")
         harvest_date = st.date_input("Harvest Date")
         uploaded_images = st.file_uploader("Upload photos", type=["jpg","jpeg","png"], accept_multiple_files=True)
-        
         if st.form_submit_button("📤 Publish Listing"):
             if not crop or not price or not location or not state:
                 st.error("Crop, price, location, and state are required.")
@@ -294,21 +358,16 @@ with tab5:
             st.write(f"{item['quantity']} x {item['crop']} {item['variety']} @ ₦{item['price']:,}")
             total += item['price'] * item['quantity']
         st.markdown(f"**Subtotal: ₦{total:,}**")
-        
-        # Delivery options
         st.markdown("### 🚚 Delivery Method")
         delivery_method = st.radio("Choose delivery", ["Pickup", "Delivery"])
         if delivery_method == "Delivery":
             st.session_state.delivery_address = st.text_area("Delivery Address")
-            # Simple flat fee for now; you can calculate by state later
-            st.session_state.delivery_fee = 1000  # ₦1000 flat
+            st.session_state.delivery_fee = 1000
             st.write(f"Delivery Fee: ₦{st.session_state.delivery_fee:,}")
         else:
             st.session_state.delivery_fee = 0
-        
         final_total = total + st.session_state.delivery_fee
         st.markdown(f"**Total: ₦{final_total:,}**")
-        
         if st.button("Checkout with Paystack", type="primary"):
             seller_id = st.session_state.cart[0]["seller_id"]
             ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:6]}"

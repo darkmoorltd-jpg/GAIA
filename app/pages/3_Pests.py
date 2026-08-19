@@ -121,8 +121,8 @@ if theme == "dark":
     st.markdown(f"""
     <style>
         .stApp {{
-            background: linear-gradient(135deg, rgba(26,15,0,0.68), rgba(46,28,0,0.58), rgba(62,42,0,0.68)),
-                        url('{BG_URL}') center/cover fixed;
+            background: url('{BG_URL}') center/cover fixed !important;
+            background-blend-mode: overlay;
             color: #fff8e1;
         }}
         header,footer{{visibility:hidden}}
@@ -138,8 +138,8 @@ else:
     st.markdown(f"""
     <style>
         .stApp {{
-            background: linear-gradient(135deg, rgba(255,243,224,0.55), rgba(255,224,178,0.45)),
-                        url('{BG_URL}') center/cover fixed;
+            background: url('{BG_URL}') center/cover fixed !important;
+            background-blend-mode: overlay;
             color: #3e2723;
         }}
         header,footer{{visibility:hidden}}

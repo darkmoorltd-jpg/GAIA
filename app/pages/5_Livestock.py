@@ -13,9 +13,11 @@ DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
 
-# Theme toggle
+# ============================================================
+# THEME (light mode default)
+# ============================================================
 if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
+    st.session_state.theme = "light"
 
 st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
 dark = st.toggle("", value=st.session_state.theme == "dark", key="livestock_theme")
@@ -145,12 +147,14 @@ def get_voice_guide(explanation, lang):
     audio_bytes, err = text_to_speech(explanation[:2000], lang)
     return audio_bytes, err
 
-# CSS
+# ============================================================
+# BACKGROUND CSS (more visible overlay)
+# ============================================================
 if theme == "dark":
     st.markdown("""
     <style>
         .stApp {
-            background: linear-gradient(135deg, rgba(26,15,46,0.93), rgba(46,28,62,0.88), rgba(62,42,94,0.93)),
+            background: linear-gradient(135deg, rgba(26,15,46,0.82), rgba(46,28,62,0.75), rgba(62,42,94,0.82)),
                         url('https://images.unsplash.com/photo-1516467508483-a7212febe31a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80') center/cover fixed;
             color: #ede7f6;
         }
@@ -167,7 +171,7 @@ else:
     st.markdown("""
     <style>
         .stApp {
-            background: linear-gradient(135deg, rgba(237,231,246,0.88), rgba(209,196,233,0.82)),
+            background: linear-gradient(135deg, rgba(237,231,246,0.72), rgba(209,196,233,0.65)),
                         url('https://images.unsplash.com/photo-1516467508483-a7212febe31a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80') center/cover fixed;
             color: #311b92;
         }
@@ -175,7 +179,7 @@ else:
         .title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#4a148c,#7c4dff,#4a148c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(74,20,140,.3);animation:livestockGlowLight 2s ease-in-out infinite alternate}
         @keyframes livestockGlowLight{from{text-shadow:0 0 10px rgba(74,20,140,.3)}to{text-shadow:0 0 25px rgba(74,20,140,.8),0 0 50px rgba(74,20,140,.5)}}
         .subtitle{text-align:center;font-size:1.2rem;color:#4a148c}
-        .result-card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}
+        .result-card{background:rgba(255,255,255,.75);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}
         .result-card.top-result{border:1px solid #7c4dff;box-shadow:0 0 20px rgba(74,20,140,.2)}
         .stProgress>div>div>div>div{background:linear-gradient(90deg,#7c4dff,#b388ff)}
     </style>
@@ -228,7 +232,6 @@ if files:
             if col_fb1.button("👍 Helpful", key=f"livestock_help_{f.name}"): save_feedback(f.name, td, True); col_fb1.success("Thanks!")
             if col_fb2.button("👎 Not", key=f"livestock_not_{f.name}"): save_feedback(f.name, td, False); col_fb2.info("We'll improve.")
 
-# Navigation
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(9)

@@ -2,9 +2,14 @@
 import streamlit as st
 from PIL import Image
 import torch, torch.nn as nn, torch.nn.functional as F, numpy as np, os, sys, datetime, hashlib
+import requests, json
+from collections import Counter
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 from timm.models.vision_transformer import VisionTransformer
+
+DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
+DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
 st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
@@ -48,15 +53,12 @@ def deduct_one_scan():
 
 def load_animal_model(animal):
     from app.utils.download_models import ensure_model
-    
     cp_path = os.path.join("checkpoints", animal, "model.pt")
     if os.path.exists(cp_path):
         os.remove(cp_path)
-    
     checkpoint = ensure_model(animal)
     if not checkpoint or not os.path.exists(checkpoint):
         return None, None
-    
     try:
         state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     except:
@@ -98,9 +100,48 @@ def load_animal_model(animal):
     model.eval()
     return model, img_size
 
-def get_treatment_guide(disease, animal, confidence):
-    from app.utils.deepseek_explainer import explain_diagnosis_stream
-    return explain_diagnosis_stream(disease, confidence, animal, "livestock")
+def stream_deepseek_livestock_guide(disease, animal, confidence):
+    """Stream a livestock treatment guide from DeepSeek."""
+    prompt = f"""GAIA diagnosed: {disease} in {animal} with {confidence:.1f}% confidence.
+Please provide a comprehensive farmer-friendly guide covering:
+1. What This Means
+2. Organic Treatment
+3. Chemical Treatment
+4. Administering Treatment
+5. Water & Feed Management
+6. Housing & Hygiene
+7. Disease Prevention
+8. Cost Estimate
+9. When to Call a Vet
+10. Safety for Humans & Animals
+Be practical, specific, and use Nigerian/local context."""
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "You are GAIA, an expert veterinary advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "stream": True
+    }
+    r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
+    for line in r.iter_lines():
+        if not line:
+            continue
+        line = line.decode('utf-8')
+        if line.startswith('data: '):
+            data = line[6:]
+            if data.strip() == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data)
+                delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                if delta:
+                    yield delta
+            except:
+                continue
 
 @st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
@@ -119,9 +160,11 @@ with st.expander("📸 Tips for animal photos"):
     st.markdown("1. 🐄 Show the affected area clearly.\n2. 📱 Hold the phone steady.\n3. ☀️ Good light is important.\n4. 📤 Upload 2‑3 photos if possible.")
 animal = st.selectbox("🐾 Choose animal", list(ANIMALS.keys()))
 files = st.file_uploader("📤 Upload animal photos", type=["jpg","jpeg","png"], accept_multiple_files=True)
+
 if files:
     names = ANIMALS[animal]; n = len(names)
     model, img_size = load_animal_model(animal)
+    predictions = []
     for f in files:
         img = Image.open(f).convert("RGB")
         with st.expander(f"🐄 {f.name}", expanded=True):
@@ -135,6 +178,7 @@ if files:
                 np.random.seed(seed)
                 probs = np.random.rand(n); probs/=probs.sum()
             si = np.argsort(probs)[::-1]; td = names[si[0]]
+            predictions.append(td)
             c2.markdown(f'<div class="result-card top-result" style="border-left:5px solid #7c4dff;"><h2 style="margin:0">{td} <span style="font-size:1.5rem;color:#7c4dff">{probs[si[0]]*100:.1f}%</span></h2></div>', unsafe_allow_html=True)
             for i in si[1:4]:
                 c2.write(f"**{names[i]}**: {probs[i]*100:.1f}%"); c2.progress(float(probs[i]))
@@ -142,24 +186,19 @@ if files:
             else: c2.warning(f"⚠️ Possible **{td}** detected.")
             deduct_one_scan()
 
-            # ===== AI TREATMENT GUIDE + VOICE =====
+            # ===== SELF-CONTAINED STREAMING GUIDE + VOICE =====
             if model is not None:
-                top_disease = td
-                with st.spinner("🧠 Generating treatment guide..."):
+                with st.spinner("🧠 GAIA is preparing your treatment guide..."):
                     with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
-                        explanation = ""
-                        try:
-                            # Accumulate stream chunks into a single string
-                            stream = get_treatment_guide(top_disease, animal, probs[si[0]]*100)
-                            for chunk in stream:
-                                explanation += chunk
-                                st.write(chunk)  # display each chunk
-                        except Exception as e:
-                            st.warning(f"Guide unavailable: {e}")
-                        
-                        # Generate voice from the full explanation
-                        if explanation:
-                            audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
+                        full_guide = []
+                        def local_generator():
+                            for chunk in stream_deepseek_livestock_guide(td, animal, probs[si[0]]*100):
+                                full_guide.append(chunk)
+                                yield chunk
+                        st.write_stream(local_generator)
+                        guide_text = ''.join(full_guide)
+                        if guide_text:
+                            audio_bytes, tts_err = get_voice_guide(guide_text, voice_lang)
                             if audio_bytes:
                                 st.audio(audio_bytes, format="audio/mp3")
                             else:
@@ -169,26 +208,23 @@ if files:
             if col_fb1.button("👍 Helpful", key=f"livestock_help_{f.name}"): save_feedback(f.name, td, True); col_fb1.success("Thanks!")
             if col_fb2.button("👎 Not", key=f"livestock_not_{f.name}"): save_feedback(f.name, td, False); col_fb2.info("We'll improve.")
 
+    if len(predictions) >= 2:
+        vote = Counter(predictions).most_common(1)[0]
+        if vote[1] > len(predictions)//2:
+            st.success(f"🗳️ Majority vote: **{vote[0]}** ({vote[1]}/{len(predictions)} photos)")
+        else:
+            st.info("🗳️ No clear consensus. Consider retaking.")
 
 # ---------- Quick Navigation ----------
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(9)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]:
-    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]:
-    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
+with cols[6]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
+with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
+with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")

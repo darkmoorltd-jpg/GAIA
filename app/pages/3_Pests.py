@@ -3,18 +3,23 @@ import streamlit as st
 from PIL import Image
 import torch, torch.nn.functional as F, numpy as np, os, sys, datetime, hashlib
 from collections import Counter
+import requests, json
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
-import requests
-import json
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 st.set_page_config(page_title="GAIA – Pest Detection", page_icon="🐛", layout="wide")
+
+# THEME (light default)
+if "theme" not in st.session_state:
+    st.session_state.theme = "light"
+
 st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
-dark = st.toggle("", value=False, key="pest_theme")
-theme = "dark" if dark else "light"
+dark = st.toggle("", value=st.session_state.theme == "dark", key="pest_theme")
+st.session_state.theme = "dark" if dark else "light"
+theme = st.session_state.theme
 
 PEST_CLASSES = [
     'rice leaf roller','rice leaf caterpillar','paddy stem maggot','asiatic rice borer','yellow rice borer',
@@ -37,6 +42,9 @@ PEST_CLASSES = [
     'Cicadellidae'
 ]
 N = len(PEST_CLASSES)
+
+# BACKGROUND IMAGE
+BG_URL = "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
 
 language_options = {
     "English (UK)": "en-GB",
@@ -68,7 +76,6 @@ def deduct_one_scan():
     if res.data: st.success(f"Scan deducted. Remaining scans: {res.data[0]['scans_remaining']}")
 
 def stream_deepseek_pest_guide(pest_name, confidence):
-    """Streams a pest management guide directly from DeepSeek."""
     prompt = f"""GAIA identified: {pest_name} with {confidence:.1f}% confidence.
 Please provide a comprehensive pest management guide covering:
 1. About This Pest
@@ -89,26 +96,20 @@ Be practical, specific, and use Nigerian/local context."""
             {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
             {"role": "user", "content": prompt}
         ],
-        "temperature": 0.7,
-        "max_tokens": 4000,
-        "stream": True
+        "temperature": 0.7, "max_tokens": 4000, "stream": True
     }
     r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
     for line in r.iter_lines():
-        if not line:
-            continue
+        if not line: continue
         line = line.decode('utf-8')
         if line.startswith('data: '):
             data = line[6:]
-            if data.strip() == "[DONE]":
-                break
+            if data.strip() == "[DONE]": break
             try:
                 chunk = json.loads(data)
                 delta = chunk['choices'][0].get('delta', {}).get('content', '')
-                if delta:
-                    yield delta
-            except:
-                continue
+                if delta: yield delta
+            except: continue
 
 @st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
@@ -117,15 +118,42 @@ def get_voice_guide(explanation, lang):
     return audio_bytes, err
 
 if theme == "dark":
-    st.markdown("""<style>.stApp{background:linear-gradient(135deg,#1a0f00,#2e1c00,#3e2a00,#1a0f00);color:#fff8e1}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#ff9800,#ffcc80,#ff9800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(255,152,0,.7);animation:pestGlow 2s ease-in-out infinite alternate}@keyframes pestGlow{from{text-shadow:0 0 25px rgba(255,152,0,.7)}to{text-shadow:0 0 50px rgba(255,152,0,1),0 0 80px rgba(255,152,0,.6)}}.subtitle{text-align:center;font-size:1.2rem;color:#bcaaa4}.result-card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #ff9800;box-shadow:0 0 30px rgba(255,152,0,.3)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#ff9800,#ffcc80)}</style>""", unsafe_allow_html=True)
+    st.markdown(f"""
+    <style>
+        .stApp {{
+            background: linear-gradient(135deg, rgba(26,15,0,0.68), rgba(46,28,0,0.58), rgba(62,42,0,0.68)),
+                        url('{BG_URL}') center/cover fixed;
+            color: #fff8e1;
+        }}
+        header,footer{{visibility:hidden}}
+        .title{{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#ff9800,#ffcc80,#ff9800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(255,152,0,.7);animation:pestGlow 2s ease-in-out infinite alternate}}
+        @keyframes pestGlow{{from{{text-shadow:0 0 25px rgba(255,152,0,.7)}}to{{text-shadow:0 0 50px rgba(255,152,0,1),0 0 80px rgba(255,152,0,.6)}}}}
+        .subtitle{{text-align:center;font-size:1.2rem;color:#bcaaa4}}
+        .result-card{{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}}
+        .result-card.top-result{{border:1px solid #ff9800;box-shadow:0 0 30px rgba(255,152,0,.3)}}
+        .stProgress>div>div>div>div{{background:linear-gradient(90deg,#ff9800,#ffcc80)}}
+    </style>
+    """, unsafe_allow_html=True)
 else:
-    st.markdown("""<style>.stApp{background:linear-gradient(135deg,#fff3e0,#ffe0b2);color:#3e2723}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#e65100,#ff9800,#e65100);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(230,81,0,.3);animation:pestGlowLight 2s ease-in-out infinite alternate}@keyframes pestGlowLight{from{text-shadow:0 0 10px rgba(230,81,0,.3)}to{text-shadow:0 0 25px rgba(230,81,0,.8),0 0 50px rgba(230,81,0,.5)}}.subtitle{text-align:center;font-size:1.2rem;color:#4e342e}.result-card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.result-card.top-result{border:1px solid #e65100;box-shadow:0 0 20px rgba(230,81,0,.2)}.stProgress>div>div>div>div{background:linear-gradient(90deg,#ff9800,#ffcc80)}</style>""", unsafe_allow_html=True)
+    st.markdown(f"""
+    <style>
+        .stApp {{
+            background: linear-gradient(135deg, rgba(255,243,224,0.55), rgba(255,224,178,0.45)),
+                        url('{BG_URL}') center/cover fixed;
+            color: #3e2723;
+        }}
+        header,footer{{visibility:hidden}}
+        .title{{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#e65100,#ff9800,#e65100);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(230,81,0,.3);animation:pestGlowLight 2s ease-in-out infinite alternate}}
+        @keyframes pestGlowLight{{from{{text-shadow:0 0 10px rgba(230,81,0,.3)}}to{{text-shadow:0 0 25px rgba(230,81,0,.8),0 0 50px rgba(230,81,0,.5)}}}}
+        .subtitle{{text-align:center;font-size:1.2rem;color:#4e342e}}
+        .result-card{{background:rgba(255,255,255,.75);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}}
+        .result-card.top-result{{border:1px solid #e65100;box-shadow:0 0 20px rgba(230,81,0,.2)}}
+        .stProgress>div>div>div>div{{background:linear-gradient(90deg,#ff9800,#ffcc80)}}
+    </style>
+    """, unsafe_allow_html=True)
 
 st.markdown('<div class="title">🐛 Pest Detection & Management</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Snap a photo — get identification and an AI‑generated pest management guide</div>', unsafe_allow_html=True)
-
-with st.expander("📸 How to take a good insect photo"):
-    st.markdown("1. 🔍 Get as close as possible while keeping the insect in focus.\n2. 📱 Hold phone steady.\n3. ☀️ Good lighting is essential.\n4. 📤 Upload 2‑3 photos for better results.")
+st.markdown('<div class="subtitle">Snap a photo — get identification and an AI-generated pest management guide</div>', unsafe_allow_html=True)
 
 files = st.file_uploader("📤 Upload insect photos", type=["jpg","jpeg","png"], accept_multiple_files=True)
 
@@ -139,14 +167,9 @@ if files:
             os.remove(cp_path)
         cp = ensure_model("pests_102class")
         if cp and os.path.exists(cp):
-            try:
-                model = create_model_from_checkpoint(cp, N)
-            except:
-                if os.path.exists(cp_path):
-                    os.remove(cp_path)
-                raise
-    except Exception as e:
-        st.warning(f"Real model unavailable, using demo. ({e})")
+            model = create_model_from_checkpoint(cp, N)
+    except:
+        pass
 
     predictions = []
     for f in files:
@@ -156,25 +179,20 @@ if files:
             c1.image(img, caption=f.name, width=200)
             if model:
                 t = Compose([Resize((224,224)), ToTensor(), Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
-                with torch.no_grad():
-                    probs = F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].detach().cpu().numpy()
+                with torch.no_grad(): probs = F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].detach().cpu().numpy()
             else:
                 seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8],16)
                 np.random.seed(seed)
-                probs = np.random.rand(N)
-                probs /= probs.sum()
+                probs = np.random.rand(N); probs/=probs.sum()
             top_idx = np.argmax(probs)
             pest_name = PEST_CLASSES[top_idx]
-            confidence = probs[top_idx] * 100
+            confidence = probs[top_idx]*100
             predictions.append(pest_name)
-
             c2.markdown(f'<div class="result-card top-result" style="border-left:5px solid #ff9800;"><h2 style="margin:0">{pest_name.title()} <span style="font-size:1.5rem;color:#ff9800">{confidence:.1f}%</span></h2></div>', unsafe_allow_html=True)
             for i in np.argsort(probs)[::-1][1:5]:
                 c2.write(f"**{PEST_CLASSES[i].title()}**: {probs[i]*100:.1f}%")
                 c2.progress(float(probs[i]))
             deduct_one_scan()
-
-            # ===== SELF-CONTAINED STREAMING GUIDE + VOICE =====
             if model is not None:
                 with st.spinner("🧠 GAIA is preparing your pest management guide..."):
                     with st.expander("📋 Complete Pest Management Guide (AI-Generated)", expanded=True):
@@ -187,18 +205,11 @@ if files:
                         guide_text = ''.join(full_guide)
                         if guide_text:
                             audio_bytes, tts_err = get_voice_guide(guide_text, voice_lang)
-                            if audio_bytes:
-                                st.audio(audio_bytes, format="audio/mp3")
-                            else:
-                                st.caption(f"🔇 Voice unavailable: {tts_err}")
-
+                            if audio_bytes: st.audio(audio_bytes, format="audio/mp3")
+                            else: st.caption(f"🔇 Voice unavailable: {tts_err}")
             col_fb1, col_fb2 = c2.columns(2)
-            if col_fb1.button("👍 Helpful", key=f"pest_help_{f.name}"):
-                save_feedback(f.name, pest_name, True)
-                col_fb1.success("Thanks!")
-            if col_fb2.button("👎 Not", key=f"pest_not_{f.name}"):
-                save_feedback(f.name, pest_name, False)
-                col_fb2.info("We'll improve.")
+            if col_fb1.button("👍 Helpful", key=f"pest_help_{f.name}"): save_feedback(f.name, pest_name, True); col_fb1.success("Thanks!")
+            if col_fb2.button("👎 Not", key=f"pest_not_{f.name}"): save_feedback(f.name, pest_name, False); col_fb2.info("We'll improve.")
 
     if len(predictions) >= 2:
         vote = Counter(predictions).most_common(1)[0]
@@ -207,7 +218,6 @@ if files:
         else:
             st.info("🗳️ No clear consensus. Consider retaking.")
 
-# ---------- Quick Navigation ----------
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(9)

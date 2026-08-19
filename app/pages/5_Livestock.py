@@ -98,7 +98,6 @@ def load_animal_model(animal):
     model.eval()
     return model, img_size
 
-@st.cache_data(show_spinner=False)
 def get_treatment_guide(disease, animal, confidence):
     from app.utils.deepseek_explainer import explain_diagnosis_stream
     return explain_diagnosis_stream(disease, confidence, animal, "livestock")
@@ -148,20 +147,23 @@ if files:
                 top_disease = td
                 with st.spinner("🧠 Generating treatment guide..."):
                     with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
+                        explanation = ""
                         try:
-                            st.write_stream(get_treatment_guide(top_disease, animal, probs[si[0]]*100))
+                            # Accumulate stream chunks into a single string
+                            stream = get_treatment_guide(top_disease, animal, probs[si[0]]*100)
+                            for chunk in stream:
+                                explanation += chunk
+                                st.write(chunk)  # display each chunk
                         except Exception as e:
                             st.warning(f"Guide unavailable: {e}")
-                        audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
-                        if audio_bytes:
-                            st.audio(audio_bytes, format="audio/mp3")
-                        else:
-                            st.caption(f"🔇 Voice unavailable: {tts_err}")
-                        audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
-                        if audio_bytes:
-                            st.audio(audio_bytes, format="audio/mp3")
-                        else:
-                            st.caption(f"🔇 Voice unavailable: {tts_err}")
+                        
+                        # Generate voice from the full explanation
+                        if explanation:
+                            audio_bytes, tts_err = get_voice_guide(explanation, voice_lang)
+                            if audio_bytes:
+                                st.audio(audio_bytes, format="audio/mp3")
+                            else:
+                                st.caption(f"🔇 Voice unavailable: {tts_err}")
 
             col_fb1, col_fb2 = c2.columns(2)
             if col_fb1.button("👍 Helpful", key=f"livestock_help_{f.name}"): save_feedback(f.name, td, True); col_fb1.success("Thanks!")

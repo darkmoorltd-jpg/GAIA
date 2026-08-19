@@ -1,14 +1,17 @@
+
 import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 import uuid
 from app.utils.phone_util import normalize_phone
+from app.utils.marketplace_util import get_service_client, upload_listing_image, get_listing_by_id, get_seller_profile
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_PUBLIC = "pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057"
+PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
 @st.cache_resource
 def get_db():
@@ -25,21 +28,19 @@ if "user" not in st.session_state or not st.session_state.user:
     st.stop()
 
 user = st.session_state.user
-db = get_db()
+service = get_service()
 
 if "cart" not in st.session_state:
     st.session_state.cart = []
+if "selected_listing" not in st.session_state:
+    st.session_state.selected_listing = None
 
-DEMO_LISTINGS = [
-    {"id":"demo1","crop":"Maize","variety":"SAMMAZ 15","quantity":20,"unit":"tonnes","price":220000,"location":"Kaduna","state":"Kaduna","farmer":"Ibrahim Musa","user_id":"demo","rating":4.8,"image":"🌽","harvest_date":"2025-10-15","organic":True,"description":"High-yield hybrid maize.","seller_type":"Verified Farmer","featured":True,"phone":"0803-XXX-XXXX","whatsapp":"0803-XXX-XXXX"},
-    {"id":"demo2","crop":"Rice","variety":"FARO 44","quantity":15,"unit":"tonnes","price":350000,"location":"Kano","state":"Kano","farmer":"Aisha Bello","user_id":"demo","rating":4.9,"image":"🌾","harvest_date":"2025-09-28","organic":False,"description":"Premium long-grain rice.","seller_type":"Premium Seller","featured":True,"phone":"0805-XXX-XXXX","whatsapp":"0805-XXX-XXXX"},
-    {"id":"demo3","crop":"Beans","variety":"IT89KD-288","quantity":8,"unit":"tonnes","price":480000,"location":"Jos","state":"Plateau","farmer":"David Okonkwo","user_id":"demo","rating":4.7,"image":"🫘","harvest_date":"2025-08-20","organic":True,"description":"Organic honey beans.","seller_type":"Organic Certified","featured":False,"phone":"0802-XXX-XXXX","whatsapp":"0802-XXX-XXXX"},
-    {"id":"demo4","crop":"Tomatoes","variety":"Roma VF","quantity":5,"unit":"tonnes","price":180000,"location":"Zaria","state":"Kaduna","farmer":"Fatima Yusuf","user_id":"demo","rating":4.6,"image":"🍅","harvest_date":"2025-10-05","organic":False,"description":"Fresh Roma tomatoes.","seller_type":"Verified Farmer","featured":False,"phone":"0806-XXX-XXXX","whatsapp":"0806-XXX-XXXX"},
-    {"id":"demo5","crop":"Yam","variety":"Dioscorea rotundata","quantity":25,"unit":"tonnes","price":550000,"location":"Makurdi","state":"Benue","farmer":"John Tarka","user_id":"demo","rating":4.9,"image":"🍠","harvest_date":"2025-12-10","organic":True,"description":"Premium white yam tubers.","seller_type":"Premium Seller","featured":True,"phone":"0804-XXX-XXXX","whatsapp":"0804-XXX-XXXX"},
-    {"id":"demo6","crop":"Cassava","variety":"TME 419","quantity":40,"unit":"tonnes","price":120000,"location":"Ondo","state":"Ondo","farmer":"Grace Adeyemi","user_id":"demo","rating":4.6,"image":"🥔","harvest_date":"2025-10-30","organic":True,"description":"High-starch cassava.","seller_type":"Organic Certified","featured":False,"phone":"0801-XXX-XXXX","whatsapp":"0801-XXX-XXXX"},
-]
+@st.cache_data(ttl=60)
+def fetch_listings():
+    res = service.table("marketplace_listings").select("*").eq("status", "active").order("created_at", desc=True).execute()
+    return res.data if res.data else []
 
-LISTINGS = DEMO_LISTINGS
+LISTINGS = fetch_listings()
 
 st.markdown("""
 <style>
@@ -55,8 +56,9 @@ st.markdown("""
     .jiji-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
     .jiji-card .image-area {
         height: 160px; background: #f0f0f0; display: flex; align-items: center;
-        justify-content: center; font-size: 3rem; position: relative;
+        justify-content: center; font-size: 3rem; position: relative; overflow: hidden;
     }
+    .jiji-card .image-area img { width: 100%; height: 100%; object-fit: cover; }
     .jiji-card .featured-badge {
         position: absolute; top: 8px; left: 8px;
         background: #ff9800; color: #fff; padding: 4px 10px;
@@ -84,126 +86,216 @@ st.markdown("""
     .stButton button {
         background: #2e7d32 !important; color: #fff !important;
         border: none !important; border-radius: 8px !important;
-        font-weight: 600 !important; width: 100% !important;
+        font-weight: 600 !important;
     }
+    .empty-state { text-align: center; padding: 60px 20px; color: #888; }
+    .detail-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin: 10px 0; }
+    .contact-btn { background: #25d366; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; display: inline-block; font-weight: 600; }
+    .call-btn { background: #2196f3; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; display: inline-block; font-weight: 600; }
+    .stTabs [data-baseweb="tab-list"] { gap: 0; }
+    .stTabs [data-baseweb="tab"] { padding: 8px 20px; font-weight: 600; }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] { background: #e8f5e9; border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div style="font-size:2.5rem;font-weight:800;text-align:center;color:#2e7d32;">🌍 GAIA Market</div>', unsafe_allow_html=True)
 st.markdown('<div style="text-align:center;color:#607d8b;margin-bottom:2rem;">Buy and sell farm produce directly</div>', unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4 = st.tabs(["🛒 Browse Market", "📝 Sell Produce", "👤 My Store", "📦 My Orders"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🛒 Browse", "📝 Sell", "👤 My Store", "📦 Orders", "💳 Cart"])
 
 with tab1:
     search = st.text_input("", placeholder="🔍 Search crops, varieties, or locations...", label_visibility="collapsed", key="market_search")
     
-    featured = [l for l in LISTINGS if l.get("featured")]
-    regular = [l for l in LISTINGS if not l.get("featured")]
-    
-    if featured:
-        st.markdown("### ⭐ Featured Listings")
+    if search:
+        filtered = [l for l in LISTINGS if search.lower() in (l.get("crop","")+" "+l.get("variety","")+" "+l.get("location","")).lower()]
+    else:
+        filtered = LISTINGS
+
+    if not filtered:
+        st.markdown('<div class="empty-state"><h3>🌱 No listings yet</h3><p>Be the first to sell your produce!</p></div>', unsafe_allow_html=True)
+    else:
         cols = st.columns(3)
-        for i, listing in enumerate(featured[:3]):
-            with cols[i]:
-                crop = listing.get('crop', 'Unknown')
-                price = listing.get('price', 0)
-                location = listing.get('location', '')
-                state = listing.get('state', '')
-                image = listing.get('image', '🌱')
-                organic = listing.get('organic', False)
-                rating = listing.get('rating', 4.5)
-                stars_html = "⭐" * int(rating)
+        for i, listing in enumerate(filtered):
+            with cols[i % 3]:
+                image_url = listing.get("image_urls", [])
+                image_src = image_url[0] if image_url else "🌱"
+                price = listing.get("price", 0)
+                location = listing.get("location", "")
+                state = listing.get("state", "")
+                organic = listing.get("organic", False)
+                featured = listing.get("featured", False)
+                crop = listing.get("crop", "Unknown")
+                variety = listing.get("variety", "")
                 
-                organic_style = '#e8f5e9' if organic else '#f5f5f5'
-                organic_style2 = '#c8e6c9' if organic else '#e0e0e0'
-                
-                st.markdown(
-                    '<div class="jiji-card">'
-                    '<div class="image-area" style="background: linear-gradient(135deg, ' + organic_style + ', ' + organic_style2 + ');">'
-                    '<span style="font-size:3.5rem;">' + image + '</span>'
-                    '<div class="featured-badge">⭐ Featured</div>'
-                    '</div>'
-                    '<div class="info-area">'
-                    '<div class="crop-name">' + crop + '</div>'
-                    '<div class="price">₦' + format(price, ',') + ' <small>/ tonnes</small></div>'
-                    '<div class="location">📍 ' + location + ', ' + state + '</div>'
-                    '<span class="stars">' + stars_html + ' ' + str(rating) + '</span>'
-                    '</div>'
-                    '</div>',
-                    unsafe_allow_html=True
-                )
+                card_html = f'<div class="jiji-card" onclick="window.location.href=\'?listing_id={listing["id"]}\';"><div class="image-area" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">{f"<img src=\'{image_src}\' alt=\'{crop}\'/>" if image_src != "🌱" else f"<span style=\'font-size:3.5rem;\'>{image_src}</span>"}{f"<div class=\'featured-badge\'>⭐ Featured</div>" if featured else ""}{f"<div class=\'organic-badge\'>🌿</div>" if organic else ""}</div><div class="info-area"><div class="crop-name">{crop} {variety}</div><div class="price">₦{price:,} <small>/ {listing.get("unit","tonne")}</small></div><div class="location">📍 {location}, {state}</div></div></div>'
+                st.markdown(card_html, unsafe_allow_html=True)
+                if st.button("View Details", key=f"view_{listing['id']}", use_container_width=True):
+                    st.session_state.selected_listing = listing
+                    st.rerun()
     
-    st.markdown("### 📋 All Listings")
-    cols = st.columns(3)
-    for i, listing in enumerate(regular[:6]):
-        with cols[i % 3]:
-            crop = listing.get('crop', 'Unknown')
-            price = listing.get('price', 0)
-            location = listing.get('location', '')
-            state = listing.get('state', '')
-            image = listing.get('image', '🌱')
-            organic = listing.get('organic', False)
-            rating = listing.get('rating', 4.5)
-            stars_html = "⭐" * int(rating)
-            
-            organic_style = '#e8f5e9' if organic else '#f5f5f5'
-            organic_style2 = '#c8e6c9' if organic else '#e0e0e0'
-            organic_badge = '<div class="organic-badge">🌿</div>' if organic else ''
-            
-            st.markdown(
-                '<div class="jiji-card">'
-                '<div class="image-area" style="background: linear-gradient(135deg, ' + organic_style + ', ' + organic_style2 + ');">'
-                '<span style="font-size:3.5rem;">' + image + '</span>'
-                + organic_badge +
-                '</div>'
-                '<div class="info-area">'
-                '<div class="crop-name">' + crop + '</div>'
-                '<div class="price">₦' + format(price, ',') + ' <small>/ tonnes</small></div>'
-                '<div class="location">📍 ' + location + ', ' + state + '</div>'
-                '<span class="stars">' + stars_html + ' ' + str(rating) + '</span>'
-                '</div>'
-                '</div>',
-                unsafe_allow_html=True
-            )
+    if "selected_listing" in st.session_state and st.session_state.selected_listing is not None:
+        listing = st.session_state.selected_listing
+        st.markdown("---")
+        st.markdown("## 🧾 Listing Details")
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            image_urls = listing.get("image_urls", [])
+            if image_urls:
+                for img_url in image_urls:
+                    st.image(img_url, use_container_width=True)
+            else:
+                st.markdown('<div style="font-size:5rem;text-align:center;">🌱</div>', unsafe_allow_html=True)
+            st.markdown(f"**Description:** {listing.get('description','')}")
+        with c2:
+            st.markdown(f"**Crop:** {listing.get('crop','')}")
+            st.markdown(f"**Variety:** {listing.get('variety','')}")
+            st.markdown(f"**Price:** ₦{listing.get('price',0):,} / {listing.get('unit','tonne')}")
+            st.markdown(f"**Location:** {listing.get('location','')}, {listing.get('state','')}")
+            seller_profile = get_seller_profile(listing.get('user_id'))
+            seller_name = f"{seller_profile.get('first_name','')} {seller_profile.get('last_name','')}".strip() or "Seller"
+            st.markdown(f"**Seller:** {seller_name}")
+            seller_phone = seller_profile.get('phone','')
+            if seller_phone:
+                st.markdown(f'<a class="call-btn" href="tel:{seller_phone}">📞 Call Seller</a>', unsafe_allow_html=True)
+                st.markdown(f'<a class="contact-btn" href="https://wa.me/{normalize_phone(seller_phone)}">💬 WhatsApp</a>', unsafe_allow_html=True)
+            quantity = st.number_input("Quantity", min_value=1, value=1)
+            if st.button("Add to Cart", key="add_to_cart", use_container_width=True):
+                st.session_state.cart.append({
+                    "listing_id": listing["id"],
+                    "crop": listing.get("crop"),
+                    "variety": listing.get("variety"),
+                    "price": listing.get("price",0),
+                    "quantity": quantity,
+                    "seller_id": listing.get("user_id")
+                })
+                st.success(f"Added {quantity} {listing.get('unit','unit')} to cart!")
+                st.rerun()
+            if st.button("Close", key="close_details"):
+                st.session_state.selected_listing = None
+                st.rerun()
 
 with tab2:
     st.markdown("### 📝 Sell Your Produce")
-    st.info("Sell produce feature coming soon. Contact support to list your produce.")
+    with st.form("sell_form"):
+        crop = st.text_input("Crop *")
+        variety = st.text_input("Variety")
+        quantity = st.number_input("Quantity", min_value=1.0, value=1.0)
+        unit = st.selectbox("Unit", ["tonne", "kg", "bag", "bunch", "piece"])
+        price = st.number_input("Price per unit (₦)", min_value=0.0, value=0.0)
+        location = st.text_input("Location (e.g., Kaduna)")
+        state = st.text_input("State")
+        description = st.text_area("Description")
+        organic = st.checkbox("Organic")
+        harvest_date = st.date_input("Harvest Date")
+        uploaded_images = st.file_uploader("Upload photos", type=["jpg","jpeg","png"], accept_multiple_files=True)
+        
+        if st.form_submit_button("📤 Publish Listing"):
+            if not crop or not price or not location or not state:
+                st.error("Crop, price, location, and state are required.")
+            else:
+                image_urls = []
+                for img_file in uploaded_images:
+                    url, err = upload_listing_image(img_file.read(), img_file.name)
+                    if url:
+                        image_urls.append(url)
+                    else:
+                        st.warning(f"Image upload failed: {err}")
+                listing_data = {
+                    "user_id": user.id,
+                    "crop": crop.strip(),
+                    "variety": variety.strip(),
+                    "quantity": quantity,
+                    "unit": unit,
+                    "price": price,
+                    "location": location.strip(),
+                    "state": state.strip(),
+                    "description": description.strip(),
+                    "organic": organic,
+                    "harvest_date": harvest_date.isoformat() if harvest_date else None,
+                    "image_urls": image_urls,
+                    "status": "active"
+                }
+                try:
+                    service.table("marketplace_listings").insert(listing_data).execute()
+                    st.success("✅ Listing published!")
+                    st.balloons()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to publish: {e}")
 
 with tab3:
     st.markdown("### 👤 My Store")
-    st.info("Your store listings will appear here.")
+    my_listings = service.table("marketplace_listings").select("*").eq("user_id", user.id).execute().data or []
+    if not my_listings:
+        st.info("You haven't created any listings yet.")
+    else:
+        for listing in my_listings:
+            status = listing.get("status")
+            with st.expander(f"{listing.get('crop','')} {listing.get('variety','')} — ₦{listing.get('price',0):,} ({status})"):
+                st.write(f"**Location:** {listing.get('location','')}, {listing.get('state','')}")
+                if listing.get("image_urls"):
+                    for img in listing["image_urls"]:
+                        st.image(img, width=150)
+                if st.button("Delete", key=f"del_{listing['id']}"):
+                    service.table("marketplace_listings").delete().eq("id", listing["id"]).execute()
+                    st.success("Listing deleted.")
+                    st.rerun()
 
 with tab4:
     st.markdown("### 📦 My Orders")
-    st.info("Your orders will appear here.")
+    my_orders = service.table("marketplace_orders").select("*").or_(f"buyer_id.eq.{user.id},seller_id.eq.{user.id}").order("created_at", desc=True).execute().data or []
+    if not my_orders:
+        st.info("No orders yet.")
+    else:
+        for order in my_orders:
+            role = "Buyer" if order["buyer_id"] == user.id else "Seller"
+            status = order.get("status")
+            st.markdown(f"**Order ID:** {order['id'][:8]} | Role: {role} | Status: {status}")
+            listing = get_listing_by_id(order.get("listing_id"))
+            if listing:
+                st.write(f"Item: {listing.get('crop','')} {listing.get('variety','')}")
+            st.write(f"Amount: ₦{order.get('total_amount',0):,}")
+            st.markdown("---")
+
+with tab5:
+    st.markdown("### 💳 Cart")
+    if not st.session_state.cart:
+        st.info("Your cart is empty.")
+    else:
+        total = 0
+        for item in st.session_state.cart:
+            st.write(f"{item['quantity']} x {item['crop']} {item['variety']} @ ₦{item['price']:,}")
+            total += item['price'] * item['quantity']
+        st.markdown(f"**Total: ₦{total:,}**")
+        if st.button("Checkout with Paystack", type="primary"):
+            seller_id = st.session_state.cart[0]["seller_id"]
+            ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
+            order_data = {
+                "listing_id": st.session_state.cart[0]["listing_id"],
+                "buyer_id": user.id,
+                "seller_id": seller_id,
+                "quantity": sum(item["quantity"] for item in st.session_state.cart),
+                "total_amount": total,
+                "status": "pending",
+                "payment_reference": ref
+            }
+            service.table("marketplace_orders").insert(order_data).execute()
+            components.html(f"""
+            <script src="https://js.paystack.co/v1/inline.js"></script>
+            <script>
+                PaystackPop.setup({{
+                    key: '{PAYSTACK_PUBLIC}',
+                    email: '{user.email}',
+                    amount: {total * 100},
+                    currency: 'NGN',
+                    ref: '{ref}',
+                    label: 'GAIA Market Purchase',
+                    callback: function(response) {{
+                        window.location.href = '/~/payment_callback?reference=' + response.reference + '&order_type=market';
+                    }}
+                }}).openIframe();
+            </script>
+            """, height=100)
 
 st.markdown("---")
 st.caption("Powered by Darkmoor Ltd")
-
-st.markdown("---")
-st.markdown("### Quick Navigation")
-cols = st.columns(10)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="Livestock")
-with cols[5]: st.page_link("pages/17_Video_Scan.py", label="Video Scan")
-with cols[6]: st.page_link("pages/19_Satellite.py", label="Satellite")
-with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="Voice AI")
-with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="Buy Scans")
-with cols[9]: st.page_link("pages/10_Early_Warning.py", label="Alerts")
-
-st.markdown("### More Features")
-cols2 = st.columns(10)
-with cols2[0]: st.page_link("pages/11_Verify_Farmer.py", label="Verify")
-with cols2[1]: st.page_link("pages/12_Verification_History.py", label="History")
-with cols2[2]: st.page_link("pages/14_Wallet.py", label="Wallet")
-with cols2[3]: st.page_link("pages/15_Badges.py", label="Badges")
-with cols2[4]: st.page_link("pages/16_Chat.py", label="Chat")
-with cols2[5]: st.page_link("pages/20_Marketplace.py", label="Market")
-with cols2[6]: st.page_link("pages/21_Crop_Insurance.py", label="Insurance")
-with cols2[7]: st.page_link("pages/6_Payment_History.py", label="Payments")
-with cols2[8]: st.page_link("pages/8_Profile.py", label="Profile")
-with cols2[9]: st.page_link("pages/13_Help.py", label="Help")

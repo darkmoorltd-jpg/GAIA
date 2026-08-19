@@ -98,28 +98,16 @@ def get_favorites(user_id):
 
 def create_escrow(order_id, amount):
     supabase = get_service_client()
-    supabase.table("marketplace_escrow").insert({
-        "order_id": order_id,
-        "amount": amount,
-        "status": "held"
-    }).execute()
+    supabase.table("marketplace_escrow").insert({"order_id": order_id, "amount": amount, "status": "held"}).execute()
 
 def release_escrow(order_id):
     supabase = get_service_client()
-    supabase.table("marketplace_escrow").update({
-        "status": "released",
-        "released_at": datetime.now().isoformat()
-    }).eq("order_id", order_id).execute()
+    supabase.table("marketplace_escrow").update({"status": "released", "released_at": datetime.now().isoformat()}).eq("order_id", order_id).execute()
     supabase.table("marketplace_orders").update({"status": "paid"}).eq("id", order_id).execute()
 
 def create_dispute(order_id, user_id, reason):
     supabase = get_service_client()
-    supabase.table("marketplace_disputes").insert({
-        "order_id": order_id,
-        "raised_by": user_id,
-        "reason": reason,
-        "status": "open"
-    }).execute()
+    supabase.table("marketplace_disputes").insert({"order_id": order_id, "raised_by": user_id, "reason": reason, "status": "open"}).execute()
 
 def get_dispute(order_id):
     supabase = get_service_client()
@@ -144,10 +132,7 @@ def get_negotiations(user_id):
 
 def save_search(user_id, query):
     supabase = get_service_client()
-    supabase.table("marketplace_saved_searches").insert({
-        "user_id": user_id,
-        "query": query
-    }).execute()
+    supabase.table("marketplace_saved_searches").insert({"user_id": user_id, "query": query}).execute()
 
 def get_saved_searches(user_id):
     supabase = get_service_client()
@@ -164,16 +149,6 @@ def get_price_index(crop=None, state=None):
     res = query.execute()
     return res.data if res.data else []
 
-def update_price_index(crop, state, avg_price, count):
-    supabase = get_service_client()
-    supabase.table("marketplace_price_index").upsert({
-        "crop": crop,
-        "state": state,
-        "avg_price": avg_price,
-        "sample_count": count,
-        "updated_at": datetime.now().isoformat()
-    }).execute()
-
 def get_notifications(user_id):
     supabase = get_service_client()
     res = supabase.table("notifications").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(20).execute()
@@ -181,19 +156,20 @@ def get_notifications(user_id):
 
 def create_notification(user_id, title, body, notif_type):
     supabase = get_service_client()
-    supabase.table("notifications").insert({
-        "user_id": user_id,
-        "title": title,
-        "body": body,
-        "type": notif_type
-    }).execute()
+    supabase.table("notifications").insert({"user_id": user_id, "title": title, "body": body, "type": notif_type}).execute()
 
 def get_currency_rates():
     supabase = get_service_client()
-    res = supabase.table("currency_rates").select("*").execute()
-    return res.data if res.data else []
+    try:
+        res = supabase.table("currency_rates").select("*").execute()
+        return res.data if res.data else [{"code":"NGN","rate":1}]
+    except:
+        return [{"code":"NGN","rate":1}]
 
 def get_delivery_partners():
     supabase = get_service_client()
-    res = supabase.table("delivery_partners").select("*").execute()
-    return res.data if res.data else []
+    try:
+        res = supabase.table("delivery_partners").select("*").execute()
+        return res.data if res.data else []
+    except:
+        return []

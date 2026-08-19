@@ -4,8 +4,17 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 import uuid
 import requests
-from app.utils.phone_util import normalize_phone
-from app.utils.marketplace_util import *
+
+def normalize_phone(phone):
+    if not phone:
+        return "08000000000"
+    phone = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+    if phone.startswith("0"):
+        return "234" + phone[1:]
+    elif phone.startswith("234"):
+        return phone
+    else:
+        return "234" + phone
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -16,6 +25,163 @@ PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 @st.cache_resource
 def get_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
+
+def upload_listing_image(file_bytes, filename):
+    supabase = get_service()
+    unique_name = f"{uuid.uuid4().hex[:12]}_{filename}"
+    bucket = "listing-images"
+    try:
+        supabase.storage.from_(bucket).upload(unique_name, file_bytes, {"content-type": "image/jpeg"})
+        return supabase.storage.from_(bucket).get_public_url(unique_name), None
+    except Exception as e:
+        return None, str(e)[:200]
+
+def verify_payment(reference):
+    url = f"https://api.paystack.co/transaction/verify/{reference}"
+    headers = {"Authorization": f"Bearer {PAYSTACK_SECRET}"}
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            if data.get("status") and data["data"]["status"] == "success":
+                return data["data"]
+    except:
+        pass
+    return None
+
+def get_listing_by_id(listing_id):
+    supabase = get_service()
+    try:
+        res = supabase.table("marketplace_listings").select("*").eq("id", listing_id).execute()
+        return res.data[0] if res.data else None
+    except:
+        return None
+
+def get_seller_profile(seller_id):
+    supabase = get_service()
+    try:
+        res = supabase.table("user_profiles").select("*").eq("user_id", seller_id).execute()
+        return res.data[0] if res.data else {}
+    except:
+        return {}
+
+def add_review(listing_id, seller_id, reviewer_id, rating, comment):
+    supabase = get_service()
+    supabase.table("marketplace_reviews").insert({
+        "listing_id": listing_id, "seller_id": seller_id,
+        "reviewer_id": reviewer_id, "rating": rating, "comment": comment
+    }).execute()
+
+def get_reviews(listing_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_reviews").select("*").eq("listing_id", listing_id).order("created_at", desc=True).execute()
+    return res.data if res.data else []
+
+def get_seller_rating(seller_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_reviews").select("rating").eq("seller_id", seller_id).execute()
+    if res.data:
+        avg = sum(r["rating"] for r in res.data) / len(res.data)
+        return round(avg, 1), len(res.data)
+    return 0, 0
+
+def toggle_favorite(user_id, listing_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_favorites").select("*").eq("user_id", user_id).eq("listing_id", listing_id).execute()
+    if res.data:
+        supabase.table("marketplace_favorites").delete().eq("user_id", user_id).eq("listing_id", listing_id).execute()
+        return False
+    else:
+        supabase.table("marketplace_favorites").insert({"user_id": user_id, "listing_id": listing_id}).execute()
+        return True
+
+def is_favorite(user_id, listing_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_favorites").select("*").eq("user_id", user_id).eq("listing_id", listing_id).execute()
+    return len(res.data) > 0
+
+def get_favorites(user_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_favorites").select("listing_id").eq("user_id", user_id).execute()
+    ids = [r["listing_id"] for r in res.data] if res.data else []
+    if not ids:
+        return []
+    listings = supabase.table("marketplace_listings").select("*").in_("id", ids).execute()
+    return listings.data if listings.data else []
+
+def create_escrow(order_id, amount):
+    supabase = get_service()
+    supabase.table("marketplace_escrow").insert({"order_id": order_id, "amount": amount, "status": "held"}).execute()
+
+def release_escrow(order_id):
+    supabase = get_service()
+    supabase.table("marketplace_escrow").update({"status": "released", "released_at": datetime.now().isoformat()}).eq("order_id", order_id).execute()
+    supabase.table("marketplace_orders").update({"status": "paid"}).eq("id", order_id).execute()
+
+def create_dispute(order_id, user_id, reason):
+    supabase = get_service()
+    supabase.table("marketplace_disputes").insert({"order_id": order_id, "raised_by": user_id, "reason": reason, "status": "open"}).execute()
+
+def get_dispute(order_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_disputes").select("*").eq("order_id", order_id).execute()
+    return res.data[0] if res.data else None
+
+def create_negotiation(listing_id, buyer_id, seller_id, proposed_price, proposed_quantity, message):
+    supabase = get_service()
+    supabase.table("marketplace_negotiations").insert({
+        "listing_id": listing_id, "buyer_id": buyer_id, "seller_id": seller_id,
+        "proposed_price": proposed_price, "proposed_quantity": proposed_quantity, "message": message
+    }).execute()
+
+def get_negotiations(user_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_negotiations").select("*").or_(f"buyer_id.eq.{user_id},seller_id.eq.{user_id}").order("created_at", desc=True).execute()
+    return res.data if res.data else []
+
+def save_search(user_id, query):
+    supabase = get_service()
+    supabase.table("marketplace_saved_searches").insert({"user_id": user_id, "query": query}).execute()
+
+def get_saved_searches(user_id):
+    supabase = get_service()
+    res = supabase.table("marketplace_saved_searches").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return res.data if res.data else []
+
+def get_price_index(crop=None, state=None):
+    supabase = get_service()
+    query = supabase.table("marketplace_price_index").select("*")
+    if crop:
+        query = query.eq("crop", crop)
+    if state:
+        query = query.eq("state", state)
+    res = query.execute()
+    return res.data if res.data else []
+
+def get_notifications(user_id):
+    supabase = get_service()
+    res = supabase.table("notifications").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(20).execute()
+    return res.data if res.data else []
+
+def create_notification(user_id, title, body, notif_type):
+    supabase = get_service()
+    supabase.table("notifications").insert({"user_id": user_id, "title": title, "body": body, "type": notif_type}).execute()
+
+def get_currency_rates():
+    supabase = get_service()
+    try:
+        res = supabase.table("currency_rates").select("*").execute()
+        return res.data if res.data else [{"code":"NGN","rate":1}]
+    except:
+        return [{"code":"NGN","rate":1}]
+
+def get_delivery_partners():
+    supabase = get_service()
+    try:
+        res = supabase.table("delivery_partners").select("*").execute()
+        return res.data if res.data else []
+    except:
+        return []
 
 st.set_page_config(page_title="GAIA Market", page_icon="🌍", layout="wide")
 
@@ -33,15 +199,13 @@ if "selected_listing" not in st.session_state:
 if "selected_currency" not in st.session_state:
     st.session_state.selected_currency = "NGN"
 
-CURRENCY_RATES = {r["code"]: r["rate"] for r in get_currency_rates()} if get_currency_rates() else {"NGN": 1}
-
 @st.cache_data(ttl=60)
 def fetch_listings():
     res = service.table("marketplace_listings").select("*").eq("status", "active").order("created_at", desc=True).execute()
     return res.data if res.data else []
 
 LISTINGS = fetch_listings()
-
+CURRENCY_RATES = {r["code"]: r["rate"] for r in get_currency_rates()}
 selected_currency = st.selectbox("💱 Currency", list(CURRENCY_RATES.keys()))
 rate = CURRENCY_RATES.get(selected_currency, 1)
 
@@ -51,27 +215,12 @@ st.markdown("""
     * { font-family: 'Inter', sans-serif; }
     .stApp { background: #f5f5f5; color: #222; }
     header, footer { visibility: hidden; }
-    .jiji-card {
-        background: #fff; border-radius: 12px; overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s;
-        cursor: pointer; position: relative; margin-bottom: 16px;
-    }
+    .jiji-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.2s; cursor: pointer; position: relative; margin-bottom: 16px; }
     .jiji-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
-    .jiji-card .image-area {
-        height: 160px; background: #f0f0f0; display: flex; align-items: center;
-        justify-content: center; font-size: 3rem; position: relative; overflow: hidden;
-    }
+    .jiji-card .image-area { height: 160px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 3rem; position: relative; overflow: hidden; }
     .jiji-card .image-area img { width: 100%; height: 100%; object-fit: cover; }
-    .jiji-card .featured-badge {
-        position: absolute; top: 8px; left: 8px;
-        background: #ff9800; color: #fff; padding: 4px 10px;
-        border-radius: 4px; font-size: 0.7rem; font-weight: 700;
-    }
-    .jiji-card .organic-badge {
-        position: absolute; top: 8px; right: 8px;
-        background: #4caf50; color: #fff; padding: 4px 8px;
-        border-radius: 4px; font-size: 0.65rem; font-weight: 600;
-    }
+    .jiji-card .featured-badge { position: absolute; top: 8px; left: 8px; background: #ff9800; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
+    .jiji-card .organic-badge { position: absolute; top: 8px; right: 8px; background: #4caf50; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; }
     .jiji-card .info-area { padding: 12px; }
     .jiji-card .crop-name { font-size: 1rem; font-weight: 600; color: #222; margin-bottom: 4px; }
     .jiji-card .price { font-size: 1.2rem; font-weight: 800; color: #2e7d32; }
@@ -85,7 +234,6 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] { gap: 0; }
     .stTabs [data-baseweb="tab"] { padding: 8px 20px; font-weight: 600; }
     .stTabs [data-baseweb="tab"][aria-selected="true"] { background: #e8f5e9; border-radius: 10px; }
-    .badge-trust { background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.75rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -96,13 +244,13 @@ tab_browse, tab_sell, tab_store, tab_orders, tab_cart, tab_favs, tab_neg, tab_al
     "🛒 Browse", "📝 Sell", "👤 Store", "📦 Orders", "💳 Cart", "❤️ Saved", "🤝 Negotiate", "🔔 Alerts", "📊 Prices", "🔍 Searches"
 ])
 
+# BROWSE TAB
 with tab_browse:
     search = st.text_input("🔍 Search", label_visibility="collapsed")
     if search:
         filtered = [l for l in LISTINGS if search.lower() in (l.get("crop","")+" "+l.get("variety","")+" "+l.get("location","")).lower()]
     else:
         filtered = LISTINGS
-
     if not filtered:
         st.markdown('<div class="empty-state"><h3>🌱 No listings yet</h3></div>', unsafe_allow_html=True)
     else:
@@ -117,7 +265,6 @@ with tab_browse:
                 variety = listing.get("variety", "")
                 seller_id = listing.get("user_id")
                 rating, count = get_seller_rating(seller_id)
-
                 card_html = f'''
                 <div class="jiji-card" onclick="window.location.href='?listing_id={listing["id"]}';">
                     <div class="image-area" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">
@@ -132,7 +279,6 @@ with tab_browse:
                 </div>
                 '''
                 st.markdown(card_html, unsafe_allow_html=True)
-
                 col_btn, col_fav = st.columns([4,1])
                 with col_btn:
                     if st.button("Details", key=f"view_{listing['id']}", use_container_width=True):
@@ -143,7 +289,6 @@ with tab_browse:
                     if st.button("❤️" if fav else "🤍", key=f"fav_{listing['id']}"):
                         toggle_favorite(user.id, listing["id"])
                         st.rerun()
-
     if st.session_state.get("selected_listing"):
         listing = st.session_state.selected_listing
         st.markdown("---")
@@ -154,10 +299,8 @@ with tab_browse:
                 st.image(img, use_container_width=True)
             st.markdown(f"**Description:** {listing.get('description','')}")
             st.markdown("### ⭐ Reviews")
-            reviews = get_reviews(listing["id"])
-            if reviews:
-                for rev in reviews:
-                    st.markdown(f'<div class="review-card">{"⭐"*rev.get("rating",0)}<br>{rev.get("comment","")}</div>', unsafe_allow_html=True)
+            for rev in get_reviews(listing["id"]):
+                st.markdown(f'<div class="review-card">{"⭐"*rev.get("rating",0)}<br>{rev.get("comment","")}</div>', unsafe_allow_html=True)
             with st.expander("Write Review"):
                 with st.form(f"rev_{listing['id']}"):
                     rating = st.slider("Rating", 1, 5, 5)
@@ -191,6 +334,7 @@ with tab_browse:
                 st.session_state.selected_listing = None
                 st.rerun()
 
+# SELL TAB
 with tab_sell:
     st.markdown("### 📝 Sell Your Produce")
     with st.form("sell_form"):
@@ -223,6 +367,7 @@ with tab_sell:
                 st.success("Listing published!")
                 st.rerun()
 
+# STORE TAB
 with tab_store:
     st.markdown("### 👤 My Store")
     my_listings = service.table("marketplace_listings").select("*").eq("user_id", user.id).execute().data or []
@@ -232,6 +377,7 @@ with tab_store:
                 service.table("marketplace_listings").delete().eq("id", listing["id"]).execute()
                 st.rerun()
 
+# ORDERS TAB
 with tab_orders:
     st.markdown("### 📦 Orders")
     orders = service.table("marketplace_orders").select("*").or_(f"buyer_id.eq.{user.id},seller_id.eq.{user.id}").order("created_at", desc=True).execute().data or []
@@ -259,6 +405,7 @@ with tab_orders:
                         create_dispute(order["id"], user.id, reason)
                         st.rerun()
 
+# CART TAB
 with tab_cart:
     st.markdown("### 💳 Cart")
     if not st.session_state.cart:
@@ -291,6 +438,7 @@ with tab_cart:
             </script>
             """, height=100)
 
+# FAVORITES TAB
 with tab_favs:
     st.markdown("### ❤️ Favorites")
     favs = get_favorites(user.id)
@@ -300,6 +448,7 @@ with tab_favs:
             toggle_favorite(user.id, listing["id"])
             st.rerun()
 
+# NEGOTIATIONS TAB
 with tab_neg:
     st.markdown("### 🤝 Negotiations")
     negs = get_negotiations(user.id)
@@ -312,6 +461,7 @@ with tab_neg:
             st.write(f"Message: {neg['message']}")
         st.markdown("---")
 
+# ALERTS TAB
 with tab_alerts:
     st.markdown("### 🔔 Notifications")
     notifs = get_notifications(user.id)
@@ -322,6 +472,7 @@ with tab_alerts:
             st.markdown(f"**{n.get('title')}** — {n.get('body')}")
             st.caption(n.get("created_at",""))
 
+# PRICES TAB
 with tab_prices:
     st.markdown("### 📊 Market Prices")
     price_data = get_price_index()
@@ -329,8 +480,9 @@ with tab_prices:
         for p in price_data:
             st.write(f"**{p.get('crop')}** in {p.get('state')}: ₦{p.get('avg_price',0):,.2f} (n={p.get('sample_count')})")
     else:
-        st.info("No price data yet. Sell listings to generate price index.")
+        st.info("No price data yet.")
 
+# SAVED SEARCHES TAB
 with tab_saved:
     st.markdown("### 🔍 Saved Searches")
     saved = get_saved_searches(user.id)

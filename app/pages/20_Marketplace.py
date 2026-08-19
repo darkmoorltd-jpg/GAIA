@@ -261,6 +261,9 @@ with tab_browse:
             min_price = min(l.get("price", 0) for l in LISTINGS)
         else:
             max_price, min_price = 1000, 0
+        # Prevent slider error when min == max
+        if min_price == max_price:
+            max_price = min_price + 1
         price_range = st.slider("Price range (₦)", min_price, max_price, (min_price, max_price))
 
     # Rating and sorting

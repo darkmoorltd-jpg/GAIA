@@ -12,6 +12,22 @@ DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 st.set_page_config(page_title="GAIA – Pest Detection", page_icon="🐛", layout="wide")
 
+st.markdown("""
+<div style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('https://images.unsplash.com/photo-1540835296355-dbb6f3b4d4c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.5;
+    z-index: -1;
+"></div>
+""", unsafe_allow_html=True)
+
+
 # THEME (light default)
 if "theme" not in st.session_state:
     st.session_state.theme = "light"

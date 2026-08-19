@@ -43,9 +43,6 @@ PEST_CLASSES = [
 ]
 N = len(PEST_CLASSES)
 
-# BACKGROUND IMAGE
-BG_URL = "https://images.unsplash.com/photo-1540835296355-dbb6f3b4d4c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
-
 language_options = {
     "English (UK)": "en-GB",
     "Hausa": "ha",
@@ -117,20 +114,25 @@ def get_voice_guide(explanation, lang):
     audio_bytes, err = text_to_speech(explanation[:2000], lang)
     return audio_bytes, err
 
+# BACKGROUND IMAGE — clearly visible
+BG_URL = "https://images.unsplash.com/photo-1540835296355-dbb6f3b4d4c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
+
 if theme == "dark":
     st.markdown(f"""
     <style>
         .stApp {{
-            background: url('{BG_URL}') center/cover fixed !important;
-            background-blend-mode: overlay;
-            color: #fff8e1;
+            background-image: url('{BG_URL}') !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
         }}
         header,footer{{visibility:hidden}}
         .title{{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#ff9800,#ffcc80,#ff9800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(255,152,0,.7);animation:pestGlow 2s ease-in-out infinite alternate}}
         @keyframes pestGlow{{from{{text-shadow:0 0 25px rgba(255,152,0,.7)}}to{{text-shadow:0 0 50px rgba(255,152,0,1),0 0 80px rgba(255,152,0,.6)}}}}
-        .subtitle{{text-align:center;font-size:1.2rem;color:#bcaaa4}}
-        .result-card{{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}}
-        .result-card.top-result{{border:1px solid #ff9800;box-shadow:0 0 30px rgba(255,152,0,.3)}}
+        .subtitle{{text-align:center;font-size:1.2rem;color:#ffcc80}}
+        .result-card{{background:rgba(255,255,255,.75);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0;color:#222}}
+        .result-card.top-result{{border:1px solid #e65100;box-shadow:0 0 20px rgba(230,81,0,.2)}}
         .stProgress>div>div>div>div{{background:linear-gradient(90deg,#ff9800,#ffcc80)}}
     </style>
     """, unsafe_allow_html=True)
@@ -138,15 +140,17 @@ else:
     st.markdown(f"""
     <style>
         .stApp {{
-            background: url('{BG_URL}') center/cover fixed !important;
-            background-blend-mode: overlay;
-            color: #3e2723;
+            background-image: url('{BG_URL}') !important;
+            background-size: cover !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+            background-attachment: fixed !important;
         }}
         header,footer{{visibility:hidden}}
         .title{{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#e65100,#ff9800,#e65100);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 10px rgba(230,81,0,.3);animation:pestGlowLight 2s ease-in-out infinite alternate}}
         @keyframes pestGlowLight{{from{{text-shadow:0 0 10px rgba(230,81,0,.3)}}to{{text-shadow:0 0 25px rgba(230,81,0,.8),0 0 50px rgba(230,81,0,.5)}}}}
         .subtitle{{text-align:center;font-size:1.2rem;color:#4e342e}}
-        .result-card{{background:rgba(255,255,255,.75);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}}
+        .result-card{{background:rgba(255,255,255,.85);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}}
         .result-card.top-result{{border:1px solid #e65100;box-shadow:0 0 20px rgba(230,81,0,.2)}}
         .stProgress>div>div>div>div{{background:linear-gradient(90deg,#ff9800,#ffcc80)}}
     </style>

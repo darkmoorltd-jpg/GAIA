@@ -18,11 +18,7 @@ folium
 streamlit-folium
 geopy
 reportlab
-
 scipy
-
 edge-tts
 gTTS
-
-gttsplotly
 plotly

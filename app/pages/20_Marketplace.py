@@ -13,9 +13,6 @@ SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_PUBLIC = "pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057"
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
-# ============================================================
-# SUPABASE CLIENT (service role)
-# ============================================================
 @st.cache_resource
 def get_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
@@ -82,8 +79,8 @@ def get_seller_trust_score(seller_id):
 
 def is_verified_seller(user_id):
     supabase = get_service()
-    profile = supabase.table("user_profiles").select("verification_status").eq("user_id", user_id).execute()
-    return profile.data and profile.data[0].get("verification_status") == "approved"
+    res = supabase.table("user_profiles").select("verification_status").eq("user_id", user_id).execute()
+    return bool(res.data and res.data[0].get("verification_status") == "approved")
 
 def toggle_favorite(user_id, listing_id):
     supabase = get_service()
@@ -157,15 +154,6 @@ def get_price_index():
         result.append({"crop": crop, "state": state, "avg_price": sum(prices)/len(prices), "sample_count": len(prices)})
     return sorted(result, key=lambda x: x["avg_price"], reverse=True)
 
-def get_saved_searches(user_id):
-    supabase = get_service()
-    res = supabase.table("marketplace_saved_searches").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
-    return res.data if res.data else []
-
-def save_search(user_id, query):
-    supabase = get_service()
-    supabase.table("marketplace_saved_searches").insert({"user_id": user_id, "query": query}).execute()
-
 def generate_description(crop, variety, location):
     try:
         from app.utils.deepseek_explainer import DEEPSEEK_API_KEY
@@ -201,20 +189,21 @@ if "selected_listing" not in st.session_state:
     st.session_state.selected_listing = None
 
 # ============================================================
-# SEARCH FILTERS
+# FETCH ALL LISTINGS
 # ============================================================
 all_listings = service.table("marketplace_listings").select("*").eq("status", "active").order("created_at", desc=True).execute().data or []
 
+# ============================================================
+# SEARCH & FILTERS
+# ============================================================
 st.markdown("## 🔍 Search & Filter")
-
-# Filter row
 col_search, col_crop, col_state, col_price, col_org, col_rating = st.columns([3, 2, 2, 2, 1, 1])
 with col_search:
-    search_query = st.text_input("Search", placeholder="crop, variety, location...")
+    search_query = st.text_input("Search", placeholder="crop, variety, location...", label_visibility="collapsed")
 with col_crop:
-    crop_filter = st.selectbox("Crop", ["All"] + sorted(set(l.get("crop", "") for l in all_listings)))
+    crop_filter = st.selectbox("Crop", ["All"] + sorted(set(l.get("crop","") for l in all_listings)))
 with col_state:
-    state_filter = st.selectbox("State", ["All"] + sorted(set(l.get("state", "") for l in all_listings)))
+    state_filter = st.selectbox("State", ["All"] + sorted(set(l.get("state","") for l in all_listings)))
 with col_price:
     price_filter = st.selectbox("Price", ["Any", "Under ₦50k", "₦50k–₦200k", "₦200k–₦500k", "Over ₦500k"])
 with col_org:
@@ -246,7 +235,6 @@ else:
     for i, listing in enumerate(filtered):
         with cols[i % 3]:
             image_urls = listing.get("image_urls") or []
-            image_src = image_urls[0] if image_urls else None
             crop = listing.get("crop", "")
             variety = listing.get("variety", "")
             price_ngn = listing.get("price", 0)
@@ -255,12 +243,10 @@ else:
             rating, count = get_seller_rating(listing.get("user_id"))
             trust = get_seller_trust_score(listing.get("user_id"))
             stars = "⭐" * int(rating)
-            
+
             st.markdown(f"""
-            <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:16px;cursor:pointer;">
-                <div style="height:160px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);font-size:3rem;">
-                    {"🌱" if not image_src else ""}
-                </div>
+            <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:16px;">
+                <div style="height:160px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);font-size:3rem;">🌱</div>
                 <div style="padding:12px;">
                     <div style="font-weight:600;color:#222;">{crop} {variety}</div>
                     <div style="font-size:1.2rem;font-weight:800;color:#2e7d32;">₦{price_ngn:,} <small style="font-size:0.7rem;color:#888;">/ {listing.get("unit","tonne")}</small></div>
@@ -269,7 +255,7 @@ else:
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            
+
             col_btn, col_fav = st.columns([4,1])
             with col_btn:
                 if st.button("📋 Details", key=f"view_{listing['id']}", use_container_width=True):
@@ -289,7 +275,7 @@ if st.session_state.selected_listing:
     st.markdown("---")
     st.markdown("## 🧾 Listing Details")
     c1, c2 = st.columns([2, 1])
-    
+
     with c1:
         for img in listing.get("image_urls", []):
             st.image(img, use_container_width=True)
@@ -308,7 +294,7 @@ if st.session_state.selected_listing:
                     add_review(listing["id"], listing["user_id"], user.id, rating, comment)
                     st.success("Review submitted!")
                     st.rerun()
-    
+
     with c2:
         seller_profile = get_seller_profile(listing.get("user_id"))
         seller_name = f"{seller_profile.get('first_name','')} {seller_profile.get('last_name','')}".strip() or "Seller"
@@ -325,33 +311,85 @@ if st.session_state.selected_listing:
         unit_price = listing.get("price", 0)
         total = unit_price * qty
         if qty >= 10:
-            discount = 0.95
-            total *= discount
-            st.info(f"Bulk discount applied: 5% off")
+            total *= 0.95
+            st.info("Bulk discount applied: 5% off")
         st.markdown(f"**Total: ₦{total:,.0f}**")
         if st.button("🛒 Add to Cart", use_container_width=True):
             st.session_state.cart.append({
-                "listing_id": listing["id"], "crop": listing.get("crop"),
-                "variety": listing.get("variety"), "price": unit_price,
-                "quantity": qty, "seller_id": listing.get("user_id"),
+                "listing_id": listing["id"],
+                "crop": listing.get("crop"),
+                "variety": listing.get("variety"),
+                "price": unit_price,
+                "quantity": qty,
+                "seller_id": listing.get("user_id"),
                 "total_price": total
             })
             st.success("Added to cart!")
             st.rerun()
-        with st.expander("🤝 Negotiate"):
-            with st.form(f"neg_{listing['id']}"):
-                neg_price = st.number_input("Proposed Price (₦)", min_value=0.0, value=float(unit_price))
-                neg_qty = st.number_input("Quantity", min_value=1, value=1)
-                neg_msg = st.text_area("Message")
-                if st.form_submit_button("Send Negotiation"):
-                    create_negotiation(listing["id"], user.id, listing["user_id"], neg_price, neg_qty, neg_msg)
-                    st.success("Negotiation sent!")
         if st.button("✖️ Close Details"):
             st.session_state.selected_listing = None
             st.rerun()
 
 # ============================================================
-# SELL TAB
+# CART & CHECKOUT
+# ============================================================
+st.markdown("---")
+st.markdown("## 💳 Cart & Checkout")
+
+if not st.session_state.cart:
+    st.info("🛒 Your cart is empty.")
+else:
+    total = sum(item.get("total_price", 0) for item in st.session_state.cart)
+    delivery = st.radio("Delivery Method", ["Pickup", "Home Delivery"])
+    delivery_fee = 0 if delivery == "Pickup" else 1000
+    final_total = total + delivery_fee
+
+    st.markdown(f"**Subtotal:** ₦{total:,.0f}")
+    st.markdown(f"**Delivery:** ₦{delivery_fee:,.0f}")
+    st.markdown(f"### **Total: ₦{final_total:,.0f}**")
+
+    if st.button("💳 Checkout with Paystack", use_container_width=True):
+        ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
+        seller_id = st.session_state.cart[0]["seller_id"]
+        listing_id = st.session_state.cart[0]["listing_id"]
+        order_data = {
+            "listing_id": listing_id,
+            "buyer_id": user.id,
+            "seller_id": seller_id,
+            "quantity": sum(item["quantity"] for item in st.session_state.cart),
+            "total_amount": final_total,
+            "status": "pending",
+            "payment_reference": ref,
+            "delivery_method": delivery.lower(),
+            "delivery_fee": delivery_fee
+        }
+        service.table("marketplace_orders").insert(order_data).execute()
+        order_id = service.table("marketplace_orders").select("*").eq("payment_reference", ref).execute().data[0]["id"]
+        create_escrow(order_id, final_total)
+
+        components.html(f"""
+        <script src="https://js.paystack.co/v1/inline.js"></script>
+        <script>
+            PaystackPop.setup({{
+                key: '{PAYSTACK_PUBLIC}',
+                email: '{user.email}',
+                amount: {final_total * 100},
+                currency: 'NGN',
+                ref: '{ref}',
+                label: 'GAIA Market',
+                callback: function(response) {{
+                    window.location.href = '/~/payment_callback?reference=' + response.reference + '&order_type=market';
+                }}
+            }}).openIframe();
+        </script>
+        """, height=150)
+
+    if st.button("🗑️ Clear Cart"):
+        st.session_state.cart = []
+        st.rerun()
+
+# ============================================================
+# SELL TAB (only if verified)
 # ============================================================
 st.markdown("---")
 st.markdown("## 📝 Sell Your Produce")
@@ -370,14 +408,14 @@ else:
         state = st.text_input("State *")
         organic = st.checkbox("🌿 Organic")
         description = st.text_area("Description")
-        
+
         if crop and variety and location:
             if st.checkbox("✨ Generate AI Description"):
                 description = generate_description(crop, variety, location)
                 st.info(description)
-        
+
         uploaded_images = st.file_uploader("Photos", type=["jpg","jpeg","png"], accept_multiple_files=True)
-        
+
         if st.form_submit_button("📤 Publish Listing"):
             if not crop or not price or not location or not state:
                 st.error("Required fields missing.")
@@ -388,11 +426,18 @@ else:
                     if url:
                         image_urls.append(url)
                 service.table("marketplace_listings").insert({
-                    "user_id": user.id, "crop": crop, "variety": variety,
-                    "quantity": quantity, "unit": unit, "price": price,
-                    "location": location, "state": state,
-                    "description": description, "organic": organic,
-                    "image_urls": image_urls, "status": "active"
+                    "user_id": user.id,
+                    "crop": crop,
+                    "variety": variety,
+                    "quantity": quantity,
+                    "unit": unit,
+                    "price": price,
+                    "location": location,
+                    "state": state,
+                    "description": description,
+                    "organic": organic,
+                    "image_urls": image_urls,
+                    "status": "active"
                 }).execute()
                 st.success("✅ Listing published!")
                 st.rerun()

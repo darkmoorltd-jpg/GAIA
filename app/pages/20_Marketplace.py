@@ -255,12 +255,22 @@ def get_price_alerts(user_id):
 
 def get_wallet_balance(user_id):
     supabase = get_service()
-    res = supabase.table("seller_wallets").select("*").eq("user_id", user_id).execute()
-    return res.data[0] if res.data else {"balance": 0, "pending_escrow": 0}
+    try:
+        res = supabase.table("seller_wallets").select("*").eq("user_id", user_id).execute()
+        if res.data:
+            return res.data[0]
+    except:
+        pass
+    # Return safe default if table doesn't exist
+    return {"balance": 0, "pending_escrow": 0, "user_id": user_id}
 
 def request_withdrawal(user_id, amount):
     supabase = get_service()
-    supabase.table("seller_withdrawals").insert({"user_id": user_id, "amount": amount, "status": "pending"}).execute()
+    try:
+        supabase.table("seller_withdrawals").insert({"user_id": user_id, "amount": amount, "status": "pending"}).execute()
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
 def get_price_trends(crop):
     supabase = get_service()
@@ -543,9 +553,11 @@ with tab_wallet:
     with st.form("withdraw_form"):
         amount = st.number_input("Amount (₦)", min_value=1000.0, value=1000.0)
         if st.form_submit_button("Request Withdrawal"):
-            request_withdrawal(user.id, amount)
-            st.success("Withdrawal requested.")
-            st.rerun()
+            ok, err = request_withdrawal(user.id, amount)
+            if ok:
+                st.success("Withdrawal requested.")
+            else:
+                st.warning("Withdrawal unavailable. Contact support.")
 
 # ALERTS TAB
 with tab_alerts:

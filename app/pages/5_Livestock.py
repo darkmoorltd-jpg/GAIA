@@ -29,7 +29,7 @@ ANIMALS = {
 
 # BACKGROUND IMAGE URLS
 BACKGROUND_URLS = {
-    "cattle": "https://images.unsplash.com/photo-1516467508483-a7212febe31a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+    "cattle": "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
     "poultry": "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"
 }
 

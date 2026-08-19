@@ -5,17 +5,17 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 import uuid
 from app.utils.phone_util import normalize_phone
-from app.utils.marketplace_util import get_service_client, upload_listing_image, get_listing_by_id, get_seller_profile
+from app.utils.marketplace_util import (
+    get_service_client, upload_listing_image, verify_payment,
+    get_listing_by_id, get_seller_profile, add_review, get_reviews,
+    toggle_favorite, is_favorite, get_favorites
+)
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_PUBLIC = "pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057"
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
-
-@st.cache_resource
-def get_db():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @st.cache_resource
 def get_service():
@@ -34,6 +34,12 @@ if "cart" not in st.session_state:
     st.session_state.cart = []
 if "selected_listing" not in st.session_state:
     st.session_state.selected_listing = None
+if "delivery_method" not in st.session_state:
+    st.session_state.delivery_method = "pickup"
+if "delivery_address" not in st.session_state:
+    st.session_state.delivery_address = ""
+if "delivery_fee" not in st.session_state:
+    st.session_state.delivery_fee = 0
 
 @st.cache_data(ttl=60)
 def fetch_listings():
@@ -76,22 +82,12 @@ st.markdown("""
     .jiji-card .location { font-size: 0.8rem; color: #888; margin-top: 4px; }
     .jiji-card .seller { font-size: 0.75rem; color: #aaa; margin-top: 2px; }
     .stars { color: #ffc107; font-size: 0.85rem; }
-    .seller-badge {
-        display: inline-block; padding: 2px 8px; border-radius: 4px;
-        font-size: 0.65rem; font-weight: 600;
-    }
-    .seller-badge.verified { background: #e3f2fd; color: #1565c0; }
-    .seller-badge.premium { background: #fff3e0; color: #e65100; }
-    .seller-badge.organic { background: #e8f5e9; color: #2e7d32; }
-    .stButton button {
-        background: #2e7d32 !important; color: #fff !important;
-        border: none !important; border-radius: 8px !important;
-        font-weight: 600 !important;
-    }
     .empty-state { text-align: center; padding: 60px 20px; color: #888; }
-    .detail-card { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin: 10px 0; }
     .contact-btn { background: #25d366; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; display: inline-block; font-weight: 600; }
     .call-btn { background: #2196f3; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; display: inline-block; font-weight: 600; }
+    .fav-btn { background: #fff; border: 1px solid #ddd; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 0; display: flex; align-items: center; justify-content: center; }
+    .fav-btn.active { background: #ffebee; border-color: #f44336; color: #f44336; }
+    .review-card { background: #fff; border-radius: 10px; padding: 12px; margin: 8px 0; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
     .stTabs [data-baseweb="tab-list"] { gap: 0; }
     .stTabs [data-baseweb="tab"] { padding: 8px 20px; font-weight: 600; }
     .stTabs [data-baseweb="tab"][aria-selected="true"] { background: #e8f5e9; border-radius: 10px; }
@@ -101,11 +97,10 @@ st.markdown("""
 st.markdown('<div style="font-size:2.5rem;font-weight:800;text-align:center;color:#2e7d32;">🌍 GAIA Market</div>', unsafe_allow_html=True)
 st.markdown('<div style="text-align:center;color:#607d8b;margin-bottom:2rem;">Buy and sell farm produce directly</div>', unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🛒 Browse", "📝 Sell", "👤 My Store", "📦 Orders", "💳 Cart"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🛒 Browse", "📝 Sell", "👤 My Store", "📦 Orders", "💳 Cart", "❤️ Favorites"])
 
 with tab1:
     search = st.text_input("", placeholder="🔍 Search crops, varieties, or locations...", label_visibility="collapsed", key="market_search")
-    
     if search:
         filtered = [l for l in LISTINGS if search.lower() in (l.get("crop","")+" "+l.get("variety","")+" "+l.get("location","")).lower()]
     else:
@@ -117,8 +112,8 @@ with tab1:
         cols = st.columns(3)
         for i, listing in enumerate(filtered):
             with cols[i % 3]:
-                image_url = listing.get("image_urls", [])
-                image_src = image_url[0] if image_url else "🌱"
+                image_urls = listing.get("image_urls", [])
+                image_src = image_urls[0] if image_urls else "🌱"
                 price = listing.get("price", 0)
                 location = listing.get("location", "")
                 state = listing.get("state", "")
@@ -126,13 +121,21 @@ with tab1:
                 featured = listing.get("featured", False)
                 crop = listing.get("crop", "Unknown")
                 variety = listing.get("variety", "")
-                
+
                 card_html = f'<div class="jiji-card" onclick="window.location.href=\'?listing_id={listing["id"]}\';"><div class="image-area" style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);">{f"<img src=\'{image_src}\' alt=\'{crop}\'/>" if image_src != "🌱" else f"<span style=\'font-size:3.5rem;\'>{image_src}</span>"}{f"<div class=\'featured-badge\'>⭐ Featured</div>" if featured else ""}{f"<div class=\'organic-badge\'>🌿</div>" if organic else ""}</div><div class="info-area"><div class="crop-name">{crop} {variety}</div><div class="price">₦{price:,} <small>/ {listing.get("unit","tonne")}</small></div><div class="location">📍 {location}, {state}</div></div></div>'
                 st.markdown(card_html, unsafe_allow_html=True)
-                if st.button("View Details", key=f"view_{listing['id']}", use_container_width=True):
-                    st.session_state.selected_listing = listing
-                    st.rerun()
-    
+                
+                col_btn, col_fav = st.columns([4,1])
+                with col_btn:
+                    if st.button("View Details", key=f"view_{listing['id']}", use_container_width=True):
+                        st.session_state.selected_listing = listing
+                        st.rerun()
+                with col_fav:
+                    fav = is_favorite(user.id, listing["id"])
+                    if st.button("❤️" if fav else "🤍", key=f"fav_{listing['id']}", help="Toggle favorite"):
+                        toggle_favorite(user.id, listing["id"])
+                        st.rerun()
+
     if "selected_listing" in st.session_state and st.session_state.selected_listing is not None:
         listing = st.session_state.selected_listing
         st.markdown("---")
@@ -146,6 +149,26 @@ with tab1:
             else:
                 st.markdown('<div style="font-size:5rem;text-align:center;">🌱</div>', unsafe_allow_html=True)
             st.markdown(f"**Description:** {listing.get('description','')}")
+            
+            # Reviews section
+            st.markdown("### ⭐ Reviews")
+            reviews = get_reviews(listing["id"])
+            if not reviews:
+                st.info("No reviews yet.")
+            else:
+                for rev in reviews:
+                    stars = "⭐" * rev.get("rating", 0)
+                    st.markdown(f'<div class="review-card"><strong>{stars}</strong><br>{rev.get("comment","")}</div>', unsafe_allow_html=True)
+            
+            # Add review form
+            with st.expander("Write a Review", expanded=False):
+                with st.form(f"review_form_{listing['id']}"):
+                    rating = st.slider("Rating", 1, 5, 5)
+                    comment = st.text_area("Comment")
+                    if st.form_submit_button("Submit Review"):
+                        add_review(listing["id"], listing["user_id"], user.id, rating, comment)
+                        st.success("Review submitted!")
+                        st.rerun()
         with c2:
             st.markdown(f"**Crop:** {listing.get('crop','')}")
             st.markdown(f"**Variety:** {listing.get('variety','')}")
@@ -158,6 +181,7 @@ with tab1:
             if seller_phone:
                 st.markdown(f'<a class="call-btn" href="tel:{seller_phone}">📞 Call Seller</a>', unsafe_allow_html=True)
                 st.markdown(f'<a class="contact-btn" href="https://wa.me/{normalize_phone(seller_phone)}">💬 WhatsApp</a>', unsafe_allow_html=True)
+            
             quantity = st.number_input("Quantity", min_value=1, value=1)
             if st.button("Add to Cart", key="add_to_cart", use_container_width=True):
                 st.session_state.cart.append({
@@ -255,6 +279,9 @@ with tab4:
             if listing:
                 st.write(f"Item: {listing.get('crop','')} {listing.get('variety','')}")
             st.write(f"Amount: ₦{order.get('total_amount',0):,}")
+            st.write(f"Delivery: {order.get('delivery_method','pickup')}")
+            if order.get('delivery_address'):
+                st.write(f"Address: {order.get('delivery_address')}")
             st.markdown("---")
 
 with tab5:
@@ -266,7 +293,22 @@ with tab5:
         for item in st.session_state.cart:
             st.write(f"{item['quantity']} x {item['crop']} {item['variety']} @ ₦{item['price']:,}")
             total += item['price'] * item['quantity']
-        st.markdown(f"**Total: ₦{total:,}**")
+        st.markdown(f"**Subtotal: ₦{total:,}**")
+        
+        # Delivery options
+        st.markdown("### 🚚 Delivery Method")
+        delivery_method = st.radio("Choose delivery", ["Pickup", "Delivery"])
+        if delivery_method == "Delivery":
+            st.session_state.delivery_address = st.text_area("Delivery Address")
+            # Simple flat fee for now; you can calculate by state later
+            st.session_state.delivery_fee = 1000  # ₦1000 flat
+            st.write(f"Delivery Fee: ₦{st.session_state.delivery_fee:,}")
+        else:
+            st.session_state.delivery_fee = 0
+        
+        final_total = total + st.session_state.delivery_fee
+        st.markdown(f"**Total: ₦{final_total:,}**")
+        
         if st.button("Checkout with Paystack", type="primary"):
             seller_id = st.session_state.cart[0]["seller_id"]
             ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
@@ -275,9 +317,12 @@ with tab5:
                 "buyer_id": user.id,
                 "seller_id": seller_id,
                 "quantity": sum(item["quantity"] for item in st.session_state.cart),
-                "total_amount": total,
+                "total_amount": final_total,
                 "status": "pending",
-                "payment_reference": ref
+                "payment_reference": ref,
+                "delivery_method": delivery_method.lower(),
+                "delivery_address": st.session_state.delivery_address if delivery_method == "Delivery" else None,
+                "delivery_fee": st.session_state.delivery_fee
             }
             service.table("marketplace_orders").insert(order_data).execute()
             components.html(f"""
@@ -286,7 +331,7 @@ with tab5:
                 PaystackPop.setup({{
                     key: '{PAYSTACK_PUBLIC}',
                     email: '{user.email}',
-                    amount: {total * 100},
+                    amount: {final_total * 100},
                     currency: 'NGN',
                     ref: '{ref}',
                     label: 'GAIA Market Purchase',
@@ -296,6 +341,21 @@ with tab5:
                 }}).openIframe();
             </script>
             """, height=100)
+
+with tab6:
+    st.markdown("### ❤️ Favorites")
+    fav_listings = get_favorites(user.id)
+    if not fav_listings:
+        st.info("No favorites yet.")
+    else:
+        cols = st.columns(3)
+        for i, listing in enumerate(fav_listings):
+            with cols[i % 3]:
+                st.markdown(f"**{listing.get('crop','')} {listing.get('variety','')}**")
+                st.write(f"₦{listing.get('price',0):,}")
+                if st.button("Remove from Favorites", key=f"rem_fav_{listing['id']}"):
+                    toggle_favorite(user.id, listing["id"])
+                    st.rerun()
 
 st.markdown("---")
 st.caption("Powered by Darkmoor Ltd")

@@ -378,6 +378,69 @@ else:
         st.session_state.cart = []
         st.rerun()
 
+
+# ============================================================
+# ORDERS LIST
+# ============================================================
+st.markdown("---")
+st.markdown("## 📦 My Orders")
+
+orders = service.table("marketplace_orders").select("*").or_(f"buyer_id.eq.{user.id},seller_id.eq.{user.id}").order("created_at", desc=True).execute().data or []
+
+if not orders:
+    st.info("No orders yet.")
+else:
+    for order in orders:
+        role = "Buyer" if order.get("buyer_id") == user.id else "Seller"
+        status = order.get("status", "pending")
+        status_emoji = {
+            "pending": "🟡",
+            "paid": "🟢",
+            "completed": "✅",
+            "cancelled": "❌"
+        }.get(status, "⚪")
+
+        listing = get_listing_by_id(order.get("listing_id"))
+        crop_info = f"{listing.get('crop','')} {listing.get('variety','')}" if listing else "Item"
+
+        with st.expander(f"{status_emoji} {crop_info} — {role} — {status.upper()}"):
+            c1, c2 = st.columns(2)
+            with c1:
+                st.write(f"**Order ID:** {order['id'][:12]}")
+                st.write(f"**Amount:** ₦{order.get('total_amount', 0):,}")
+                st.write(f"**Quantity:** {order.get('quantity', 0)}")
+                st.write(f"**Delivery:** {order.get('delivery_method', 'pickup')}")
+            with c2:
+                st.write(f"**Status:** {status.upper()}")
+                st.write(f"**Created:** {str(order.get('created_at',''))[:16]}")
+                st.write(f"**Reference:** {order.get('payment_reference','')[:20]}")
+
+            # Escrow status
+            try:
+                escrow = service.table("marketplace_escrow").select("*").eq("order_id", order["id"]).execute().data
+                if escrow:
+                    esc = escrow[0]
+                    esc_status = esc.get("status", "held")
+                    st.write(f"**Escrow:** {esc_status.upper()}")
+
+                    # Buyer confirms delivery → release escrow
+                    if esc_status == "held" and order.get("buyer_id") == user.id and status == "paid":
+                        if st.button(f"✅ Confirm Delivery — Release Payment (Order {order['id'][:8]})", key=f"confirm_{order['id']}"):
+                            release_escrow(order["id"])
+                            st.success("Payment released to seller!")
+                            st.rerun()
+            except:
+                pass
+
+            # Delivery status
+            try:
+                delivery_info = service.table("marketplace_delivery_tracking").select("*").eq("order_id", order["id"]).execute().data
+                if delivery_info:
+                    st.write(f"**Delivery Status:** {delivery_info[0].get('status', 'pending').upper()}")
+            except:
+                pass
+
+
 # ============================================================
 # SELL TAB (only if verified)
 # ============================================================

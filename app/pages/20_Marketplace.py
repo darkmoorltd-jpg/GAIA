@@ -205,6 +205,15 @@ def get_listing_analytics(seller_id):
     total_orders = len(supabase.table("marketplace_orders").select("id").eq("seller_id", seller_id).execute().data or [])
     return total_views, total_listings, total_orders
 
+
+def get_admin_analytics():
+    supabase = get_service()
+    total_listings = len(supabase.table("marketplace_listings").select("*").execute().data or [])
+    total_orders = len(supabase.table("marketplace_orders").select("*").execute().data or [])
+    total_users = len(supabase.table("user_profiles").select("*").execute().data or [])
+    total_revenue = sum(o.get("total_amount", 0) for o in supabase.table("marketplace_orders").select("total_amount").execute().data or [])
+    return total_listings, total_orders, total_users, total_revenue
+
 st.set_page_config(page_title="GAIA Market", page_icon="🌍", layout="wide")
 
 if "user" not in st.session_state or not st.session_state.user:

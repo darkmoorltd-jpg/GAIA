@@ -260,7 +260,7 @@ live_consultation_page = st.Page("pages/23_Live_Consultation.py", title="Live Co
 farming_calendar_page = st.Page("pages/23_Farming_Calendar.py", title="Farming Calendar", icon="📅")
 
 pg = st.navigation({
-    "GAIA": [dashboard_page, farming_calendar_page],
+    "GAIA": [dashboard_page, farming_calendar_page, gaia_meet_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page, video_page, satellite_page, voice_page],
     "Account": [profile_page, buy_scans_page, payment_history_page, badges_page, wallet_page],
     "Community": [chat_page, marketplace_page, live_consultation_page],

@@ -242,6 +242,7 @@ video_page = st.Page("pages/17_Video_Scan.py", title="Video Scanner", icon="🎥
 satellite_page = st.Page("pages/19_Satellite.py", title="Satellite Monitor", icon="🛰️")
 voice_page = st.Page("pages/18_Voice_Agronomist.py", title="Voice Agronomist", icon="🎙️")
 early_warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
+gaia_meet_page = st.Page("pages/23_GAIA_Meet.py", title="GAIA Meet", icon="🎥")
 buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 payment_history_page = st.Page("pages/6_Payment_History.py", title="Payment History", icon="💳")
 admin_page = st.Page("pages/7_Admin.py", title="Admin Dashboard", icon="🔐")

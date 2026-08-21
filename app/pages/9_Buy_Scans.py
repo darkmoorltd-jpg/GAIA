@@ -1,5 +1,7 @@
 
 import streamlit as st
+
+# Get user from session state
 user = st.session_state.get("user", None)
 if user is None:
     user = None  # Allow demo mode
@@ -64,7 +66,11 @@ db = get_supabase()
 service = get_service()
 
 # Fetch current scans
-res = service.table("user_scans").select("scans_remaining, plan").eq("user_id", user.id).execute()
+if user is None:
+    st.warning("⚠️ Please log in first.")
+    st.stop()
+
+    res = service.table("user_scans").select("scans_remaining, plan").eq("user_id", (user.id if user is not None else None)).execute()
 if res.data and len(res.data) > 0:
     scans = res.data[0].get("scans_remaining", 30)
     current_plan = res.data[0].get("plan", "free")
@@ -75,7 +81,7 @@ else:
 # Fetch user phone
 user_phone = ""
 try:
-    profile_res = service.table("user_profiles").select("phone").eq("user_id", user.id).execute()
+    profile_res = service.table("user_profiles").select("phone").eq("user_id", (user.id if user is not None else None)).execute()
     if profile_res.data and len(profile_res.data) > 0:
         raw_phone = profile_res.data[0].get("phone", "")
         user_phone = normalize_phone(raw_phone)
@@ -149,7 +155,7 @@ for i, (key, p) in enumerate(PLANS.items()):
 if st.session_state.selected_plan:
     p = PLANS[st.session_state.selected_plan]
     label = f"{p['name']} ({p['scans']} scans)"
-    ref = f"GAIA_{user.id[:8]}_{st.session_state.selected_plan}_{uuid.uuid4().hex[:6]}"
+    ref = f"GAIA_{(user.id if user is not None else None)[:8]}_{st.session_state.selected_plan}_{uuid.uuid4().hex[:6]}"
 
     st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
 
@@ -208,11 +214,11 @@ with c2:
                             break
                     if match:
                         add = PLANS[match]["scans"]
-                        cur = db.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
+                        cur = db.table("user_scans").select("scans_remaining").eq("user_id", (user.id if user is not None else None)).execute()
                         cur_scans = cur.data[0]["scans_remaining"] if cur.data else 0
                         new_total = cur_scans + add
-                        db.table("user_scans").update({"scans_remaining": new_total, "plan": match}).eq("user_id", user.id).execute()
-                        db.table("payment_history").insert({"user_id": user.id, "amount": amt, "scans_added": add, "plan": match, "reference": ref_input}).execute()
+                        db.table("user_scans").update({"scans_remaining": new_total, "plan": match}).eq("user_id", (user.id if user is not None else None)).execute()
+                        db.table("payment_history").insert({"user_id": (user.id if user is not None else None), "amount": amt, "scans_added": add, "plan": match, "reference": ref_input}).execute()
                         st.success(f"{add} scans added! Balance: {new_total}")
                         st.rerun()
                     else:

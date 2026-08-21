@@ -1,5 +1,6 @@
 
 import streamlit as st
+from app.utils.auth_helper import get_current_user
 import os, sys, hashlib, time, tempfile
 import numpy as np
 import torch
@@ -375,9 +376,9 @@ def extract_frames_from_video(video_file, interval_sec=0.5):
     return frames
 
 def deduct_scans_for_video(amount=2):
-    if "user" in st.session_state and st.session_state.user:
+    if "user" in st.session_state and user:
         from app.utils.scan_util import deduct_scans
-        deduct_scans(st.session_state.user.id, amount, "Video Scan")
+        deduct_scans(user.id, amount, "Video Scan")
 
 # ============================================
 # HEADER

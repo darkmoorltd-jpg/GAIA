@@ -1,5 +1,6 @@
 
 import streamlit as st
+from app.utils.auth_helper import get_current_user
 import datetime
 import json
 import os
@@ -330,10 +331,10 @@ else:
     if st.button("Generate My Calendar", type="primary"):
         if not location.strip():
             st.error("Location is required. Please enter your farm location.")
-        elif "user" not in st.session_state or not st.session_state.user:
+        elif "user" not in st.session_state or not user:
             st.warning("Please log in first.")
         else:
-            user_id = st.session_state.user.id
+            user_id = user.id
             with st.spinner("🌍 Geocoding location and fetching climate..."):
                 lat, lon = geocode_location(location)
                 if lat is None:
@@ -407,9 +408,9 @@ else:
 # ---------- Saved Calendars ----------
 st.markdown("---")
 st.subheader("📂 My Saved Calendars")
-if "user" in st.session_state and st.session_state.user:
+if "user" in st.session_state and user:
     supabase = get_service()
-    res = supabase.table("farming_calendar").select("*").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
+    res = supabase.table("farming_calendar").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
     if res.data:
         for cal_entry in res.data:
             crop = cal_entry['crop']

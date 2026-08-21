@@ -1,5 +1,6 @@
 
 import streamlit as st
+from app.utils.auth_helper import get_current_user
 import streamlit.components.v1 as components
 import uuid
 import datetime
@@ -71,8 +72,8 @@ def generate_room():
 
 def get_user_name():
     """Return a friendly display name."""
-    if "user" in st.session_state and st.session_state.user:
-        email = st.session_state.user.email
+    if "user" in st.session_state and user:
+        email = user.email
         name = email.split('@')[0].title()
         return name
     return "Farmer"
@@ -119,7 +120,7 @@ with left_col:
 with right_col:
     st.subheader("🤖 AI Diagnosis Assistant")
 
-    if "user" not in st.session_state or not st.session_state.user:
+    if "user" not in st.session_state or not user:
         st.warning("Please log in to use AI diagnosis.")
     else:
         # Crop selection
@@ -207,7 +208,7 @@ with right_col:
                     from supabase import create_client
                     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["service_key"])
                     supabase.table("consultation_logs").insert({
-                        "user_id": st.session_state.user.id,
+                        "user_id": user.id,
                         "crop": crop,
                         "diagnosis": diagnosis,
                         "confidence": confidence,

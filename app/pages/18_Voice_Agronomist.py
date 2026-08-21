@@ -1,5 +1,6 @@
 
 import streamlit as st
+from app.utils.auth_helper import get_current_user
 import requests
 import os
 from datetime import datetime
@@ -108,8 +109,8 @@ def save_memory_to_db(user_id, key, value):
         pass
 
 # ===== INITIAL MEMORY LOAD =====
-if "user" in st.session_state and st.session_state.user is not None:
-    user_id = st.session_state.user.id
+if "user" in st.session_state and user is not None:
+    user_id = user.id
     if not st.session_state.farmer_memory:
         st.session_state.farmer_memory.update(load_memory_from_db(user_id))
         try:
@@ -159,7 +160,7 @@ def build_memory_context():
 
 def update_farmer_memory(question, answer):
     q = question.lower()
-    user_id = st.session_state.user.id if "user" in st.session_state and st.session_state.user else None
+    user_id = user.id if "user" in st.session_state and user else None
 
     if "my name is" in q:
         name = q.split("my name is")[-1].strip().split()[0].title()
@@ -320,8 +321,8 @@ if st.session_state.pending_transcription:
         })
         update_farmer_memory(text, answer)
 
-        if "user" in st.session_state and st.session_state.user is not None:
-            deduct_scans(st.session_state.user.id, 3, "Voice Agronomist")
+        if "user" in st.session_state and user is not None:
+            deduct_scans(user.id, 3, "Voice Agronomist")
 
         lang = detect_language(text)
         audio_bytes, speech_err = speak_answer(answer, lang)
@@ -389,8 +390,8 @@ with c2:
                 "hidden": False
             })
             update_farmer_memory(q, answer)
-            if "user" in st.session_state and st.session_state.user is not None:
-                deduct_scans(st.session_state.user.id, 3, "Voice Agronomist (Text)")
+            if "user" in st.session_state and user is not None:
+                deduct_scans(user.id, 3, "Voice Agronomist (Text)")
             lang = detect_language(q)
             audio_bytes, speech_err = speak_answer(answer, lang)
             if audio_bytes:
@@ -421,9 +422,9 @@ if st.session_state.farmer_memory:
         for k, v in st.session_state.farmer_memory.items():
             st.write(k.replace("_", " ").title() + ": **" + str(v) + "**")
         if st.button("Clear Memory"):
-            if "user" in st.session_state and st.session_state.user is not None:
+            if "user" in st.session_state and user is not None:
                 try:
-                    init_supabase().table("farmer_memory").delete().eq("user_id", st.session_state.user.id).execute()
+                    init_supabase().table("farmer_memory").delete().eq("user_id", user.id).execute()
                 except:
                     pass
             st.session_state.farmer_memory = {}

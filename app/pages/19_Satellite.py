@@ -1,4 +1,5 @@
 import streamlit as st
+from app.utils.auth_helper import get_current_user
 import requests
 import numpy as np
 from PIL import Image
@@ -224,9 +225,9 @@ if st.button("🛰️ Fetch Satellite Image", type="primary", use_container_widt
             with col4:
                 st.markdown(f'<div class="stat-box"><div class="stat-number">{health["health_status"]}</div><div class="stat-label">Status</div></div>', unsafe_allow_html=True)
         
-        if "user" in st.session_state and st.session_state.user is not None:
+        if "user" in st.session_state and user is not None:
             from app.utils.scan_util import deduct_scans
-            deduct_scans(st.session_state.user.id, 2, "Satellite Monitor")
+            deduct_scans(user.id, 2, "Satellite Monitor")
 
 st.markdown("---")
 st.caption("Powered by Darkmoor Ltd")

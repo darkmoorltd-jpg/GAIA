@@ -1,5 +1,6 @@
 
 import streamlit as st
+from app.utils.auth_helper import get_current_user
 from PIL import Image
 import torch, torch.nn.functional as F, numpy as np, os, sys, datetime, hashlib
 from collections import Counter
@@ -57,17 +58,17 @@ selected_lang_label = st.selectbox("🔊 Voice language for pest guide", list(la
 voice_lang = language_options[selected_lang_label]
 
 def save_feedback(image_name, predicted_class, helpful):
-    if "user" not in st.session_state or st.session_state.user is None: return
+    if "user" not in st.session_state or user is None: return
     from supabase import create_client
     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
-    try: supabase.table("user_feedback").insert({"user_id": st.session_state.user.id, "image_name": image_name, "predicted_class": predicted_class, "helpful": helpful, "created_at": datetime.datetime.now().isoformat()}).execute()
+    try: supabase.table("user_feedback").insert({"user_id": user.id, "image_name": image_name, "predicted_class": predicted_class, "helpful": helpful, "created_at": datetime.datetime.now().isoformat()}).execute()
     except: pass
 
 def deduct_one_scan():
-    if "user" not in st.session_state or st.session_state.user is None: return
+    if "user" not in st.session_state or user is None: return
     from supabase import create_client
     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
-    uid = st.session_state.user.id
+    uid = user.id
     try: supabase.table("user_scans").insert({"user_id":uid,"scans_remaining":30,"plan":"free"}).execute()
     except: pass
     try: supabase.table("user_scans").update({"scans_remaining": supabase.raw("scans_remaining - 1")}).eq("user_id", uid).execute()

@@ -4,13 +4,6 @@ from supabase import create_client, Client
 import requests
 import time
 
-# Ensure user is always defined
-supabase = init_supabase()
-try:
-    session = supabase.auth.get_session()
-    user = session.user if session else None
-except:
-    user = None
 
 
 # ---------- Secrets ----------
@@ -31,6 +24,14 @@ PAYSTACK_PLANS = {
 @st.cache_resource
 def init_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Get current user from Supabase session
+try:
+    supabase = init_supabase()
+    session = supabase.auth.get_session()
+    user = session.user if session else None
+except:
+    user = None
 
 @st.cache_resource
 def init_service() -> Client:

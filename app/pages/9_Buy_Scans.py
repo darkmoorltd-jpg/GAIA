@@ -45,11 +45,13 @@ def verify_payment(ref):
 
 st.set_page_config(page_title="Buy Scans", page_icon="💳", layout="wide")
 
-if "user" not in st.session_state or not st.session_state.user:
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
+if user is None:
     st.warning("Please log in first.")
     st.stop()
 
-user = st.session_state.user
+user = user
 db = get_supabase()
 service = get_service()
 

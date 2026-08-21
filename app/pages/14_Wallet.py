@@ -12,11 +12,13 @@ def init_supabase(): return create_client(SUPABASE_URL, SUPABASE_KEY)
 def init_service(): return create_client(SUPABASE_URL, SERVICE_KEY)
 
 st.set_page_config(page_title="GAIA – Digital Wallet", page_icon="💰", layout="wide")
-if "user" not in st.session_state or st.session_state.user is None:
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
+if user is None:
     st.warning("Please log in first.")
     st.stop()
 
-user = st.session_state.user
+user = user
 service = init_service()
 
 st.markdown('<style>.stApp{background:linear-gradient(135deg,#e8f5e9,#f1f8e9);color:#1b5e20}.card{background:#fff;border-radius:20px;padding:1.5rem;margin:.5rem 0;box-shadow:0 4px 15px rgba(0,0,0,.05)}.balance{font-size:3rem;font-weight:900;color:#2e7d32}</style>', unsafe_allow_html=True)

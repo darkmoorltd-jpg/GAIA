@@ -5,6 +5,8 @@ import numpy as np
 import json
 import os
 
+from app.utils.auth_helper import get_current_user
+
 try:
     from streamlit_folium import st_folium
     import folium
@@ -167,9 +169,9 @@ if st.button("🔍 Check Disease Risk", type="primary", use_container_width=True
                 st.markdown('<p style="margin-top: 8px;">Risk Score: ' + str(risk["score"]) + '%</p>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
-        if "user" in st.session_state and st.session_state.user is not None:
+        if "user" in st.session_state and user is not None:
             from app.utils.scan_util import deduct_scans
-            deduct_scans(st.session_state.user.id, 1, "Early Warning")
+            deduct_scans(user.id, 1, "Early Warning")
 
 st.markdown("---")
 st.caption("Powered by Darkmoor Ltd")

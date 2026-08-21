@@ -11,11 +11,13 @@ def init_supabase():
 
 st.set_page_config(page_title="GAIA – Payment History", page_icon="💳", layout="wide")
 
-if "user" not in st.session_state or st.session_state.user is None:
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
+if user is None:
     st.warning("Please log in first.")
     st.stop()
 
-user_id = st.session_state.user.id
+user_id = user.id
 supabase = init_supabase()
 
 st.title("💳 Payment History")

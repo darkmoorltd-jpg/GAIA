@@ -51,8 +51,8 @@ def generate_room_id():
     return f"gaia-meet-{uuid.uuid4().hex[:10]}"
 
 def get_user_display_name():
-    if "user" in st.session_state and st.session_state.user:
-        return st.session_state.user.email.split('@')[0].title()
+    if "user" in st.session_state and user:
+        return user.email.split('@')[0].title()
     return "Guest"
 
 def create_meeting(user_id, title, crop_focus=None, password=None):
@@ -188,11 +188,13 @@ st.markdown("""
 # ============================================
 # AUTH CHECK
 # ============================================
-if "user" not in st.session_state or not st.session_state.user:
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
+if user is None:
     st.warning("Please log in to use GAIA Meet.")
     st.stop()
 
-user = st.session_state.user
+user = user
 user_id = user.id
 user_name = get_user_display_name()
 

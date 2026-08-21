@@ -19,11 +19,13 @@ def init_service():
 
 st.set_page_config(page_title="GAIA – My Profile", page_icon="👤", layout="wide")
 
-if "user" not in st.session_state or st.session_state.user is None:
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
+if user is None:
     st.warning("Please log in first.")
     st.stop()
 
-user = st.session_state.user
+user = user
 supabase = init_supabase()
 service = init_service()
 is_admin = (user.email == ADMIN_EMAIL)

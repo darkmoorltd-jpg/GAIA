@@ -8,11 +8,13 @@ SUPABASE_KEY = st.secrets["supabase"]["key"]
 def init_supabase(): return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="GAIA – Verification History", page_icon="📋", layout="wide")
-if "user" not in st.session_state or st.session_state.user is None:
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
+if user is None:
     st.warning("Please log in first.")
     st.stop()
 
-user = st.session_state.user
+user = user
 supabase = init_supabase()
 
 st.markdown("<style>.stApp{background:linear-gradient(135deg,#f5f7fa,#e8f5e9)}.title{font-size:2.5rem;font-weight:800;text-align:center;color:#2e7d32}</style>", unsafe_allow_html=True)

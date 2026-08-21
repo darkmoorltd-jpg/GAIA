@@ -55,11 +55,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-if "user" not in st.session_state or st.session_state.user is None:
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
+if user is None:
     st.warning("Please log in first.")
     st.stop()
 
-if st.session_state.user.email != ADMIN_EMAIL:
+if user.email != ADMIN_EMAIL:
     st.error("Access denied. Admin only.")
     st.stop()
 
@@ -575,7 +577,7 @@ with tab6:
                         try:
                             supabase.table("support_replies").insert({
                                 "ticket_id": ticket["id"],
-                                "sender_id": st.session_state.user.id,
+                                "sender_id": user.id,
                                 "is_admin": True,
                                 "message": admin_reply.strip()
                             }).execute()

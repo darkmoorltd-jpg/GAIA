@@ -321,6 +321,11 @@ badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
 insurance_page = st.Page("pages/21_Crop_Insurance.py", title="Crop Insurance", icon="🏦")
 university_page = st.Page("pages/22_University.py", title="University", icon="🎓")
 farming_calendar_page = st.Page("pages/23_Farming_Calendar.py", title="Farming Calendar", icon="📅")
+
+farmer_db_page = st.Page("pages/25_Farmer_Database.py", title="Farmer Database", icon="🌍")
+loan_page = st.Page("pages/26_Loan_Management.py", title="Loan Management", icon="🏦")
+extension_page = st.Page("pages/27_Extension_Dashboard.py", title="Extension", icon="🧑‍🌾")
+
 gaia_meet_page = st.Page("pages/23_GAIA_Meet.py", title="GAIA Meet", icon="🎥")
 
 pg = st.navigation({
@@ -330,7 +335,7 @@ pg = st.navigation({
     "Community": [chat_page, marketplace_page],
     "Protection": [insurance_page, early_warning_page],
     "Support": [help_page, verify_farmer_page, verify_history_page],
-    "Admin": [admin_page],
+    "Admin": [admin_page, farmer_db_page, loan_page, extension_page],
     "Education": [university_page],
 })
 pg.run()

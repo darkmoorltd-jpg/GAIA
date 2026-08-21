@@ -6,7 +6,7 @@ if user is None:
 
 if user is None:
     # Allow demo mode
-from supabase import create_client
+    from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()

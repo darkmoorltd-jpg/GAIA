@@ -7,7 +7,7 @@ if user is None:
 
 if user is None:
     # Allow demo mode
-import json
+    import json
 import re
 import random
 from datetime import datetime

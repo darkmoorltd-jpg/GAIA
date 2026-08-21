@@ -7,7 +7,7 @@ if user is None:
 
 if user is None:
     # Allow demo mode
-import requests
+    import requests
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 

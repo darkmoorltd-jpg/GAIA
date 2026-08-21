@@ -7,7 +7,7 @@ if user is None:
 if user is None:
     # Allow demo mode
 
-st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wide")
+    st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wide")
 
 # ---------- Light / Dark mode toggle ----------
 if "theme" not in st.session_state:

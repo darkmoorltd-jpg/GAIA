@@ -32,8 +32,8 @@ def generate_auth_token():
     return uuid.uuid4().hex
 
 def save_auth_token(token, user_id, access_token, refresh_token):
-    # Use anon client because grants are set on anon
-    supabase = get_anon_client()
+    # Use service client to bypass RLS
+    supabase = get_service_client()
     try:
         res = supabase.table("gaia_auth_tokens").upsert({
             "token": token,

@@ -22,3 +22,4 @@ scipy
 edge-tts
 gTTS
 plotly
+streamlit-cookies-manager

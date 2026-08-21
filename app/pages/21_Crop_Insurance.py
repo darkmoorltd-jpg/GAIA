@@ -1,4 +1,6 @@
 import streamlit as st
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
 import streamlit.components.v1 as components
 from supabase import create_client, Client
 from datetime import datetime, timedelta
@@ -22,7 +24,6 @@ def get_service():
 
 st.set_page_config(page_title="GAIA – Crop Insurance", page_icon="🏦", layout="wide")
 
-from app.utils.auth_helper import get_current_user
 user = get_current_user()
 if user is None:
     st.warning("Please log in first.")

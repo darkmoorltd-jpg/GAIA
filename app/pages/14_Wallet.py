@@ -1,4 +1,6 @@
 import streamlit as st
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
 from supabase import create_client, Client
 import uuid
 
@@ -12,7 +14,6 @@ def init_supabase(): return create_client(SUPABASE_URL, SUPABASE_KEY)
 def init_service(): return create_client(SUPABASE_URL, SERVICE_KEY)
 
 st.set_page_config(page_title="GAIA – Digital Wallet", page_icon="💰", layout="wide")
-from app.utils.auth_helper import get_current_user
 user = get_current_user()
 if user is None:
     st.warning("Please log in first.")

@@ -1,5 +1,7 @@
 
 import streamlit as st
+from app.utils.auth_helper import get_current_user
+user = get_current_user()
 from supabase import create_client, Client
 import pandas as pd
 from datetime import datetime
@@ -55,7 +57,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-from app.utils.auth_helper import get_current_user
 user = get_current_user()
 if user is None:
     st.warning("Please log in first.")

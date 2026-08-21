@@ -112,6 +112,7 @@ def verify_paystack_transaction(reference: str):
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
 if "user" not in st.session_state:
+    st.session_state.user = None
     user = None
 
 # ----- Google OAuth callback -----

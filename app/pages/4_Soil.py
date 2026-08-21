@@ -1,6 +1,7 @@
 
 import streamlit as st
 from app.utils.auth_helper import get_current_user
+user = get_current_user()
 from PIL import Image
 import torch
 import torch.nn as nn

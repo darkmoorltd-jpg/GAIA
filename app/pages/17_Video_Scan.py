@@ -1,6 +1,7 @@
 
 import streamlit as st
 from app.utils.auth_helper import get_current_user
+user = get_current_user()
 import os, sys, hashlib, time, tempfile
 import numpy as np
 import torch

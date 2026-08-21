@@ -5,7 +5,12 @@ import requests
 import time
 
 # Ensure user is always defined
-user = None
+supabase = init_supabase()
+try:
+    session = supabase.auth.get_session()
+    user = session.user if session else None
+except:
+    user = None
 
 
 # ---------- Secrets ----------
@@ -113,8 +118,12 @@ def verify_paystack_transaction(reference: str):
 # ---------- Streamlit page ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
-# Use Supabase session for true multi-user support
 supabase = init_supabase()
+try:
+    session = supabase.auth.get_session()
+    user = session.user if session else None
+except:
+    supabase = init_supabase()
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
@@ -164,7 +173,6 @@ if reference and plan and plan in PAYSTACK_PLANS:
             st.rerun()
 
 # ----- Try restore session -----
-user = st.session_state.get("user", None)
 if user is None:
     supabase = init_supabase()
     try:
@@ -176,7 +184,6 @@ if user is None:
         pass
 
 # ----- Login page -----
-user = st.session_state.get("user", None)
 if user is None:
     st.title("🌱 GAIA – Sign In / Create Account")
     tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Sign Up", "🅶 Google"])

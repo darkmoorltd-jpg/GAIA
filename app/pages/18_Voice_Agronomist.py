@@ -1,6 +1,12 @@
 
 import streamlit as st
-user = st.session_state.get("user", None)
+from supabase import create_client
+supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+try:
+    session = supabase.auth.get_session()
+    user = session.user if session else None
+except:
+    user = None
 import requests
 import os
 from datetime import datetime

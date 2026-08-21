@@ -27,6 +27,8 @@ def sign_in(email, password):
         res = supabase.auth.sign_in_with_password(
             {"email": email, "password": password})
         st.session_state["user"] = res.user
+        st.session_state.user = res.user
+        st.session_state.user = res.user
         st.session_state["logged_in"] = True
         return True, None
     except Exception as e:
@@ -39,6 +41,8 @@ def sign_up(email, password):
         res = supabase.auth.sign_up({"email": email, "password": password})
         if res.user:
             st.session_state["user"] = res.user
+        st.session_state.user = res.user
+        st.session_state.user = res.user
             st.session_state["logged_in"] = True
             try:
                 supabase.table("user_scans").insert({

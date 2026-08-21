@@ -11,6 +11,11 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch
 import streamlit as st
+
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(
@@ -23,10 +28,6 @@ except:
     from PIL import Image
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 

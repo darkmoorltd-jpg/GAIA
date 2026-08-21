@@ -5,7 +5,8 @@ user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-    # Allow demo mode
+
+# Allow demo mode
 
     st.set_page_config(
         page_title="GAIA – Dashboard",

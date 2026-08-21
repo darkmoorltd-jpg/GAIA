@@ -10,6 +10,11 @@ import numpy as np
 import streamlit as st
 # Allow demo mode
 from supabase import create_client
+
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 supabase = create_client(
     st.secrets["supabase"]["url"],
     st.secrets["supabase"]["key"])
@@ -30,10 +35,6 @@ except ImportError:
     HAS_CV2 = False
 
 
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 # ============================================

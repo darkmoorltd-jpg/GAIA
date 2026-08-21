@@ -2,6 +2,11 @@ from app.utils.scan_util import deduct_scans
 import uuid
 from datetime import datetime
 import streamlit as st
+
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(
@@ -13,10 +18,6 @@ try:
 except:
     from supabase import create_client, Client
 
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]

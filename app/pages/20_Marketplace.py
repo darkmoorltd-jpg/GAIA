@@ -9,6 +9,11 @@ import pandas as pd
 from datetime import datetime, timedelta
 from supabase import create_client, Client
 import streamlit as st
+
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(
@@ -20,10 +25,6 @@ try:
 except:
     import streamlit.components.v1 as components
 
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
 try:
     import plotly.express as px
 except ImportError:

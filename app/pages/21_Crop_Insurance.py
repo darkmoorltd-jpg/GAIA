@@ -6,6 +6,11 @@ from supabase import create_client, Client
 import streamlit as st
 # Allow demo mode
 from supabase import create_client
+
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 supabase = create_client(
     st.secrets["supabase"]["url"],
     st.secrets["supabase"]["key"])
@@ -15,10 +20,6 @@ try:
 except BaseException:
     import streamlit.components.v1 as components
 
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]

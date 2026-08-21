@@ -11,6 +11,7 @@ user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
+
 st.set_page_config(page_title="GAIA University", page_icon="🎓", layout="wide")
 
 # Theme toggle

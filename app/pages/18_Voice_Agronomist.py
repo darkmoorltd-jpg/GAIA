@@ -8,6 +8,11 @@ import os
 import streamlit as st
 # Allow demo mode
 from supabase import create_client
+
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 supabase = create_client(
     st.secrets["supabase"]["url"],
     st.secrets["supabase"]["key"])
@@ -17,10 +22,6 @@ try:
 except BaseException:
     import requests
 
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 GROQ_API_KEY = st.secrets["groq"]["api_key"]

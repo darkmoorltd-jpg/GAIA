@@ -4,7 +4,8 @@ user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-    # Allow demo mode
+
+# Allow demo mode
     from supabase import create_client
 supabase = create_client(
     st.secrets["supabase"]["url"],

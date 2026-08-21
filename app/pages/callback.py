@@ -9,6 +9,7 @@ user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
+
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]

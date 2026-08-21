@@ -1,6 +1,5 @@
 
 import streamlit as st
-if user is None:
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -13,6 +12,7 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 import uuid, requests, hashlib, hmac, json, os
 import pandas as pd
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
@@ -145,7 +145,6 @@ if "selected_listing" not in st.session_state:
 # ============================================================
 st.set_page_config(page_title="GAIA Marketplace", page_icon="🌍", layout="wide")
 
-if user is None:
     st.session_state["user"] = None
     user = user
 service = get_service()

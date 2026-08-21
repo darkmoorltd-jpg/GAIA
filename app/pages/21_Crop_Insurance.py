@@ -1,5 +1,4 @@
 import streamlit as st
-if user is None:
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -13,11 +12,11 @@ from datetime import datetime, timedelta
 import uuid
 from app.utils.phone_util import normalize_phone
 import requests
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
@@ -34,7 +33,6 @@ def get_service():
 
 st.set_page_config(page_title="GAIA – Crop Insurance", page_icon="🏦", layout="wide")
 
-if user is None:
     st.session_state["user"] = None
     user = user
 db = get_db()

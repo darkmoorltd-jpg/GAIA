@@ -1,17 +1,16 @@
 
 import streamlit as st
 from supabase import create_client
-if user is None:
     # Allow demo mode
     import json
 import re
 import random
 from datetime import datetime
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-
 st.set_page_config(page_title="GAIA University", page_icon="🎓", layout="wide")
 
 # Theme toggle

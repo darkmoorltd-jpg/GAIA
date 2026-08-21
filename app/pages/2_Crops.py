@@ -1,6 +1,5 @@
 
 import streamlit as st
-if user is None:
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -13,6 +12,7 @@ import torch, torch.nn as nn, torch.nn.functional as F, numpy as np, os, sys, ha
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 from timm.models.vision_transformer import VisionTransformer
 from collections import Counter
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")

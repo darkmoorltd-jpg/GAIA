@@ -1,7 +1,6 @@
 
 import streamlit as st
 # Get user from session state
-if user is None:
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -15,11 +14,11 @@ import uuid
 import requests
 import sys
 import os
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
@@ -58,14 +57,12 @@ def verify_payment(ref):
 
 st.set_page_config(page_title="Buy Scans", page_icon="💳", layout="wide")
 
-if user is None:
     st.session_state["user"] = None
     user = user
 db = get_supabase()
 service = get_service()
 
 # Fetch current scans
-if user is None:
     st.warning("⚠️ Please log in first.")
     st.stop()
 

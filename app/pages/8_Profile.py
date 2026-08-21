@@ -1,6 +1,5 @@
 
 import streamlit as st
-if user is None:
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -10,11 +9,11 @@ try:
 except:
     from supabase import create_client, Client
 from datetime import datetime
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
@@ -31,7 +30,6 @@ def init_service():
 
 st.set_page_config(page_title="GAIA – My Profile", page_icon="👤", layout="wide")
 
-if user is None:
     st.session_state["user"] = None
     user = user
 supabase = init_supabase()

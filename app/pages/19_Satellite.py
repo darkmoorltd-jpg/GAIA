@@ -1,5 +1,4 @@
 import streamlit as st
-if user is None:
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -14,11 +13,11 @@ from io import BytesIO
 from datetime import datetime, timedelta
 import folium
 from streamlit_folium import st_folium
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-
 # ===== SENTINEL HUB CONFIG =====
 try:
     CLIENT_ID = st.secrets["sentinel"]["client_id"]

@@ -1,6 +1,5 @@
 
 import streamlit as st
-if user is None:
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -14,11 +13,11 @@ import uuid
 from app.utils.phone_util import normalize_phone
 import requests
 from datetime import datetime, timedelta
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_PUBLIC = "pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057"
@@ -83,7 +82,6 @@ BADGES = {
 
 st.set_page_config(page_title="GAIA – Badges", page_icon="🏅", layout="wide")
 
-if user is None:
     st.session_state["user"] = None
     user = user
 db = get_service()

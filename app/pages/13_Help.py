@@ -1,5 +1,4 @@
 import streamlit as st
-if user is None:
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -9,11 +8,11 @@ try:
 except:
     from supabase import create_client, Client
 import uuid
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 
@@ -40,7 +39,6 @@ def upload_file_to_supabase(file_bytes, filename):
 
 st.set_page_config(page_title="GAIA – Help & Support", page_icon="💬", layout="wide")
 
-if user is None:
     st.session_state["user"] = None
     user = user
 supabase = get_service()

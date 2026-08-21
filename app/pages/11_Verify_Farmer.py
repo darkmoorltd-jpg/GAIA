@@ -1,6 +1,5 @@
 
 import streamlit as st
-if user is None:
     # Allow demo mode
     from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
@@ -13,11 +12,11 @@ import uuid
 import requests as req
 import sys
 import os
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
@@ -62,7 +61,6 @@ def verify_payment(reference):
 
 st.set_page_config(page_title="GAIA – Farmer Verification", page_icon="🛡️", layout="wide")
 
-if user is None:
     st.session_state["user"] = None
     user = user
 supabase = init_supabase()

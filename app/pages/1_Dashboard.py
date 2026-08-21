@@ -1,10 +1,10 @@
 import streamlit as st
 from supabase import create_client
+
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")
     st.stop()
-if user is None:
     # Allow demo mode
 
     st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wide")

@@ -18,39 +18,35 @@ PAYSTACK_PLANS = {
     "enterprise": {"scans": 5000, "price": "₦20,000", "kobo": 2000000},
 }
 
-# ============================================
-# DEVICE FINGERPRINT HELPERS
-# ============================================
-def get_device_id():
-    """Create a stable device ID from IP and User-Agent."""
-    try:
-        headers = st.context.headers
-        ip = headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        user_agent = headers.get("User-Agent", "")
-        raw = ip + "|" + user_agent
-        return hashlib.sha256(raw.encode()).hexdigest()[:32]
-    except:
-        if "fallback_device_id" not in st.session_state:
-            st.session_state.fallback_device_id = str(uuid.uuid4())
-        return st.session_state.fallback_device_id
+def get_anon_client() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-def save_device_session(device_id, user_id, access_token, refresh_token):
+def get_service_client() -> Client:
+    return create_client(SUPABASE_URL, SERVICE_KEY)
+
+# ============================================
+# URL TOKEN HELPERS
+# ============================================
+def generate_auth_token():
+    return uuid.uuid4().hex
+
+def save_auth_token(token, user_id, access_token, refresh_token):
     supabase = get_service_client()
     try:
-        supabase.table("gaia_device_sessions").upsert({
-            "device_id": device_id,
+        supabase.table("gaia_auth_tokens").upsert({
+            "token": token,
             "user_id": user_id,
             "access_token": access_token,
             "refresh_token": refresh_token,
-            "updated_at": datetime.datetime.now().isoformat()
+            "created_at": datetime.datetime.now().isoformat()
         }).execute()
     except:
         pass
 
-def restore_from_device_session(device_id):
+def restore_from_auth_token(token):
     supabase = get_service_client()
     try:
-        res = supabase.table("gaia_device_sessions").select("*").eq("device_id", device_id).execute()
+        res = supabase.table("gaia_auth_tokens").select("*").eq("token", token).execute()
         if res.data:
             row = res.data[0]
             supabase = get_anon_client()
@@ -62,21 +58,12 @@ def restore_from_device_session(device_id):
         pass
     return None
 
-def clear_device_session(device_id):
+def delete_auth_token(token):
     supabase = get_service_client()
     try:
-        supabase.table("gaia_device_sessions").delete().eq("device_id", device_id).execute()
+        supabase.table("gaia_auth_tokens").delete().eq("token", token).execute()
     except:
         pass
-
-# ============================================
-# SUPABASE CLIENTS
-# ============================================
-def get_anon_client() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-
-def get_service_client() -> Client:
-    return create_client(SUPABASE_URL, SERVICE_KEY)
 
 # ============================================
 # AUTH FUNCTIONS
@@ -103,9 +90,10 @@ def sign_up(email, password, first_name="", last_name="", phone="", state=""):
                     "state": state
                 }).execute()
             if res.session:
-                device_id = get_device_id()
-                save_device_session(device_id, res.user.id, res.session.access_token, res.session.refresh_token)
-            st.session_state.user = res.user
+                token = generate_auth_token()
+                save_auth_token(token, res.user.id, res.session.access_token, res.session.refresh_token)
+                st.query_params["auth_token"] = token
+                st.session_state.user = res.user
         return res.user, None
     except Exception as e:
         return None, str(e)
@@ -115,9 +103,10 @@ def sign_in(email, password):
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
         if res.session:
-            device_id = get_device_id()
-            save_device_session(device_id, res.user.id, res.session.access_token, res.session.refresh_token)
-        st.session_state.user = res.user
+            token = generate_auth_token()
+            save_auth_token(token, res.user.id, res.session.access_token, res.session.refresh_token)
+            st.query_params["auth_token"] = token
+            st.session_state.user = res.user
         return res.user, None
     except Exception as e:
         return None, str(e)
@@ -127,8 +116,10 @@ def sign_out():
         get_anon_client().auth.sign_out()
     except:
         pass
-    device_id = get_device_id()
-    clear_device_session(device_id)
+    token = st.query_params.get("auth_token")
+    if token:
+        delete_auth_token(token)
+        st.query_params.clear()
     st.session_state.user = None
 
 def reset_password(email):
@@ -167,18 +158,14 @@ def verify_paystack_transaction(reference):
             return data["data"]
     return None
 
-# ============================================
-# PAGE CONFIG
-# ============================================
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
 if "user" not in st.session_state:
     st.session_state.user = None
 
-device_id = get_device_id()
+query_params = st.query_params
 
 # Google OAuth callback
-query_params = st.query_params
 auth_code = query_params.get("code", [None])[0]
 if auth_code and st.session_state.user is None:
     supabase = get_anon_client()
@@ -186,7 +173,9 @@ if auth_code and st.session_state.user is None:
         supabase.auth.exchange_code_for_session({"auth_code": auth_code})
         session = supabase.auth.get_session()
         if session and session.user:
-            save_device_session(device_id, session.user.id, session.access_token, session.refresh_token)
+            token = generate_auth_token()
+            save_auth_token(token, session.user.id, session.access_token, session.refresh_token)
+            st.query_params["auth_token"] = token
             st.session_state.user = session.user
         st.rerun()
     except Exception as e:
@@ -220,14 +209,15 @@ if reference and plan and plan in PAYSTACK_PLANS:
             st.query_params.clear()
             st.rerun()
 
-# Restore from device session on refresh
+# Restore from URL token on refresh
 if st.session_state.user is None:
-    restored_user = restore_from_device_session(device_id)
-    if restored_user:
-        st.session_state.user = restored_user
-        st.rerun()
+    token = query_params.get("auth_token", [None])[0]
+    if token:
+        restored_user = restore_from_auth_token(token)
+        if restored_user:
+            st.session_state.user = restored_user
+            st.rerun()
 
-# Login page if no user
 if st.session_state.user is None:
     st.title("🌱 GAIA – Sign In / Create Account")
     tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Sign Up", "🅶 Google"])
@@ -272,7 +262,6 @@ if st.session_state.user is None:
         st.markdown(f'<a href="{google_auth_url}" target="_blank"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;">Sign in with Google</button></a>', unsafe_allow_html=True)
     st.stop()
 
-# Logged in area
 user = st.session_state.user
 user_id = user.id
 user_data = get_user_scans(user_id)
@@ -298,7 +287,6 @@ if st.sidebar.button("Logout"):
     sign_out()
     st.rerun()
 
-# Navigation
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")

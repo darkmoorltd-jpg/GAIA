@@ -18,26 +18,26 @@ if "meet_room_id" not in st.session_state:
     st.session_state.meet_room_id = None
 if "meet_role" not in st.session_state:
     st.session_state.meet_role = None
-if "meet_participants" not in st.session_state:
-    st.session_state.meet_participants = []
 if "meet_start_time" not in st.session_state:
     st.session_state.meet_start_time = None
+if "my_peer_id" not in st.session_state:
+    st.session_state.my_peer_id = None
 
 # ============================================
 # SUPABASE
 # ============================================
 @st.cache_resource
-def get_supabase():
-    return create_client(
-        st.secrets["supabase"]["url"],
-        st.secrets["supabase"]["service_key"]
-    )
-
-@st.cache_resource
-def get_supabase_anon():
+def get_anon_client():
     return create_client(
         st.secrets["supabase"]["url"],
         st.secrets["supabase"]["key"]
+    )
+
+@st.cache_resource
+def get_service_client():
+    return create_client(
+        st.secrets["supabase"]["url"],
+        st.secrets["supabase"]["service_key"]
     )
 
 def generate_room_id():
@@ -48,20 +48,18 @@ def get_user_display_name():
         return st.session_state.user.email.split('@')[0].title()
     return "Guest"
 
-def create_meeting(user_id, title, crop_focus=None):
-    db = get_supabase()
+def create_meeting(user_id, title):
+    db = get_service_client()
     room_id = generate_room_id()
+    peer_id = f"{room_id}-{user_id[:8]}"
     try:
         db.table("gaia_meetings").insert({
             "room_id": room_id,
             "host_id": user_id,
             "title": title,
-            "crop_focus": crop_focus,
             "status": "active",
             "created_at": datetime.datetime.now().isoformat()
         }).execute()
-        # Register host as participant with peer ID
-        peer_id = f"{room_id}-{user_id[:8]}"
         db.table("meeting_participants").insert({
             "room_id": room_id,
             "user_id": user_id,
@@ -73,7 +71,7 @@ def create_meeting(user_id, title, crop_focus=None):
         return None, None, str(e)
 
 def join_meeting(user_id, room_id):
-    db = get_supabase()
+    db = get_service_client()
     peer_id = f"{room_id}-{user_id[:8]}"
     try:
         db.table("meeting_participants").insert({
@@ -82,12 +80,12 @@ def join_meeting(user_id, room_id):
             "peer_id": peer_id,
             "joined_at": datetime.datetime.now().isoformat()
         }).execute()
-        return peer_id, None
-    except Exception as e:
-        return peer_id, str(e)  # likely already exists
+    except:
+        pass
+    return peer_id
 
 def get_meeting_info(room_id):
-    db = get_supabase()
+    db = get_service_client()
     try:
         res = db.table("gaia_meetings").select("*").eq("room_id", room_id).execute()
         return res.data[0] if res.data else None
@@ -95,8 +93,7 @@ def get_meeting_info(room_id):
         return None
 
 def get_participants(room_id):
-    """Return list of participants with peer_id."""
-    db = get_supabase()
+    db = get_service_client()
     try:
         res = db.table("meeting_participants").select("user_id,peer_id").eq("room_id", room_id).execute()
         return res.data if res.data else []
@@ -104,7 +101,7 @@ def get_participants(room_id):
         return []
 
 def get_meeting_chat(room_id):
-    db = get_supabase()
+    db = get_service_client()
     try:
         res = db.table("meeting_chat").select("*").eq("room_id", room_id).order("created_at").execute()
         return res.data if res.data else []
@@ -112,7 +109,7 @@ def get_meeting_chat(room_id):
         return []
 
 def send_chat_message(room_id, user_id, message):
-    db = get_supabase()
+    db = get_service_client()
     try:
         db.table("meeting_chat").insert({
             "room_id": room_id,
@@ -125,7 +122,7 @@ def send_chat_message(room_id, user_id, message):
         return False
 
 def get_user_name_by_id(user_id):
-    db = get_supabase()
+    db = get_service_client()
     try:
         res = db.table("user_profiles").select("first_name,last_name").eq("user_id", user_id).execute()
         if res.data:
@@ -179,15 +176,13 @@ if st.session_state.meet_room_id is None:
 
         with tab1:
             meeting_title = st.text_input("Meeting Title", value=f"{user_name}'s Agri Clinic")
-            crop_focus = st.selectbox("Crop Focus", ["None", "Maize", "Rice", "Beans", "Tomato"])
             if st.button("🚀 Start Meeting", use_container_width=True, type="primary"):
-                room_id, peer_id, err = create_meeting(user_id, meeting_title, crop_focus if crop_focus != "None" else None)
+                room_id, peer_id, err = create_meeting(user_id, meeting_title)
                 if room_id:
                     st.session_state.meet_room_id = room_id
                     st.session_state.meet_role = "host"
-                    st.session_state.meet_start_time = datetime.datetime.now()
                     st.session_state.my_peer_id = peer_id
-                    st.session_state.meet_participants = [{"user_id": user_id, "peer_id": peer_id, "name": user_name}]
+                    st.session_state.meet_start_time = datetime.datetime.now()
                     st.rerun()
                 else:
                     st.error(str(err)[:120])
@@ -197,14 +192,11 @@ if st.session_state.meet_room_id is None:
             if st.button("🔗 Join Meeting", use_container_width=True):
                 meeting = get_meeting_info(join_id)
                 if meeting:
-                    peer_id, err = join_meeting(user_id, join_id)
+                    peer_id = join_meeting(user_id, join_id)
                     st.session_state.meet_room_id = join_id
                     st.session_state.meet_role = "participant"
-                    st.session_state.meet_start_time = datetime.datetime.now()
                     st.session_state.my_peer_id = peer_id
-                    # Fetch participants
-                    parts = get_participants(join_id)
-                    st.session_state.meet_participants = parts
+                    st.session_state.meet_start_time = datetime.datetime.now()
                     st.rerun()
                 else:
                     st.error("Meeting not found.")
@@ -213,13 +205,8 @@ else:
     my_peer_id = st.session_state.my_peer_id
     meeting = get_meeting_info(room_id)
 
-    # Refresh participants
     participants = get_participants(room_id)
-    # Build peer list for JS
-    existing_peers = []
-    for p in participants:
-        if p.get("peer_id") and p["peer_id"] != my_peer_id:
-            existing_peers.append(p["peer_id"])
+    existing_peers = [p["peer_id"] for p in participants if p["peer_id"] != my_peer_id]
 
     # Top bar
     elapsed = datetime.datetime.now() - st.session_state.meet_start_time if st.session_state.meet_start_time else datetime.timedelta(0)
@@ -233,10 +220,11 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    tab_video, tab_chat, tab_controls = st.tabs(["📹 Video", "💬 Chat", "🎛️ Controls"])
+    tab_video, tab_chat = st.tabs(["📹 Video", "💬 Chat"])
 
     with tab_video:
-        # Build JSON data for JS
+        st.info("💡 **Tip:** For screen share, use the Pop-out button (⤢) to open the meeting in a new tab.")
+
         peer_data = {
             "room_id": room_id,
             "my_peer_id": my_peer_id,
@@ -252,7 +240,7 @@ else:
             <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
             <style>
                 body {{ background:#0e1117; margin:0; padding:0; font-family:'Inter',sans-serif; }}
-                .video-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:10px; padding:15px; }}
+                .video-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; padding:15px; }}
                 .video-tile {{ background:#1e2733; border-radius:12px; overflow:hidden; position:relative; aspect-ratio:16/9; }}
                 .video-tile video {{ width:100%; height:100%; object-fit:cover; }}
                 .name-tag {{ position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.7); color:#fff; padding:4px 14px; border-radius:6px; font-size:0.8rem; }}
@@ -262,14 +250,13 @@ else:
                 .ctrl-btn.active {{ background:#2d8cff; color:#fff; }}
                 .ctrl-btn.recording {{ background:#dc3545; color:#fff; }}
                 .ctrl-btn.end {{ background:#dc3545; color:#fff; }}
-                .recording-indicator {{ position:fixed; top:10px; right:10px; background:#dc3545; color:#fff; padding:5px 15px; border-radius:20px; font-size:0.8rem; display:none; z-index:999; }}
+                .status {{ position:fixed; bottom:10px; left:10px; color:#8b949e; font-size:0.8rem; z-index:999; }}
             </style>
         </head>
         <body>
-            <div class="recording-indicator" id="recIndicator">⏺ RECORDING</div>
             <div class="video-grid" id="videoGrid">
                 <div class="video-tile">
-                    <video id="mainVideo" autoplay muted playsinline></video>
+                    <video id="localVideo" autoplay muted playsinline></video>
                     <div class="name-tag">You ({user_name})</div>
                 </div>
             </div>
@@ -280,45 +267,43 @@ else:
                 <button class="ctrl-btn" id="recordBtn" onclick="toggleRecording()">⏺️ Record</button>
                 <button class="ctrl-btn end" onclick="endCall()">📞 End</button>
             </div>
+            <div class="status" id="status">Connecting...</div>
             <script>
-                // Parse data from Python
                 const config = {json.dumps(peer_data)};
                 const SUPABASE_URL = config.supabase_url;
                 const SUPABASE_ANON_KEY = config.supabase_anon_key;
                 const ROOM_ID = config.room_id;
                 const MY_PEER_ID = config.my_peer_id;
-                let existingPeers = config.existing_peers || [];
+                const existingPeers = config.existing_peers || [];
 
-                let myPeer;
-                let localStream;
-                let screenStream;
-                let mediaRecorder;
+                let myPeer = null;
+                let localStream = null;
+                let screenStream = null;
+                let mediaRecorder = null;
                 let recordedChunks = [];
                 let isRecording = false;
                 let remoteStreams = new Map();
 
-                // Initialize PeerJS
+                function updateStatus(msg) {{ document.getElementById('status').textContent = msg; }}
+
                 function initPeerJS() {{
                     myPeer = new Peer(MY_PEER_ID);
                     myPeer.on('open', (id) => {{
-                        console.log('Peer open: ' + id);
-                        // Call existing peers
-                        existingPeers.forEach(peerId => callPeer(peerId));
+                        updateStatus('Connected as ' + id);
+                        existingPeers.forEach(peer => callPeer(peer));
                     }});
-
                     myPeer.on('call', (call) => {{
                         getLocalStream().then(stream => {{
                             call.answer(stream);
                             call.on('stream', remoteStream => addRemoteVideo(call.peer, remoteStream));
                         }});
                     }});
-
                     myPeer.on('error', (err) => {{
-                        console.error('PeerJS error:', err);
+                        updateStatus('Error: ' + err.type);
+                        console.error(err);
                     }});
                 }}
 
-                // Get local stream
                 function getLocalStream() {{
                     if (localStream) return Promise.resolve(localStream);
                     return navigator.mediaDevices.getUserMedia({{
@@ -326,12 +311,14 @@ else:
                         video: {{ width: 640, height: 480 }}
                     }}).then(stream => {{
                         localStream = stream;
-                        document.getElementById('mainVideo').srcObject = stream;
+                        document.getElementById('localVideo').srcObject = stream;
                         return stream;
+                    }}).catch(err => {{
+                        updateStatus('Camera/mic error: ' + err.message);
+                        throw err;
                     }});
                 }}
 
-                // Call a peer
                 function callPeer(peerId) {{
                     if (remoteStreams.has(peerId)) return;
                     getLocalStream().then(stream => {{
@@ -340,7 +327,6 @@ else:
                     }});
                 }}
 
-                // Add remote video tile
                 function addRemoteVideo(peerId, stream) {{
                     if (remoteStreams.has(peerId)) return;
                     remoteStreams.set(peerId, stream);
@@ -348,12 +334,20 @@ else:
                     const tile = document.createElement('div');
                     tile.className = 'video-tile';
                     tile.id = 'remote-' + peerId;
-                    tile.innerHTML = '<video autoplay playsinline></video><div class="name-tag">Participant</div>';
+                    const video = document.createElement('video');
+                    video.autoplay = true;
+                    video.playsinline = true;
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => video.play().catch(e => console.log('Autoplay blocked', e));
+                    const name = document.createElement('div');
+                    name.className = 'name-tag';
+                    name.textContent = 'Participant';
+                    tile.appendChild(video);
+                    tile.appendChild(name);
                     grid.appendChild(tile);
-                    tile.querySelector('video').srcObject = stream;
+                    updateStatus('Participant joined');
                 }}
 
-                // Poll for new participants
                 function pollParticipants() {{
                     fetch(`${{SUPABASE_URL}}/rest/v1/meeting_participants?room_id=eq.${{ROOM_ID}}&select=peer_id`, {{
                         headers: {{
@@ -369,31 +363,42 @@ else:
                             }}
                         }});
                     }})
-                    .catch(err => console.error('Poll error:', err));
+                    .catch(err => {{
+                        console.error('Poll error:', err);
+                    }});
                 }}
 
-                // Toggle controls
                 function toggleMic() {{
                     if (localStream) {{
-                        const enabled = localStream.getAudioTracks()[0]?.enabled;
-                        localStream.getAudioTracks().forEach(t => t.enabled = !enabled);
-                        document.getElementById('micBtn').textContent = enabled ? '🔇 Unmute' : '🎙️ Mute';
+                        const track = localStream.getAudioTracks()[0];
+                        if (track) {{
+                            track.enabled = !track.enabled;
+                            document.getElementById('micBtn').textContent = track.enabled ? '🎙️ Mute' : '🔇 Unmute';
+                        }}
                     }}
                 }}
+
                 function toggleCam() {{
                     if (localStream) {{
-                        const enabled = localStream.getVideoTracks()[0]?.enabled;
-                        localStream.getVideoTracks().forEach(t => t.enabled = !enabled);
-                        document.getElementById('camBtn').textContent = enabled ? '🚫 Off' : '📷 Camera';
+                        const track = localStream.getVideoTracks()[0];
+                        if (track) {{
+                            track.enabled = !track.enabled;
+                            document.getElementById('camBtn').textContent = track.enabled ? '📷 Camera' : '🚫 Off';
+                        }}
                     }}
                 }}
+
                 async function toggleScreen() {{
                     if (!screenStream) {{
                         try {{
                             screenStream = await navigator.mediaDevices.getDisplayMedia({{ video: true }});
                             document.getElementById('screenBtn').textContent = '🖥️ Stop';
+                            screenStream.getVideoTracks()[0].onended = () => {{
+                                screenStream = null;
+                                document.getElementById('screenBtn').textContent = '🖥️ Share';
+                            }};
                         }} catch (e) {{
-                            alert('Screen share blocked. Use Pop-out.');
+                            alert('Screen share blocked. Use Pop-out button.');
                         }}
                     }} else {{
                         screenStream.getTracks().forEach(t => t.stop());
@@ -401,6 +406,7 @@ else:
                         document.getElementById('screenBtn').textContent = '🖥️ Share';
                     }}
                 }}
+
                 function toggleRecording() {{
                     if (!isRecording) {{
                         const combined = new MediaStream();
@@ -423,15 +429,14 @@ else:
                         isRecording = true;
                         document.getElementById('recordBtn').textContent = '⏺️ Recording...';
                         document.getElementById('recordBtn').classList.add('recording');
-                        document.getElementById('recIndicator').style.display = 'block';
                     }} else {{
                         mediaRecorder.stop();
                         isRecording = false;
                         document.getElementById('recordBtn').textContent = '⏺️ Record';
                         document.getElementById('recordBtn').classList.remove('recording');
-                        document.getElementById('recIndicator').style.display = 'none';
                     }}
                 }}
+
                 function endCall() {{
                     if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
                     if (localStream) localStream.getTracks().forEach(t => t.stop());
@@ -441,11 +446,10 @@ else:
                     window.location.reload();
                 }}
 
-                // Initialize
+                // Start
                 getLocalStream().then(() => {{
                     initPeerJS();
-                    // Poll every 10 seconds
-                    setInterval(pollParticipants, 10000);
+                    setInterval(pollParticipants, 5000);
                 }});
             </script>
         </body>
@@ -455,8 +459,8 @@ else:
 
         if st.button("🚪 Leave Meeting", use_container_width=True):
             st.session_state.meet_room_id = None
+            st.session_state.my_peer_id = None
             st.session_state.meet_start_time = None
-            st.session_state.meet_participants = []
             st.rerun()
 
     with tab_chat:
@@ -484,7 +488,6 @@ else:
                     send_chat_message(room_id, user_id, chat_input.strip())
                     st.rerun()
 
-    with tab_controls:
         st.markdown("### Participants")
         for p in participants:
             pname = get_user_name_by_id(p["user_id"])

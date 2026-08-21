@@ -43,7 +43,7 @@ else:
 
 def deduct_one_scan():
     if user is None:
-    return
+        return
     from supabase import create_client
     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
     uid = user.id
@@ -184,7 +184,7 @@ if files:
     if model is None:
         st.error("🚫 Soil model could not be loaded.")
         st.info("🔄 Try refreshing the page. The model may need to download first (one‑time, ~87 MB).")
-    st.stop()
+        st.stop()
 
     all_predictions = []
     all_probs_list = []

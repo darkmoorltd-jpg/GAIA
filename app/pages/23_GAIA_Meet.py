@@ -27,13 +27,6 @@ if "my_peer_id" not in st.session_state:
 # SUPABASE
 # ============================================
 @st.cache_resource
-def get_anon_client():
-    return create_client(
-        st.secrets["supabase"]["url"],
-        st.secrets["supabase"]["key"]
-    )
-
-@st.cache_resource
 def get_service_client():
     return create_client(
         st.secrets["supabase"]["url"],
@@ -220,10 +213,10 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    tab_video, tab_chat = st.tabs(["📹 Video", "💬 Chat"])
+    tab_video, tab_chat, tab_participants = st.tabs(["📹 Video", "💬 Chat", "👥 Participants"])
 
     with tab_video:
-        st.info("💡 **Tip:** For screen share, use the Pop-out button (⤢) to open the meeting in a new tab.")
+        st.info("💡 If a participant's video doesn't show, click their name in **Participants** tab to manually connect.")
 
         peer_data = {
             "room_id": room_id,
@@ -231,6 +224,7 @@ else:
             "supabase_url": st.secrets["supabase"]["url"],
             "supabase_anon_key": st.secrets["supabase"]["key"],
             "existing_peers": existing_peers,
+            "user_name": user_name,
         }
 
         video_html = f"""
@@ -267,7 +261,7 @@ else:
                 <button class="ctrl-btn" id="recordBtn" onclick="toggleRecording()">⏺️ Record</button>
                 <button class="ctrl-btn end" onclick="endCall()">📞 End</button>
             </div>
-            <div class="status" id="status">Connecting...</div>
+            <div class="status" id="status">Waiting for camera...</div>
             <script>
                 const config = {json.dumps(peer_data)};
                 const SUPABASE_URL = config.supabase_url;
@@ -275,6 +269,7 @@ else:
                 const ROOM_ID = config.room_id;
                 const MY_PEER_ID = config.my_peer_id;
                 const existingPeers = config.existing_peers || [];
+                const USER_NAME = config.user_name;
 
                 let myPeer = null;
                 let localStream = null;
@@ -286,6 +281,22 @@ else:
 
                 function updateStatus(msg) {{ document.getElementById('status').textContent = msg; }}
 
+                function getLocalStream() {{
+                    if (localStream) return Promise.resolve(localStream);
+                    return navigator.mediaDevices.getUserMedia({{
+                        audio: true,
+                        video: {{ width: 640, height: 480 }}
+                    }}).then(stream => {{
+                        localStream = stream;
+                        document.getElementById('localVideo').srcObject = stream;
+                        updateStatus('Camera ready');
+                        return stream;
+                    }}).catch(err => {{
+                        updateStatus('Camera/mic error: ' + err.message);
+                        throw err;
+                    }});
+                }}
+
                 function initPeerJS() {{
                     myPeer = new Peer(MY_PEER_ID);
                     myPeer.on('open', (id) => {{
@@ -296,26 +307,11 @@ else:
                         getLocalStream().then(stream => {{
                             call.answer(stream);
                             call.on('stream', remoteStream => addRemoteVideo(call.peer, remoteStream));
-                        }});
+                        }}).catch(err => console.error('Failed to answer call', err));
                     }});
                     myPeer.on('error', (err) => {{
                         updateStatus('Error: ' + err.type);
                         console.error(err);
-                    }});
-                }}
-
-                function getLocalStream() {{
-                    if (localStream) return Promise.resolve(localStream);
-                    return navigator.mediaDevices.getUserMedia({{
-                        audio: true,
-                        video: {{ width: 640, height: 480 }}
-                    }}).then(stream => {{
-                        localStream = stream;
-                        document.getElementById('localVideo').srcObject = stream;
-                        return stream;
-                    }}).catch(err => {{
-                        updateStatus('Camera/mic error: ' + err.message);
-                        throw err;
                     }});
                 }}
 
@@ -324,7 +320,7 @@ else:
                     getLocalStream().then(stream => {{
                         const call = myPeer.call(peerId, stream);
                         call.on('stream', remoteStream => addRemoteVideo(peerId, remoteStream));
-                    }});
+                    }}).catch(err => console.error('Failed to call peer', err));
                 }}
 
                 function addRemoteVideo(peerId, stream) {{
@@ -338,35 +334,23 @@ else:
                     video.autoplay = true;
                     video.playsinline = true;
                     video.srcObject = stream;
-                    video.onloadedmetadata = () => video.play().catch(e => console.log('Autoplay blocked', e));
+                    video.onloadedmetadata = () => {{
+                        video.play().catch(() => {{
+                            video.muted = true;
+                            video.play().catch(e => console.log('Autoplay blocked even muted', e));
+                        }});
+                    }};
                     const name = document.createElement('div');
                     name.className = 'name-tag';
                     name.textContent = 'Participant';
                     tile.appendChild(video);
                     tile.appendChild(name);
                     grid.appendChild(tile);
-                    updateStatus('Participant joined');
+                    updateStatus('Participant video added');
                 }}
 
-                function pollParticipants() {{
-                    fetch(`${{SUPABASE_URL}}/rest/v1/meeting_participants?room_id=eq.${{ROOM_ID}}&select=peer_id`, {{
-                        headers: {{
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
-                        }}
-                    }})
-                    .then(res => res.json())
-                    .then(data => {{
-                        data.forEach(p => {{
-                            if (p.peer_id && p.peer_id !== MY_PEER_ID) {{
-                                callPeer(p.peer_id);
-                            }}
-                        }});
-                    }})
-                    .catch(err => {{
-                        console.error('Poll error:', err);
-                    }});
-                }}
+                // Expose callPeer globally for manual buttons
+                window.callPeer = callPeer;
 
                 function toggleMic() {{
                     if (localStream) {{
@@ -446,10 +430,9 @@ else:
                     window.location.reload();
                 }}
 
-                // Start
+                // Initialize
                 getLocalStream().then(() => {{
                     initPeerJS();
-                    setInterval(pollParticipants, 5000);
                 }});
             </script>
         </body>
@@ -462,6 +445,30 @@ else:
             st.session_state.my_peer_id = None
             st.session_state.meet_start_time = None
             st.rerun()
+
+    with tab_participants:
+        st.markdown("### Participants")
+        for p in participants:
+            pname = get_user_name_by_id(p["user_id"])
+            peer = p.get("peer_id", "")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f'<span class="participant-chip">👤 {pname}</span>', unsafe_allow_html=True)
+            with col2:
+                if peer and peer != my_peer_id:
+                    # Button to manually trigger call via JS
+                    if st.button(f"📞 Call {pname}", key=f"call_{peer}"):
+                        st.success(f"Calling {pname}... Please ensure they have accepted camera/mic permissions.")
+                        # Use a hidden iframe or component to invoke JS
+                        components.html(f"""
+                        <script>
+                            if (window.parent.callPeer) {{
+                                window.parent.callPeer("{peer}");
+                            }} else {{
+                                alert("PeerJS not ready. Refresh the page and try again.");
+                            }}
+                        </script>
+                        """, height=0)
 
     with tab_chat:
         chat_messages = get_meeting_chat(room_id)
@@ -487,8 +494,3 @@ else:
                 if chat_input.strip():
                     send_chat_message(room_id, user_id, chat_input.strip())
                     st.rerun()
-
-        st.markdown("### Participants")
-        for p in participants:
-            pname = get_user_name_by_id(p["user_id"])
-            st.markdown(f'<span class="participant-chip">👤 {pname}</span>', unsafe_allow_html=True)

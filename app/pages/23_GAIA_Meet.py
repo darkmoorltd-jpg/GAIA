@@ -263,7 +263,8 @@ else:
                 .ctrl-btn.end {{ background:#dc3545; color:#fff; }}
                 .recording-indicator {{ position:fixed; top:10px; right:10px; background:#dc3545; color:#fff; padding:5px 15px; border-radius:20px; font-size:0.8rem; display:none; z-index:999; }}
             </style>
-        </head>
+        <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+</head>
         <body>
             <div class="recording-indicator" id="recIndicator">⏺ RECORDING</div>
             <div class="video-grid">
@@ -281,109 +282,156 @@ else:
                 <button class="ctrl-btn end" onclick="endCall()">📞 End</button>
             </div>
             <script>
-                let localStream = null;
-                let screenStream = null;
-                let micEnabled = true;
-                let camEnabled = true;
-                let mediaRecorder = null;
-                let recordedChunks = [];
-                let isRecording = false;
-                let handRaised = false;
                 
-                async function startCamera() {{
-                    try {{
-                        localStream = await navigator.mediaDevices.getUserMedia({{
-                            video: {{ width: {{ ideal: 1280 }}, height: {{ ideal: 720 }} }},
-                            audio: {{ echoCancellation: true, noiseSuppression: true }}
-                        }});
-                        document.getElementById('mainVideo').srcObject = localStream;
-                    }} catch (e) {{ console.error('Camera error:', e); }}
-                }}
-                
-                function toggleMic() {{
-                    if (localStream) {{
-                        micEnabled = !micEnabled;
-                        localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
-                        document.getElementById('micBtn').textContent = micEnabled ? '🎙️ Mute' : '🔇 Unmute';
-                        document.getElementById('micBtn').classList.toggle('active', !micEnabled);
-                    }}
-                }}
-                
-                function toggleCam() {{
-                    if (localStream) {{
-                        camEnabled = !camEnabled;
-                        localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
-                        document.getElementById('camBtn').textContent = camEnabled ? '📷 Camera' : '🚫 Off';
-                        document.getElementById('camBtn').classList.toggle('active', !camEnabled);
-                    }}
-                }}
-                
-                async function toggleScreen() {{
-                    if (!screenStream) {{
-                        try {{
-                            screenStream = await navigator.mediaDevices.getDisplayMedia({{ video: true }});
-                            document.getElementById('screenBtn').textContent = '🖥️ Stop';
-                            document.getElementById('screenBtn').classList.add('active');
-                        }} catch (e) {{
-                            alert('Screen share blocked. Use Pop-out button to open this meeting in a new tab and try again.');
-                        }}
-                    }} else {{
-                        screenStream.getTracks().forEach(t => t.stop());
-                        screenStream = null;
-                        document.getElementById('screenBtn').textContent = '🖥️ Share';
-                        document.getElementById('screenBtn').classList.remove('active');
-                    }}
-                }}
-                
-                function toggleRecording() {{
-                    if (!isRecording) {{
-                        try {{
-                            const streams = [];
-                            if (localStream) streams.push(localStream);
-                            if (screenStream) streams.push(screenStream);
-                            const combined = new MediaStream();
-                            streams.forEach(s => s.getTracks().forEach(t => combined.addTrack(t)));
-                            mediaRecorder = new MediaRecorder(combined, {{ mimeType: 'video/webm' }});
-                            recordedChunks = [];
-                            mediaRecorder.ondataavailable = e => {{ if (e.data.size > 0) recordedChunks.push(e.data); }};
-                            mediaRecorder.onstop = () => {{
-                                const blob = new Blob(recordedChunks, {{ type: 'video/webm' }});
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = 'GAIA_Meeting.webm';
-                                a.click();
-                                URL.revokeObjectURL(url);
-                            }};
-                            mediaRecorder.start();
-                            isRecording = true;
-                            document.getElementById('recordBtn').textContent = '⏺️ Recording...';
-                            document.getElementById('recordBtn').classList.add('recording');
-                            document.getElementById('recIndicator').style.display = 'block';
-                        }} catch (e) {{ alert('Recording failed: ' + e.message); }}
-                    }} else {{
-                        mediaRecorder.stop();
-                        isRecording = false;
-                        document.getElementById('recordBtn').textContent = '⏺️ Record';
-                        document.getElementById('recordBtn').classList.remove('recording');
-                        document.getElementById('recIndicator').style.display = 'none';
-                    }}
-                }}
-                
-                function toggleHand() {{
-                    handRaised = !handRaised;
-                    document.getElementById('raiseBtn').textContent = handRaised ? '✋ Hand Raised' : '✋ Raise Hand';
-                    document.getElementById('raiseBtn').classList.toggle('active', handRaised);
-                }}
-                
-                function endCall() {{
-                    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-                    if (localStream) localStream.getTracks().forEach(t => t.stop());
-                    if (screenStream) screenStream.getTracks().forEach(t => t.stop());
-                    window.location.reload();
-                }}
-                
-                startCamera();
+        // ========== PEERJS REAL-TIME AUDIO/VIDEO ==========
+        const roomId = '{room_id}';
+        const myUserId = '{user_id}';
+        const myPeerId = roomId + '-' + myUserId.substring(0, 8);
+        let myPeer = null;
+        let localStream = null;
+        let remoteStreams = new Map();
+
+        // Initialize PeerJS
+        function initPeerJS() {{
+            myPeer = new Peer(myPeerId);
+            myPeer.on('open', (id) => {{
+                console.log('My peer ID:', id);
+                // Register in Supabase via Streamlit (we'll do a postMessage or use a hidden input)
+                window.parent.postMessage({{
+                    type: 'peer_registered',
+                    peer_id: id,
+                    room_id: roomId
+                }}, '*');
+            }});
+
+            myPeer.on('call', (call) => {{
+                navigator.mediaDevices.getUserMedia({{
+                    audio: true,
+                    video: true
+                }}).then((stream) => {{
+                    call.answer(stream);
+                    call.on('stream', (remoteStream) => {{
+                        addRemoteVideo(call.peer, remoteStream);
+                    }});
+                }}).catch(err => console.error('Mic/cam error:', err));
+            }});
+        }}
+
+        // Start local video and mic
+        async function startCamera() {{
+            try {{
+                localStream = await navigator.mediaDevices.getUserMedia({{
+                    audio: true,
+                    video: {{ width: 640, height: 480 }}
+                }});
+                document.getElementById('mainVideo').srcObject = localStream;
+            }} catch (e) {{
+                console.error('Camera error:', e);
+            }}
+        }}
+
+        // Call a peer
+        function callPeer(remotePeerId) {{
+            if (!localStream) {{
+                // try to get stream if not already
+                navigator.mediaDevices.getUserMedia({{
+                    audio: true,
+                    video: true
+                }}).then(stream => {{
+                    localStream = stream;
+                    document.getElementById('mainVideo').srcObject = localStream;
+                    doCall(remotePeerId, stream);
+                }});
+            }} else {{
+                doCall(remotePeerId, localStream);
+            }}
+        }}
+
+        function doCall(remotePeerId, stream) {{
+            const call = myPeer.call(remotePeerId, stream);
+            call.on('stream', (remoteStream) => {{
+                addRemoteVideo(remotePeerId, remoteStream);
+            }});
+        }}
+
+        // Add remote video tile
+        function addRemoteVideo(peerId, stream) {{
+            if (remoteStreams.has(peerId)) return;
+            remoteStreams.set(peerId, stream);
+            const grid = document.getElementById('videoGrid');
+            const tile = document.createElement('div');
+            tile.className = 'video-tile';
+            tile.id = 'remote-' + peerId;
+            tile.innerHTML = '<video autoplay playsinline></video><div class="name-tag">Participant</div>';
+            grid.appendChild(tile);
+            tile.querySelector('video').srcObject = stream;
+        }}
+
+        // Signal to Streamlit that we are ready
+        window.parent.postMessage({{ type: 'meet_ready' }}, '*');
+
+        // Start everything
+        initPeerJS();
+        startCamera();
+
+        // ========== EXISTING CONTROLS (mic, cam, etc.) ==========
+        // We'll keep the existing control functions but ensure they work on localStream
+        function toggleMic() {{
+            if (localStream) {{
+                micEnabled = !micEnabled;
+                localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+                document.getElementById('micBtn').textContent = micEnabled ? '🎙️ Mute' : '🔇 Unmute';
+                document.getElementById('micBtn').classList.toggle('active', !micEnabled);
+            }}
+        }}
+        function toggleCam() {{
+            if (localStream) {{
+                camEnabled = !camEnabled;
+                localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
+                document.getElementById('camBtn').textContent = camEnabled ? '📷 Camera' : '🚫 Off';
+                document.getElementById('camBtn').classList.toggle('active', !camEnabled);
+            }}
+        }}
+        function toggleRecording() {{
+            if (!isRecording) {{
+                try {{
+                    const combined = new MediaStream();
+                    if (localStream) localStream.getTracks().forEach(t => combined.addTrack(t));
+                    remoteStreams.forEach(s => s.getTracks().forEach(t => combined.addTrack(t)));
+                    mediaRecorder = new MediaRecorder(combined, {{ mimeType: 'video/webm' }});
+                    recordedChunks = [];
+                    mediaRecorder.ondataavailable = e => {{ if (e.data.size > 0) recordedChunks.push(e.data); }};
+                    mediaRecorder.onstop = () => {{
+                        const blob = new Blob(recordedChunks, {{ type: 'video/webm' }});
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'GAIA_Meeting.webm';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }};
+                    mediaRecorder.start();
+                    isRecording = true;
+                    document.getElementById('recordBtn').textContent = '⏺️ Recording...';
+                    document.getElementById('recordBtn').classList.add('recording');
+                    document.getElementById('recIndicator').style.display = 'block';
+                }} catch (e) {{ alert('Recording failed: ' + e.message); }}
+            }} else {{
+                mediaRecorder.stop();
+                isRecording = false;
+                document.getElementById('recordBtn').textContent = '⏺️ Record';
+                document.getElementById('recordBtn').classList.remove('recording');
+                document.getElementById('recIndicator').style.display = 'none';
+            }}
+        }}
+        function endCall() {{
+            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            remoteStreams.forEach(s => s.getTracks().forEach(t => t.stop()));
+            if (myPeer) myPeer.destroy();
+            window.location.reload();
+        }}
+
             </script>
         </body>
         </html>

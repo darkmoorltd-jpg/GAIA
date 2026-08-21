@@ -91,7 +91,10 @@ try:
     res = db.table("friendships").select("*").eq("status", "accepted").or_(f"sender_id.eq.{user.id if user else "demo_user"},receiver_id.eq.{user.id if user else "demo_user"}").execute()
     if res.data:
         for f in res.data:
-            fid = f["sender_id"] if f["receiver_id"] == user.id if user else "demo_user" else f["receiver_id"]
+            if user and f["receiver_id"] == user.id:
+                    fid = f["sender_id"]
+                else:
+                    fid = f["receiver_id"]
             friend_ids.add(fid)
 except:
     pass

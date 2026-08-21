@@ -470,7 +470,10 @@ with tab_orders:
         st.info("No orders yet.")
     else:
         for order in orders:
-            role = "Buyer" if order.get("buyer_id") == user.id if user else "demo_user" else "Seller"
+            if user and order.get("buyer_id") == user.id:
+                        role = "Buyer"
+                    else:
+                        role = "Seller"
             status = order.get("status", "pending")
             status_emoji = {"pending": "🟡", "paid": "🟢", "completed": "✅", "cancelled": "❌"}.get(status, "⚪")
             listing = get_listing_by_id(order.get("listing_id"))

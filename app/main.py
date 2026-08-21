@@ -50,7 +50,7 @@ def sign_up(email: str, password: str, first_name: str = "", last_name: str = ""
                     "phone": phone,
                     "state": state
                 }).execute()
-            st.session_state.user = res.user
+            user = res.user
         return res.user, None
     except Exception as e:
         return None, str(e)
@@ -59,7 +59,7 @@ def sign_in(email: str, password: str):
     supabase = init_supabase()
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        st.session_state.user = res.user
+        user = res.user
         return res.user, None
     except Exception as e:
         return None, str(e)
@@ -70,7 +70,7 @@ def sign_out():
         supabase.auth.sign_out()
     except:
         pass
-    st.session_state.user = None
+    user = None
 
 def reset_password(email: str):
     supabase = init_supabase()
@@ -112,19 +112,19 @@ def verify_paystack_transaction(reference: str):
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
 if "user" not in st.session_state:
-    st.session_state.user = None
+    user = None
 
 # ----- Google OAuth callback -----
 query_params = st.query_params
 auth_code = query_params.get("code", [None])[0]
 
-if auth_code and st.session_state.user is None:
+if auth_code and user is None:
     supabase = init_supabase()
     try:
         supabase.auth.exchange_code_for_session({"auth_code": auth_code})
         session = supabase.auth.get_session()
         if session and session.user:
-            st.session_state.user = session.user
+            user = session.user
         st.rerun()
     except Exception as e:
         st.error(f"Google sign‑in failed: {e}")
@@ -137,7 +137,7 @@ if reference and plan and plan in PAYSTACK_PLANS:
     txn = verify_paystack_transaction(reference)
     if txn:
         supabase = init_supabase()
-        user_id = st.session_state.user.id if st.session_state.user else None
+        user_id = user.id if user else None
         if user_id:
             scans_to_add = PAYSTACK_PLANS[plan]["scans"]
             supabase.table("user_scans").update({
@@ -156,17 +156,17 @@ if reference and plan and plan in PAYSTACK_PLANS:
             st.rerun()
 
 # ----- Try restore session -----
-if st.session_state.user is None:
+if user is None:
     supabase = init_supabase()
     try:
         session = supabase.auth.get_session()
         if session and session.user:
-            st.session_state.user = session.user
+            user = session.user
     except:
         pass
 
 # ----- Login page -----
-if st.session_state.user is None:
+if user is None:
     st.title("🌱 GAIA – Sign In / Create Account")
     tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Sign Up", "🅶 Google"])
 
@@ -219,12 +219,12 @@ if st.session_state.user is None:
     st.stop()
 
 # ---------- Logged‑in user ----------
-user_id = st.session_state.user.id
+user_id = user.id
 user_data = get_user_scans(user_id)
 scans_left = user_data["scans_remaining"]
 plan_name = user_data["plan"]
 
-st.sidebar.write(f"👤 {st.session_state.user.email}")
+st.sidebar.write(f"👤 {user.email}")
 st.sidebar.metric("Scans Remaining", scans_left)
 st.sidebar.write(f"Plan: {plan_name}")
 

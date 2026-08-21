@@ -1,4 +1,5 @@
 import streamlit as st
+user = st.session_state.get("user", None)
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -36,8 +37,8 @@ def upload_file_to_supabase(file_bytes, filename):
 st.set_page_config(page_title="GAIA – Help & Support", page_icon="💬", layout="wide")
 
 if user is None:
-    st.warning("Please log in first.")
-    st.stop()
+    st.session_state["user"] = None
+    user = None
 
 user = user
 supabase = get_service()

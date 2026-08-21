@@ -1,5 +1,6 @@
 
 import streamlit as st
+user = st.session_state.get("user", None)
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -63,8 +64,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if user is None:
-    st.warning("Please log in first.")
-    st.stop()
+    st.session_state["user"] = None
+    user = None
 
 if user.email != ADMIN_EMAIL:
     st.error("Access denied. Admin only.")

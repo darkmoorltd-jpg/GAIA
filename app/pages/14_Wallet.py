@@ -1,4 +1,5 @@
 import streamlit as st
+user = st.session_state.get("user", None)
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -20,8 +21,8 @@ def init_service(): return create_client(SUPABASE_URL, SERVICE_KEY)
 
 st.set_page_config(page_title="GAIA – Digital Wallet", page_icon="💰", layout="wide")
 if user is None:
-    st.warning("Please log in first.")
-    st.stop()
+    st.session_state["user"] = None
+    user = None
 
 user = user
 service = init_service()

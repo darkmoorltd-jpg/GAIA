@@ -1,4 +1,5 @@
 import streamlit as st
+user = st.session_state.get("user", None)
 
 st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wide")
 

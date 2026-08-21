@@ -1,5 +1,6 @@
 
 import streamlit as st
+user = st.session_state.get("user", None)
 import json
 import re
 import random

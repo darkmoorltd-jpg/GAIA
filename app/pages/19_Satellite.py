@@ -1,4 +1,5 @@
 import streamlit as st
+user = st.session_state.get("user", None)
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:

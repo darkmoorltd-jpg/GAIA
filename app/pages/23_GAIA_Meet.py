@@ -280,7 +280,8 @@ else:
     ])
     
     with tab_video:
-        video_html = f"""
+        st.info("💡 **Tip:** For screen share, click the **Pop-out button (⤢)** in the top-right corner of the video window to open the meeting in a new tab. Screen share works best there.")
+video_html = f"""
         <!DOCTYPE html>
         <html>
         <head>
@@ -361,7 +362,10 @@ else:
                             screenStream = await navigator.mediaDevices.getDisplayMedia({{ video: true }});
                             document.getElementById('screenBtn').textContent = '🖥️ Stop';
                             document.getElementById('screenBtn').classList.add('active');
-                        }} catch (e) {{ console.error('Screen error:', e); }}
+                        }} catch (e) {{
+                            alert('Screen share blocked in this embedded view. Please click the Pop-out button (top-right of video) to open the meeting in a new tab and try again.');
+                            console.error('Screen share error:', e);
+                        }}
                     }} else {{
                         screenStream.getTracks().forEach(t => t.stop());
                         screenStream = null;

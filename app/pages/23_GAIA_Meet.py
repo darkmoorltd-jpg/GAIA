@@ -281,6 +281,7 @@ else:
     
     with tab_video:
         st.info("💡 **Tip:** For screen share, click the **Pop-out button (⤢)** in the top-right corner of the video window to open the meeting in a new tab. Screen share works best there.")
+st.info("💡 **Tip:** For screen share, click the **Pop-out button (⤢)** in the top-right corner of the video window to open the meeting in a new tab. Screen share works best there.")
 video_html = f"""
         <!DOCTYPE html>
         <html>

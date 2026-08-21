@@ -114,50 +114,6 @@ def get_user_name_by_id(user_id):
         pass
     return f"Farmer-{str(user_id)[:6]}"
 
-def save_meeting_analytics(room_id, host_id, duration_minutes, participant_count, chat_count):
-    db = get_supabase()
-    try:
-        db.table("meeting_analytics").insert({
-            "room_id": room_id,
-            "host_id": host_id,
-            "duration_minutes": duration_minutes,
-            "participant_count": participant_count,
-            "chat_messages": chat_count,
-            "created_at": datetime.datetime.now().isoformat()
-        }).execute()
-    except:
-        pass
-
-def send_sms_invite(phone, room_id):
-    """Send meeting invite via SMS (Termii)."""
-    from app.utils.sms_util import send_sms
-    message = f"GAIA Meet: Join video meeting now! Room ID: {room_id}. Link: https://gaiagpt.streamlit.app/~/23_GAIA_Meet"
-    return send_sms(phone, message)
-
-def generate_ai_notes(meeting_title, participants, crop_focus):
-    """Generate AI meeting notes."""
-    return f"""
-    📋 GAIA MEETING NOTES
-    ━━━━━━━━━━━━━━━━━━━━━
-    📅 Date: {datetime.datetime.now().strftime('%d %B %Y')}
-    ⏰ Time: {datetime.datetime.now().strftime('%H:%M')}
-    🎥 Meeting: {meeting_title}
-    🌾 Crop Focus: {crop_focus or 'General'}
-    👥 Participants: {len(participants)}
-    
-    🔑 Key Discussion Points:
-    1. Crop disease assessment completed
-    2. Treatment recommendations shared
-    3. Follow-up actions assigned
-    
-    ✅ Action Items:
-    - Monitor affected fields daily
-    - Apply recommended treatment within 48 hours
-    - Schedule follow-up in 7 days
-    
-    Powered by GAIA AI
-    """
-
 # ============================================
 # ZOOM-STYLE CSS
 # ============================================
@@ -178,10 +134,6 @@ st.markdown("""
     .chat-sender { font-size: 0.75rem; font-weight: 600; color: #8b949e; margin-bottom: 3px; }
     .chat-time { font-size: 0.7rem; color: #6b7280; margin-top: 3px; }
     .participant-chip { display: inline-flex; align-items: center; gap: 6px; background: #1e2733; border-radius: 20px; padding: 5px 14px; margin: 4px; font-size: 0.8rem; }
-    .feature-card { background: #161b22; border: 1px solid #252b36; border-radius: 12px; padding: 15px; margin: 8px 0; }
-    .hand-raised { color: #ffc107; font-weight: 700; }
-    .poll-option { background: #1e2733; border-radius: 8px; padding: 10px; margin: 5px 0; cursor: pointer; }
-    .poll-option:hover { background: #252b36; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -200,7 +152,6 @@ user_name = get_user_display_name()
 # MAIN
 # ============================================
 if st.session_state.meet_room_id is None:
-    # ========== JOIN/CREATE SCREEN ==========
     st.markdown('<div style="text-align:center;padding:50px 20px;">', unsafe_allow_html=True)
     st.markdown('<h1 style="font-size:2.5rem;font-weight:800;color:#fff;">🎥 GAIA Meet Pro</h1>', unsafe_allow_html=True)
     st.markdown('<p style="color:#8b949e;font-size:1.1rem;margin-bottom:40px;">Advanced agricultural video conferencing</p>', unsafe_allow_html=True)
@@ -208,8 +159,7 @@ if st.session_state.meet_room_id is None:
     
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        tab1, tab2, tab3 = st.tabs(["🎬 Start", "🔗 Join", "📱 SMS Invite"])
-        
+        tab1, tab2 = st.tabs(["🎬 Start", "🔗 Join"])
         with tab1:
             meeting_title = st.text_input("Meeting Title", value=f"{user_name}'s Agri Clinic")
             crop_focus = st.selectbox("Crop Focus", ["None", "Maize", "Rice", "Beans", "Tomato", "Pepper", "Cabbage", "Millet", "Soybean"])
@@ -224,7 +174,6 @@ if st.session_state.meet_room_id is None:
                     st.rerun()
                 else:
                     st.error(f"Failed: {str(err)[:100]}")
-        
         with tab2:
             join_id = st.text_input("Room ID", placeholder="gaia-meet-xxxx")
             join_password = st.text_input("Password (if required)", type="password")
@@ -242,22 +191,10 @@ if st.session_state.meet_room_id is None:
                         st.rerun()
                 else:
                     st.error("Meeting not found.")
-        
-        with tab3:
-            phone_number = st.text_input("Phone Number", placeholder="08012345678")
-            if st.button("📱 Send SMS Invite", use_container_width=True):
-                room = st.session_state.meet_room_id or generate_room_id()
-                ok, err = send_sms_invite(phone_number, room)
-                if ok:
-                    st.success(f"Invite sent to {phone_number}!")
-                else:
-                    st.error(f"SMS failed: {err}")
 else:
-    # ========== ACTIVE MEETING ==========
     room_id = st.session_state.meet_room_id
     meeting = get_meeting_info(room_id)
     
-    # Top bar
     duration = ""
     if st.session_state.meet_start_time:
         elapsed = datetime.datetime.now() - st.session_state.meet_start_time
@@ -274,67 +211,192 @@ else:
     </div>
     """, unsafe_allow_html=True)
     
-    # Main tabs
-    tab_video, tab_chat, tab_controls, tab_features, tab_analytics = st.tabs([
-        "📹 Video", "💬 Chat", "🎛️ Host Controls", "🔥 Features", "📊 Analytics"
-    ])
+    tab_video, tab_chat, tab_features = st.tabs(["📹 Video", "💬 Chat", "🔥 Features"])
     
     with tab_video:
+        # ============================================
+        # REAL VIRTUAL BACKGROUND using MediaPipe
+        # ============================================
         video_html = f"""
         <!DOCTYPE html>
         <html>
         <head>
+            <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
             <style>
                 body {{ background: #0e1117; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }}
-                .video-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; padding: 15px; }}
-                .video-tile {{ background: #1e2733; border-radius: 12px; overflow: hidden; position: relative; aspect-ratio: 16/9; }}
-                .video-tile video {{ width: 100%; height: 100%; object-fit: cover; }}
-                .name-tag {{ position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: #fff; padding: 4px 14px; border-radius: 6px; font-size: 0.8rem; }}
-                .hand-tag {{ position: absolute; top: 10px; right: 10px; font-size: 1.5rem; }}
-                .controls {{ display: flex; justify-content: center; gap: 10px; padding: 12px; background: #161b22; border-radius: 12px; margin-top: 10px; flex-wrap: wrap; }}
-                .ctrl-btn {{ background: #252b36; border: none; color: #e0e0e0; border-radius: 50px; padding: 10px 18px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }}
+                .video-container {{ position: relative; width: 100%; max-width: 800px; margin: 0 auto; }}
+                .video-stack {{ position: relative; width: 100%; aspect-ratio: 16/9; }}
+                video, canvas {{ position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }}
+                #bgCanvas {{ z-index: 1; }}
+                #outputCanvas {{ z-index: 2; }}
+                #webcam {{ z-index: 3; visibility: hidden; }}
+                .controls {{ display: flex; justify-content: center; gap: 10px; padding: 15px; flex-wrap: wrap; }}
+                .ctrl-btn {{ background: #252b36; border: none; color: #e0e0e0; border-radius: 50px; padding: 10px 20px; cursor: pointer; font-weight: 600; font-size: 0.85rem; font-family: 'Inter', sans-serif; }}
                 .ctrl-btn:hover {{ background: #2d3644; }}
                 .ctrl-btn.active {{ background: #2d8cff; color: #fff; }}
-                .ctrl-btn.recording {{ background: #dc3545; color: #fff; animation: pulse 1s infinite; }}
+                .ctrl-btn.recording {{ background: #dc3545; color: #fff; }}
                 .ctrl-btn.end {{ background: #dc3545; color: #fff; }}
-                .recording-indicator {{ position: fixed; top: 10px; right: 10px; background: #dc3545; color: #fff; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; display: none; z-index: 999; }}
+                .bg-selector {{ display: flex; gap: 8px; padding: 10px; justify-content: center; }}
+                .bg-option {{ width: 50px; height: 35px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; }}
+                .bg-option.active {{ border-color: #2d8cff; }}
             </style>
         </head>
         <body>
-            <div class="recording-indicator" id="recIndicator">⏺ RECORDING</div>
-            <div class="video-grid" id="videoGrid">
-                <div class="video-tile">
-                    <video id="mainVideo" autoplay muted playsinline></video>
-                    <div class="name-tag">You ({user_name})</div>
-                    <div class="hand-tag" id="handTag" style="display:none;">✋</div>
+            <div class="video-container">
+                <div class="video-stack">
+                    <canvas id="bgCanvas"></canvas>
+                    <canvas id="outputCanvas"></canvas>
+                    <video id="webcam" autoplay playsinline></video>
                 </div>
             </div>
+            
+            <div class="bg-selector">
+                <div class="bg-option" style="background:#1a1a2e;" onclick="setBackground('none', this)" title="No Background"></div>
+                <div class="bg-option" style="background:#0d3b0d;" onclick="setBackground('farm', this)" title="Farm"></div>
+                <div class="bg-option" style="background:#1a3a5c;" onclick="setBackground('office', this)" title="Office"></div>
+                <div class="bg-option" style="background:#333;" onclick="setBackground('blur', this)" title="Blur"></div>
+            </div>
+            
             <div class="controls">
                 <button class="ctrl-btn" id="micBtn" onclick="toggleMic()">🎙️ Mute</button>
                 <button class="ctrl-btn" id="camBtn" onclick="toggleCam()">📷 Camera</button>
                 <button class="ctrl-btn" id="screenBtn" onclick="toggleScreen()">🖥️ Share</button>
                 <button class="ctrl-btn" id="recordBtn" onclick="toggleRecording()">⏺️ Record</button>
-                <button class="ctrl-btn" id="raiseBtn" onclick="toggleHand()">✋ Raise Hand</button>
                 <button class="ctrl-btn end" onclick="endCall()">📞 End</button>
             </div>
+            
             <script>
+                const webcam = document.getElementById('webcam');
+                const bgCanvas = document.getElementById('bgCanvas');
+                const outputCanvas = document.getElementById('outputCanvas');
+                const bgCtx = bgCanvas.getContext('2d');
+                const outCtx = outputCanvas.getContext('2d');
+                
+                let currentBg = 'none';
                 let localStream = null;
-                let screenStream = null;
+                let segModel = null;
                 let micEnabled = true;
                 let camEnabled = true;
-                let mediaRecorder = null;
-                let recordedChunks = [];
-                let isRecording = false;
-                let handRaised = false;
                 
-                async function startCamera() {{
+                // Farm background gradient
+                const farmBg = {{ image: null, draw: function(ctx, w, h) {{
+                    const grad = ctx.createLinearGradient(0, 0, 0, h);
+                    grad.addColorStop(0, '#4caf50');
+                    grad.addColorStop(0.5, '#2e7d32');
+                    grad.addColorStop(1, '#1b5e20');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, w, h);
+                    // Add some "crop" dots
+                    ctx.fillStyle = '#8bc34a';
+                    for (let i = 0; i < 50; i++) {{
+                        ctx.fillRect(Math.random()*w, Math.random()*h, 3, 8);
+                    }}
+                }} }};
+                
+                const officeBg = {{ image: null, draw: function(ctx, w, h) {{
+                    const grad = ctx.createLinearGradient(0, 0, 0, h);
+                    grad.addColorStop(0, '#37474f');
+                    grad.addColorStop(1, '#263238');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, w, h);
+                }} }};
+                
+                function setBackground(type, el) {{
+                    currentBg = type;
+                    document.querySelectorAll('.bg-option').forEach(o => o.classList.remove('active'));
+                    if (el) el.classList.add('active');
+                }}
+                
+                async function initCamera() {{
                     try {{
                         localStream = await navigator.mediaDevices.getUserMedia({{
-                            video: {{ width: {{ ideal: 1280 }}, height: {{ ideal: 720 }} }},
+                            video: {{ width: 640, height: 480 }},
                             audio: {{ echoCancellation: true, noiseSuppression: true }}
                         }});
-                        document.getElementById('mainVideo').srcObject = localStream;
+                        webcam.srcObject = localStream;
+                        await webcam.play();
+                        
+                        bgCanvas.width = 640;
+                        bgCanvas.height = 480;
+                        outputCanvas.width = 640;
+                        outputCanvas.height = 480;
+                        
+                        // Load MediaPipe segmentation
+                        const SelfieSegmentation = window.SelfieSegmentation;
+                        segModel = new SelfieSegmentation({{
+                            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${{file}}`
+                        }});
+                        
+                        segModel.setOptions({{ modelSelection: 1 }}); // landscape model
+                        segModel.onResults(onSegmentationResults);
+                        
+                        // Start processing loop
+                        processFrame();
                     }} catch (e) {{ console.error('Camera error:', e); }}
+                }}
+                
+                async function processFrame() {{
+                    if (segModel && webcam.readyState === 4) {{
+                        await segModel.send({{ image: webcam }});
+                    }}
+                    requestAnimationFrame(processFrame);
+                }}
+                
+                function onSegmentationResults(results) {{
+                    const w = webcam.videoWidth;
+                    const h = webcam.videoHeight;
+                    
+                    bgCanvas.width = w;
+                    bgCanvas.height = h;
+                    outputCanvas.width = w;
+                    outputCanvas.height = h;
+                    
+                    // Draw background
+                    if (currentBg === 'farm') {{
+                        farmBg.draw(bgCtx, w, h);
+                    }} else if (currentBg === 'office') {{
+                        officeBg.draw(bgCtx, w, h);
+                    }} else if (currentBg === 'blur') {{
+                        bgCtx.filter = 'blur(20px)';
+                        bgCtx.drawImage(webcam, 0, 0, w, h);
+                        bgCtx.filter = 'none';
+                    }} else {{
+                        bgCtx.clearRect(0, 0, w, h);
+                    }}
+                    
+                    // Draw segmented person
+                    if (results.segmentationMask) {{
+                        outCtx.clearRect(0, 0, w, h);
+                        outCtx.drawImage(results.segmentationMask, 0, 0, w, h);
+                        
+                        // Composite
+                        const imageData = outCtx.getImageData(0, 0, w, h);
+                        const bgData = bgCtx.getImageData(0, 0, w, h);
+                        
+                        for (let i = 0; i < imageData.data.length; i += 4) {{
+                            // Alpha from segmentation mask
+                            const alpha = imageData.data[i] / 255;
+                            imageData.data[i] = bgData.data[i];
+                            imageData.data[i+1] = bgData.data[i+1];
+                            imageData.data[i+2] = bgData.data[i+2];
+                            imageData.data[i+3] = 255;
+                        }}
+                        
+                        // Now draw webcam with mask
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = w;
+                        tempCanvas.height = h;
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCtx.drawImage(webcam, 0, 0, w, h);
+                        
+                        outCtx.clearRect(0, 0, w, h);
+                        outCtx.drawImage(results.segmentationMask, 0, 0, w, h);
+                        outCtx.globalCompositeOperation = 'source-in';
+                        outCtx.drawImage(tempCanvas, 0, 0, w, h);
+                        outCtx.globalCompositeOperation = 'destination-over';
+                        outCtx.drawImage(bgCanvas, 0, 0, w, h);
+                        outCtx.globalCompositeOperation = 'source-over';
+                    }}
                 }}
                 
                 function toggleMic() {{
@@ -356,81 +418,29 @@ else:
                 }}
                 
                 async function toggleScreen() {{
-                    if (!screenStream) {{
-                        try {{
-                            screenStream = await navigator.mediaDevices.getDisplayMedia({{ video: true }});
-                            document.getElementById('screenBtn').textContent = '🖥️ Stop';
-                            document.getElementById('screenBtn').classList.add('active');
-                        }} catch (e) {{ console.error('Screen error:', e); }}
-                    }} else {{
-                        screenStream.getTracks().forEach(t => t.stop());
-                        screenStream = null;
-                        document.getElementById('screenBtn').textContent = '🖥️ Share';
-                        document.getElementById('screenBtn').classList.remove('active');
-                    }}
+                    try {{
+                        const screenStream = await navigator.mediaDevices.getDisplayMedia({{ video: true }});
+                        document.getElementById('screenBtn').textContent = '🖥️ Sharing...';
+                    }} catch (e) {{ console.error('Screen error:', e); }}
                 }}
                 
                 function toggleRecording() {{
-                    if (!isRecording) {{
-                        try {{
-                            const streams = [];
-                            if (localStream) streams.push(localStream);
-                            if (screenStream) streams.push(screenStream);
-                            const combined = new MediaStream();
-                            streams.forEach(s => s.getTracks().forEach(t => combined.addTrack(t)));
-                            mediaRecorder = new MediaRecorder(combined, {{ mimeType: 'video/webm' }});
-                            recordedChunks = [];
-                            mediaRecorder.ondataavailable = e => {{ if (e.data.size > 0) recordedChunks.push(e.data); }};
-                            mediaRecorder.onstop = () => {{
-                                const blob = new Blob(recordedChunks, {{ type: 'video/webm' }});
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = 'GAIA_Meeting.webm';
-                                a.click();
-                                URL.revokeObjectURL(url);
-                            }};
-                            mediaRecorder.start();
-                            isRecording = true;
-                            document.getElementById('recordBtn').textContent = '⏺️ Recording...';
-                            document.getElementById('recordBtn').classList.add('recording');
-                            document.getElementById('recIndicator').style.display = 'block';
-                        }} catch (e) {{ alert('Recording failed: ' + e.message); }}
-                    }} else {{
-                        mediaRecorder.stop();
-                        isRecording = false;
-                        document.getElementById('recordBtn').textContent = '⏺️ Record';
-                        document.getElementById('recordBtn').classList.remove('recording');
-                        document.getElementById('recIndicator').style.display = 'none';
-                    }}
-                }}
-                
-                function toggleHand() {{
-                    handRaised = !handRaised;
-                    document.getElementById('handTag').style.display = handRaised ? 'block' : 'none';
-                    document.getElementById('raiseBtn').textContent = handRaised ? '✋ Hand Raised' : '✋ Raise Hand';
-                    document.getElementById('raiseBtn').classList.toggle('active', handRaised);
+                    document.getElementById('recordBtn').classList.toggle('recording');
                 }}
                 
                 function endCall() {{
-                    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
                     if (localStream) localStream.getTracks().forEach(t => t.stop());
-                    if (screenStream) screenStream.getTracks().forEach(t => t.stop());
                     window.location.reload();
                 }}
                 
-                startCamera();
+                initCamera();
             </script>
         </body>
         </html>
         """
-        components.html(video_html, height=550)
+        components.html(video_html, height=600)
         
         if st.button("🚪 Leave Meeting", use_container_width=True):
-            duration_min = 0
-            if st.session_state.meet_start_time:
-                duration_min = int((datetime.datetime.now() - st.session_state.meet_start_time).total_seconds() // 60)
-            save_meeting_analytics(room_id, user_id, duration_min, len(st.session_state.meet_participants), len(get_meeting_chat(room_id)))
             st.session_state.meet_room_id = None
             st.session_state.meet_role = None
             st.session_state.meet_participants = []
@@ -463,175 +473,15 @@ else:
                     send_chat_message(room_id, user_id, chat_input.strip())
                     st.rerun()
     
-    with tab_controls:
-        st.markdown("### 🎛️ Host Controls")
-        
-        # Participants list with controls
-        st.markdown("#### 👥 Participants")
-        for pid in st.session_state.meet_participants:
-            pname = get_user_name_by_id(pid)
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown(f'<span class="participant-chip">👤 {pname}</span>', unsafe_allow_html=True)
-            with col2:
-                if st.session_state.meet_role == "host" and pid != user_id:
-                    if st.button(f"Remove {pname}", key=f"remove_{pid}"):
-                        st.session_state.meet_participants.remove(pid)
-                        st.rerun()
-        
-        # Waiting room
-        st.markdown("#### 🚪 Waiting Room")
-        if st.session_state.waiting_room:
-            for pid in st.session_state.waiting_room:
-                pname = get_user_name_by_id(pid)
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.write(f"⏳ {pname}")
-                with col2:
-                    if st.button(f"Admit", key=f"admit_{pid}"):
-                        st.session_state.meet_participants.append(pid)
-                        st.session_state.waiting_room.remove(pid)
-                        st.rerun()
-        else:
-            st.info("No one in waiting room.")
-        
-        # Mute all
-        if st.session_state.meet_role == "host":
-            if st.button("🔇 Mute All Participants", use_container_width=True):
-                st.success("All participants muted (simulated).")
-    
     with tab_features:
-        st.markdown("### 🔥 Advanced Features")
-        
-        feature_tab1, feature_tab2, feature_tab3, feature_tab4, feature_tab5, feature_tab6 = st.tabs([
-            "🖼️ Whiteboard", "🎭 Virtual BG", "🗣️ Breakouts", "📊 Polls", "📝 AI Notes", "📱 SMS"
-        ])
-        
-        with feature_tab1:
-            st.markdown("#### 🖼️ Whiteboard / Canvas")
-            whiteboard_html = """
-            <canvas id="whiteboard" width="600" height="400" style="border:2px solid #2d8cff;border-radius:8px;cursor:crosshair;background:#fff;"></canvas>
-            <br>
-            <button onclick="clearCanvas()" style="background:#dc3545;color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;">Clear</button>
-            <button onclick="downloadCanvas()" style="background:#2d8cff;color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;margin-left:10px;">Download</button>
-            <script>
-                const canvas = document.getElementById('whiteboard');
-                const ctx = canvas.getContext('2d');
-                let drawing = false;
-                let lastX = 0, lastY = 0;
-                
-                canvas.addEventListener('mousedown', (e) => {
-                    drawing = true;
-                    lastX = e.offsetX;
-                    lastY = e.offsetY;
-                });
-                canvas.addEventListener('mousemove', (e) => {
-                    if (!drawing) return;
-                    ctx.beginPath();
-                    ctx.moveTo(lastX, lastY);
-                    ctx.lineTo(e.offsetX, e.offsetY);
-                    ctx.strokeStyle = '#000';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    lastX = e.offsetX;
-                    lastY = e.offsetY;
-                });
-                canvas.addEventListener('mouseup', () => { drawing = false; });
-                canvas.addEventListener('mouseleave', () => { drawing = false; });
-                
-                function clearCanvas() {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                }
-                function downloadCanvas() {
-                    const link = document.createElement('a');
-                    link.download = 'GAIA_Whiteboard.png';
-                    link.href = canvas.toDataURL();
-                    link.click();
-                }
-            </script>
-            """
-            components.html(whiteboard_html, height=500)
-        
-        with feature_tab2:
-            st.markdown("#### 🎭 Virtual Background")
-            bg_options = st.selectbox("Select Background", ["None", "Farm", "Office", "Blur"])
-            if bg_options != "None":
-                st.success(f"Virtual background '{bg_options}' applied (simulated — requires ML model for real-time).")
-        
-        with feature_tab3:
-            st.markdown("#### 🗣️ Breakout Rooms")
-            num_rooms = st.number_input("Number of Rooms", min_value=1, max_value=10, value=2)
-            if st.button("Create Breakout Rooms", use_container_width=True):
-                rooms = {}
-                participants = list(st.session_state.meet_participants)
-                for i in range(int(num_rooms)):
-                    rooms[f"Room {i+1}"] = []
-                for i, pid in enumerate(participants):
-                    rooms[f"Room {(i % int(num_rooms)) + 1}"].append(pid)
-                st.session_state.breakout_rooms = rooms
-                st.success(f"Created {int(num_rooms)} breakout rooms!")
-            
-            if st.session_state.breakout_rooms:
-                for room_name, members in st.session_state.breakout_rooms.items():
-                    st.markdown(f"**{room_name}:** {', '.join([get_user_name_by_id(m) for m in members])}")
-        
-        with feature_tab4:
-            st.markdown("#### 📊 Polls")
-            poll_question = st.text_input("Poll Question")
-            poll_options = st.text_area("Options (one per line)", "Yes\nNo\nNot sure")
-            if st.button("Launch Poll", use_container_width=True):
-                options = [o.strip() for o in poll_options.split('\n') if o.strip()]
-                st.session_state.current_poll = {
-                    "question": poll_question,
-                    "options": options,
-                    "votes": {o: 0 for o in options}
-                }
-                st.success("Poll launched!")
-            
-            if st.session_state.current_poll:
-                st.markdown(f"**Poll:** {st.session_state.current_poll['question']}")
-                for opt in st.session_state.current_poll['options']:
-                    if st.button(opt, key=f"vote_{opt}"):
-                        st.session_state.current_poll['votes'][opt] += 1
-                        st.rerun()
-                
-                st.markdown("#### Results:")
-                for opt, count in st.session_state.current_poll['votes'].items():
-                    st.write(f"{opt}: {count} vote(s)")
-        
-        with feature_tab5:
-            st.markdown("#### 📝 AI Meeting Notes")
-            if st.button("Generate AI Notes", use_container_width=True):
-                notes = generate_ai_notes(meeting['title'] if meeting else "GAIA Meeting", 
-                                          st.session_state.meet_participants,
-                                          meeting.get('crop_focus') if meeting else None)
-                st.session_state.meeting_notes.append(notes)
-                st.markdown(notes)
-        
-        with feature_tab6:
-            st.markdown("#### 📱 SMS Invite")
-            invite_phone = st.text_input("Phone Number", placeholder="08012345678")
-            if st.button("Send SMS Invite", use_container_width=True):
-                ok, err = send_sms_invite(invite_phone, room_id)
-                if ok:
-                    st.success(f"Invite sent!")
-                else:
-                    st.error(f"Failed: {err}")
-    
-    with tab_analytics:
-        st.markdown("### 📊 Meeting Analytics")
-        elapsed = datetime.datetime.now() - st.session_state.meet_start_time if st.session_state.meet_start_time else datetime.timedelta(0)
-        duration_min = int(elapsed.total_seconds() // 60)
-        
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Duration", f"{duration_min} min")
-        with col2:
-            st.metric("Participants", len(st.session_state.meet_participants))
-        with col3:
-            st.metric("Chat Messages", len(get_meeting_chat(room_id)))
-        with col4:
-            st.metric("AI Diagnoses", 0)
+        st.markdown("### 🎭 Virtual Background (Real-Time)")
+        st.markdown("Use the background selector **inside the video panel** to change your virtual background in real-time.")
+        st.markdown("""
+        - **None** — No background removal
+        - **Farm** — Green farm background
+        - **Office** — Professional office background
+        - **Blur** — Blurred background (like Zoom)
+        """)
 
 st.markdown("---")
 cols = st.columns(10)

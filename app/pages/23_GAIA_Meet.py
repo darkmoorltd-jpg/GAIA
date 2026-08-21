@@ -117,6 +117,7 @@ st.markdown("""
     header, footer { visibility: hidden; }
     .stTextInput input { background: #1e2733 !important; border: none !important; color: #e0e0e0 !important; border-radius: 8px !important; padding: 12px !important; }
     .stButton button { background: #2d8cff !important; color: #fff !important; border: none !important; border-radius: 8px !important; font-weight: 600 !important; }
+    .participant-chip { display: inline-block; background: #1e2733; border-radius: 20px; padding: 5px 14px; margin: 4px; font-size: 0.8rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -173,6 +174,9 @@ else:
     my_peer_id = st.session_state.my_peer_id
     meeting = get_meeting_info(room_id)
 
+    participants = get_participants(room_id)
+    existing_peers = [p["peer_id"] for p in participants if p["peer_id"] != my_peer_id]
+
     # Top bar
     elapsed = datetime.datetime.now() - st.session_state.meet_start_time if st.session_state.meet_start_time else datetime.timedelta(0)
     duration = f"{int(elapsed.total_seconds() // 60)}:{int(elapsed.total_seconds() % 60):02d}"
@@ -185,18 +189,30 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    st.info("💡 **For screen share:** Use the Pop-out button (⤢) in the top-right corner of the video to open in a new tab. Screen share works best there.")
+    st.info("💡 For screen share, click the **Pop-out button (⤢)** in the top-right corner of the video to open in a new tab.")
 
-    # Build the entire meeting UI as one components.html
-    meeting_html = f"""
+    # Build peer data for JS
+    peer_data = {
+        "room_id": room_id,
+        "my_peer_id": my_peer_id,
+        "supabase_url": st.secrets["supabase"]["url"],
+        "supabase_anon_key": st.secrets["supabase"]["key"],
+        "user_name": user_name,
+        "existing_peers": existing_peers,
+    }
+
+    # Convert to JSON string once
+    peer_data_json = json.dumps(peer_data)
+
+    # Video iframe (handles PeerJS)
+    video_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
         <style>
             body {{ background:#0e1117; margin:0; padding:0; font-family:'Inter',sans-serif; }}
-            .meet-container {{ display:flex; flex-direction:column; height:100vh; }}
-            .video-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; padding:15px; flex:1; overflow-y:auto; }}
+            .video-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; padding:15px; }}
             .video-tile {{ background:#1e2733; border-radius:12px; overflow:hidden; position:relative; aspect-ratio:16/9; }}
             .video-tile video {{ width:100%; height:100%; object-fit:cover; }}
             .name-tag {{ position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.7); color:#fff; padding:4px 14px; border-radius:6px; font-size:0.8rem; }}
@@ -207,63 +223,30 @@ else:
             .ctrl-btn.recording {{ background:#dc3545; color:#fff; }}
             .ctrl-btn.end {{ background:#dc3545; color:#fff; }}
             .status {{ color:#8b949e; font-size:0.8rem; padding:0 15px; }}
-            .chat-panel {{ background:#161b22; border-top:1px solid #252b36; padding:10px; display:flex; flex-direction:column; height:200px; }}
-            .chat-messages {{ flex:1; overflow-y:auto; padding:5px; }}
-            .chat-msg {{ margin:5px 0; padding:5px 10px; border-radius:6px; max-width:80%; word-wrap:break-word; }}
-            .chat-msg.me {{ background:#1a3a5c; color:#7cb8ff; margin-left:auto; }}
-            .chat-msg.other {{ background:#252b36; color:#e0e0e0; }}
-            .chat-input {{ display:flex; gap:5px; }}
-            .chat-input input {{ flex:1; background:#1e2733; border:none; color:#e0e0e0; padding:8px; border-radius:5px; }}
-            .chat-input button {{ background:#2d8cff; border:none; color:#fff; padding:8px 15px; border-radius:5px; cursor:pointer; }}
-            .participants-section {{ background:#161b22; border-top:1px solid #252b36; padding:10px; }}
-            .participant-item {{ display:flex; align-items:center; justify-content:space-between; padding:5px 10px; background:#1e2733; border-radius:8px; margin:4px 0; }}
-            .participant-name {{ color:#e0e0e0; font-size:0.9rem; }}
-            .call-btn {{ background:#00c853; border:none; color:#000; padding:4px 12px; border-radius:5px; cursor:pointer; font-weight:600; }}
         </style>
     </head>
     <body>
-        <div class="meet-container">
-            <div class="video-grid" id="videoGrid">
-                <div class="video-tile">
-                    <video id="localVideo" autoplay muted playsinline></video>
-                    <div class="name-tag">You ({user_name})</div>
-                </div>
-            </div>
-            <div class="controls">
-                <button class="ctrl-btn" id="micBtn" onclick="toggleMic()">🎙️ Mute</button>
-                <button class="ctrl-btn" id="camBtn" onclick="toggleCam()">📷 Camera</button>
-                <button class="ctrl-btn" id="screenBtn" onclick="toggleScreen()">🖥️ Share</button>
-                <button class="ctrl-btn" id="recordBtn" onclick="toggleRecording()">⏺️ Record</button>
-                <button class="ctrl-btn end" onclick="endCall()">📞 End</button>
-            </div>
-            <div class="status" id="status">Starting...</div>
-            <div class="chat-panel">
-                <div style="color:#8b949e;font-weight:600;">💬 Chat</div>
-                <div class="chat-messages" id="chatMessages"></div>
-                <div class="chat-input">
-                    <input type="text" id="chatInput" placeholder="Type message..." />
-                    <button onclick="sendChat()">Send</button>
-                </div>
-            </div>
-            <div class="participants-section">
-                <div style="color:#8b949e;font-weight:600;">👥 Participants</div>
-                <div id="participantsList"></div>
+        <div class="video-grid" id="videoGrid">
+            <div class="video-tile">
+                <video id="localVideo" autoplay muted playsinline></video>
+                <div class="name-tag">You ({user_name})</div>
             </div>
         </div>
+        <div class="controls">
+            <button class="ctrl-btn" id="micBtn" onclick="toggleMic()">🎙️ Mute</button>
+            <button class="ctrl-btn" id="camBtn" onclick="toggleCam()">📷 Camera</button>
+            <button class="ctrl-btn" id="screenBtn" onclick="toggleScreen()">🖥️ Share</button>
+            <button class="ctrl-btn" id="recordBtn" onclick="toggleRecording()">⏺️ Record</button>
+            <button class="ctrl-btn end" onclick="endCall()">📞 End</button>
+        </div>
+        <div class="status" id="status">Starting...</div>
         <script>
-            const config = {json.dumps({
-                "room_id": room_id,
-                "my_peer_id": my_peer_id,
-                "supabase_url": st.secrets["supabase"]["url"],
-                "supabase_anon_key": st.secrets["supabase"]["key"],
-                "user_id": user_id,
-                "user_name": user_name
-            })};
+            const config = {peer_data_json};
             const SUPABASE_URL = config.supabase_url;
             const SUPABASE_ANON_KEY = config.supabase_anon_key;
             const ROOM_ID = config.room_id;
             const MY_PEER_ID = config.my_peer_id;
-            const USER_ID = config.user_id;
+            const existingPeers = config.existing_peers || [];
             const USER_NAME = config.user_name;
 
             let myPeer = null;
@@ -273,52 +256,51 @@ else:
             let recordedChunks = [];
             let isRecording = false;
             let remoteStreams = new Map();
-            let allParticipants = [];
 
-            function updateStatus(msg) { document.getElementById('status').textContent = msg; }
+            function updateStatus(msg) {{ document.getElementById('status').textContent = msg; }}
 
-            function getLocalStream() {
+            function getLocalStream() {{
                 if (localStream) return Promise.resolve(localStream);
-                return navigator.mediaDevices.getUserMedia({
+                return navigator.mediaDevices.getUserMedia({{
                     audio: true,
-                    video: { width: 640, height: 480 }
-                }).then(stream => {
+                    video: {{ width: 640, height: 480 }}
+                }}).then(stream => {{
                     localStream = stream;
                     document.getElementById('localVideo').srcObject = stream;
                     updateStatus('Camera ready');
                     return stream;
-                }).catch(err => {
+                }}).catch(err => {{
                     updateStatus('Camera/mic error: ' + err.message);
                     throw err;
-                });
-            }
+                }});
+            }}
 
-            function initPeerJS() {
+            function initPeerJS() {{
                 myPeer = new Peer(MY_PEER_ID);
-                myPeer.on('open', (id) => {
+                myPeer.on('open', (id) => {{
                     updateStatus('Connected as ' + id);
-                    fetchParticipants();   // Fetch and call existing
-                });
-                myPeer.on('call', (call) => {
-                    getLocalStream().then(stream => {
+                    existingPeers.forEach(peer => callPeer(peer));
+                }});
+                myPeer.on('call', (call) => {{
+                    getLocalStream().then(stream => {{
                         call.answer(stream);
                         call.on('stream', remoteStream => addRemoteVideo(call.peer, remoteStream));
-                    }).catch(err => console.error('Failed to answer call', err));
-                });
-                myPeer.on('error', (err) => {
+                    }}).catch(err => console.error('Failed to answer call', err));
+                }});
+                myPeer.on('error', (err) => {{
                     updateStatus('Error: ' + err.type);
-                });
-            }
+                }});
+            }}
 
-            function callPeer(peerId) {
+            function callPeer(peerId) {{
                 if (remoteStreams.has(peerId)) return;
-                getLocalStream().then(stream => {
+                getLocalStream().then(stream => {{
                     const call = myPeer.call(peerId, stream);
                     call.on('stream', remoteStream => addRemoteVideo(peerId, remoteStream));
-                }).catch(err => console.error('Failed to call peer', err));
-            }
+                }}).catch(err => console.error('Failed to call peer', err));
+            }}
 
-            function addRemoteVideo(peerId, stream) {
+            function addRemoteVideo(peerId, stream) {{
                 if (remoteStreams.has(peerId)) return;
                 remoteStreams.set(peerId, stream);
                 const grid = document.getElementById('videoGrid');
@@ -329,12 +311,12 @@ else:
                 video.autoplay = true;
                 video.playsinline = true;
                 video.srcObject = stream;
-                video.onloadedmetadata = () => {
-                    video.play().catch(() => {
+                video.onloadedmetadata = () => {{
+                    video.play().catch(() => {{
                         video.muted = true;
-                        video.play().catch(e => console.log('Autoplay blocked even muted', e));
-                    });
-                };
+                        video.play().catch(e => console.log('Autoplay blocked', e));
+                    }});
+                }};
                 const name = document.createElement('div');
                 name.className = 'name-tag';
                 name.textContent = 'Participant';
@@ -342,186 +324,123 @@ else:
                 tile.appendChild(name);
                 grid.appendChild(tile);
                 updateStatus('Participant video added');
-            }
+            }}
 
-            function fetchParticipants() {
-                fetch(`${SUPABASE_URL}/rest/v1/meeting_participants?room_id=eq.${ROOM_ID}&select=user_id,peer_id`, {
-                    headers: {
+            // Poll for new participants
+            function fetchParticipants() {{
+                fetch(`${{SUPABASE_URL}}/rest/v1/meeting_participants?room_id=eq.${{ROOM_ID}}&select=peer_id`, {{
+                    headers: {{
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
-                    }
-                })
+                    }}
+                }})
                 .then(res => res.json())
-                .then(data => {
-                    allParticipants = data;
-                    // Call all other peers
-                    data.forEach(p => {
-                        if (p.peer_id && p.peer_id !== MY_PEER_ID) {
+                .then(data => {{
+                    data.forEach(p => {{
+                        if (p.peer_id && p.peer_id !== MY_PEER_ID) {{
                             callPeer(p.peer_id);
-                        }
-                    });
-                    renderParticipants(data);
-                })
-                .catch(err => {
-                    updateStatus('Fetch participants error: ' + err.message);
-                });
-            }
-
-            function renderParticipants(data) {
-                const list = document.getElementById('participantsList');
-                list.innerHTML = '';
-                data.forEach(p => {
-                    const item = document.createElement('div');
-                    item.className = 'participant-item';
-                    const nameSpan = document.createElement('span');
-                    nameSpan.className = 'participant-name';
-                    nameSpan.textContent = p.user_id === USER_ID ? 'You (' + USER_NAME + ')' : p.user_id;
-                    item.appendChild(nameSpan);
-                    if (p.peer_id && p.peer_id !== MY_PEER_ID) {
-                        const callBtn = document.createElement('button');
-                        callBtn.className = 'call-btn';
-                        callBtn.textContent = '📞 Call';
-                        callBtn.onclick = () => callPeer(p.peer_id);
-                        item.appendChild(callBtn);
-                    }
-                    list.appendChild(item);
-                });
-            }
-
-            // Poll for participants every 5 seconds
-            setInterval(fetchParticipants, 5000);
-
-            // Chat
-            function sendChat() {
-                const input = document.getElementById('chatInput');
-                const message = input.value.trim();
-                if (!message) return;
-                fetch(`${SUPABASE_URL}/rest/v1/meeting_chat`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
-                    },
-                    body: JSON.stringify({
-                        room_id: ROOM_ID,
-                        user_id: USER_ID,
-                        message: message,
-                        created_at: new Date().toISOString()
-                    })
-                }).then(res => {
-                    input.value = '';
-                    loadChat();
-                });
-            }
-
-            function loadChat() {
-                fetch(`${SUPABASE_URL}/rest/v1/meeting_chat?room_id=eq.${ROOM_ID}&select=user_id,message,created_at&order=created_at.asc`, {
-                    headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
-                    }
-                })
-                .then(res => res.json())
-                .then(messages => {
-                    const container = document.getElementById('chatMessages');
-                    container.innerHTML = '';
-                    messages.forEach(msg => {
-                        const div = document.createElement('div');
-                        div.className = 'chat-msg ' + (msg.user_id === USER_ID ? 'me' : 'other');
-                        div.innerHTML = '<strong>' + (msg.user_id === USER_ID ? 'You' : 'Other') + ':</strong> ' + msg.message;
-                        container.appendChild(div);
-                    });
-                    container.scrollTop = container.scrollHeight;
-                });
-            }
+                        }}
+                    }});
+                }})
+                .catch(err => console.error('Poll error:', err));
+            }}
 
             // Controls
-            function toggleMic() {
-                if (localStream) {
+            function toggleMic() {{
+                if (localStream) {{
                     const track = localStream.getAudioTracks()[0];
-                    if (track) {
+                    if (track) {{
                         track.enabled = !track.enabled;
                         document.getElementById('micBtn').textContent = track.enabled ? '🎙️ Mute' : '🔇 Unmute';
-                    }
-                }
-            }
-            function toggleCam() {
-                if (localStream) {
+                    }}
+                }}
+            }}
+            function toggleCam() {{
+                if (localStream) {{
                     const track = localStream.getVideoTracks()[0];
-                    if (track) {
+                    if (track) {{
                         track.enabled = !track.enabled;
                         document.getElementById('camBtn').textContent = track.enabled ? '📷 Camera' : '🚫 Off';
-                    }
-                }
-            }
-            async function toggleScreen() {
-                if (!screenStream) {
-                    try {
-                        screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    }}
+                }}
+            }}
+            async function toggleScreen() {{
+                if (!screenStream) {{
+                    try {{
+                        screenStream = await navigator.mediaDevices.getDisplayMedia({{ video: true }});
                         document.getElementById('screenBtn').textContent = '🖥️ Stop';
-                        screenStream.getVideoTracks()[0].onended = () => {
+                        screenStream.getVideoTracks()[0].onended = () => {{
                             screenStream = null;
                             document.getElementById('screenBtn').textContent = '🖥️ Share';
-                        };
-                    } catch (e) {
+                        }};
+                    }} catch (e) {{
                         alert('Screen share blocked. Use Pop-out button.');
-                    }
-                } else {
+                    }}
+                }} else {{
                     screenStream.getTracks().forEach(t => t.stop());
                     screenStream = null;
                     document.getElementById('screenBtn').textContent = '🖥️ Share';
-                }
-            }
-            function toggleRecording() {
-                if (!isRecording) {
+                }}
+            }}
+            function toggleRecording() {{
+                if (!isRecording) {{
                     const combined = new MediaStream();
                     if (localStream) localStream.getTracks().forEach(t => combined.addTrack(t));
                     if (screenStream) screenStream.getTracks().forEach(t => combined.addTrack(t));
                     remoteStreams.forEach(s => s.getTracks().forEach(t => combined.addTrack(t)));
-                    mediaRecorder = new MediaRecorder(combined, { mimeType: 'video/webm' });
+                    mediaRecorder = new MediaRecorder(combined, {{ mimeType: 'video/webm' }});
                     recordedChunks = [];
-                    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-                    mediaRecorder.onstop = () => {
-                        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    mediaRecorder.ondataavailable = e => {{ if (e.data.size > 0) recordedChunks.push(e.data); }};
+                    mediaRecorder.onstop = () => {{
+                        const blob = new Blob(recordedChunks, {{ type: 'video/webm' }});
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
                         a.download = 'GAIA_Meeting.webm';
                         a.click();
                         URL.revokeObjectURL(url);
-                    };
+                    }};
                     mediaRecorder.start();
                     isRecording = true;
                     document.getElementById('recordBtn').textContent = '⏺️ Recording...';
                     document.getElementById('recordBtn').classList.add('recording');
-                } else {
+                }} else {{
                     mediaRecorder.stop();
                     isRecording = false;
                     document.getElementById('recordBtn').textContent = '⏺️ Record';
                     document.getElementById('recordBtn').classList.remove('recording');
-                }
-            }
-            function endCall() {
+                }}
+            }}
+            function endCall() {{
                 if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
                 if (localStream) localStream.getTracks().forEach(t => t.stop());
                 remoteStreams.forEach(s => s.getTracks().forEach(t => t.stop()));
                 if (screenStream) screenStream.getTracks().forEach(t => t.stop());
                 if (myPeer) myPeer.destroy();
                 window.location.reload();
-            }
+            }}
 
             // Initialize
-            getLocalStream().then(() => {
+            getLocalStream().then(() => {{
                 initPeerJS();
-                loadChat();
-            });
+                setInterval(fetchParticipants, 5000);
+            }});
         </script>
     </body>
     </html>
     """
-    components.html(meeting_html, height=800)
+    components.html(video_html, height=600)
+
+    # Participants + Chat in Streamlit tabs
+    tab_chat, tab_people = st.tabs(["💬 Chat", "👥 Participants"])
+
+    with tab_chat:
+        st.markdown("Chat will be added here.")
+    with tab_people:
+        st.markdown("### Participants")
+        for p in participants:
+            pname = get_user_name_by_id(p["user_id"])
+            st.markdown(f'<span class="participant-chip">👤 {pname}</span>', unsafe_allow_html=True)
 
     if st.button("🚪 Leave Meeting", use_container_width=True):
         st.session_state.meet_room_id = None

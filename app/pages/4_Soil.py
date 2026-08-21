@@ -1,25 +1,27 @@
 
+from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+import requests
+from collections import Counter
+import json
+import hashlib
+import sys
+import os
+import numpy as np
+import torch.nn.functional as F
+import torch.nn as nn
+import torch
 import streamlit as st
     # Allow demo mode
     from supabase import create_client
-supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+supabase = create_client(
+    st.secrets["supabase"]["url"],
+     st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
     from PIL import Image
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-import os
-import sys
-import hashlib
-import json
-from collections import Counter
-import requests
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
 user = st.session_state.get("user", None)
 if user is None:
@@ -28,13 +30,40 @@ if user is None:
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-st.set_page_config(page_title="GAIA – Soil Analysis", page_icon="🏞️", layout="wide")
-st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
+st.set_page_config(
+    page_title="GAIA – Soil Analysis",
+    page_icon="🏞️",
+     layout="wide")
+st.markdown(
+    "<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>",
+     unsafe_allow_html=True)
 dark = st.toggle("", value=False, key="soil_theme")
 theme = "dark" if dark else "light"
 
-SOIL_NAMES = ["Alluvial","Sandy","Clay","Loamy","Laterite","Black","Red","Peat","Cinder","Sandy Loam","Yellow"]
-SOIL_COLORS = {"Alluvial":"#8d6e63","Sandy":"#d4a373","Clay":"#a1887f","Loamy":"#6d4c41","Laterite":"#b7410e","Black":"#3e2723","Red":"#c62828","Peat":"#4e342e","Cinder":"#616161","Sandy Loam":"#bcaaa4","Yellow":"#f9a825"}
+SOIL_NAMES = [
+    "Alluvial",
+    "Sandy",
+    "Clay",
+    "Loamy",
+    "Laterite",
+    "Black",
+    "Red",
+    "Peat",
+    "Cinder",
+    "Sandy Loam",
+     "Yellow"]
+SOIL_COLORS = {
+    "Alluvial": "#8d6e63",
+    "Sandy": "#d4a373",
+    "Clay": "#a1887f",
+    "Loamy": "#6d4c41",
+    "Laterite": "#b7410e",
+    "Black": "#3e2723",
+    "Red": "#c62828",
+    "Peat": "#4e342e",
+    "Cinder": "#616161",
+    "Sandy Loam": "#bcaaa4",
+     "Yellow": "#f9a825"}
 
 language_options = {
     "English (UK)": "en-GB",
@@ -43,13 +72,16 @@ language_options = {
     "Igbo": "ig",
     "Pidgin": "pcm"
 }
-selected_lang_label = st.selectbox("🔊 Voice language for soil guide", list(language_options.keys()), index=0)
+selected_lang_label = st.selectbox(
+    "🔊 Voice language for soil guide", list(
+        language_options.keys()), index=0)
 voice_lang = language_options[selected_lang_label]
 
 if theme == "dark":
     st.markdown("""<style>.stApp{background:linear-gradient(rgba(0,0,0,0.30),rgba(0,0,0,0.30)),url('https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover fixed;color:#f5f0eb}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#d4a373,#f5e6d3,#d4a373);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 25px rgba(212,163,115,.7);animation:soilGlow 2s ease-in-out infinite alternate}@keyframes soilGlow{from{text-shadow:0 0 25px rgba(212,163,115,.7)}to{text-shadow:0 0 50px rgba(212,163,115,1),0 0 80px rgba(212,163,115,.6)}}.subtitle{font-size:1.2rem;color:#bcaaa4}.card{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.stProgress>div>div>div>div{background:linear-gradient(90deg,#d4a373,#f5e6d3)}</style>""", unsafe_allow_html=True)
 else:
     st.markdown("""<style>.stApp{background:linear-gradient(rgba(255,255,255,0.45),rgba(255,255,255,0.45)),url('https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover fixed;color:#3e2723}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#5d4037,#8d6e63,#5d4037);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#4e342e}.card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.stProgress>div>div>div>div{background:linear-gradient(90deg,#8d6e63,#bcaaa4)}</style>""", unsafe_allow_html=True)
+
 
 def deduct_one_scan():
         return

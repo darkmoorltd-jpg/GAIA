@@ -1,19 +1,21 @@
 
+import os
+import sys
+import requests
+import uuid
+from supabase import create_client, Client
 import streamlit as st
 # Get user from session state
-    # Allow demo mode
-    from supabase import create_client
-supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+# Allow demo mode
+from supabase import create_client
+supabase = create_client(
+    st.secrets["supabase"]["url"],
+    st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
-except:
+except BaseException:
     import streamlit.components.v1 as components
-from supabase import create_client, Client
-import uuid
-import requests
-import sys
-import os
 
 user = st.session_state.get("user", None)
 if user is None:
@@ -27,13 +29,16 @@ SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_PUBLIC = "pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057"
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
+
 @st.cache_resource
 def get_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
 @st.cache_resource
 def get_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
+
 
 def normalize_phone(phone):
     if not phone:
@@ -46,27 +51,33 @@ def normalize_phone(phone):
     else:
         return "234" + phone
 
+
 def verify_payment(ref):
-    r = requests.get(f"https://api.paystack.co/transaction/verify/{ref}",
-                     headers={"Authorization": f"Bearer {PAYSTACK_SECRET}"}, timeout=10)
+    r = requests.get(
+        f"https://api.paystack.co/transaction/verify/{ref}",
+        headers={
+            "Authorization": f"Bearer {PAYSTACK_SECRET}"},
+        timeout=10)
     if r.status_code == 200:
         d = r.json()
         if d.get("status") and d["data"]["status"] == "success":
             return {"ok": True, "amount": d["data"]["amount"] / 100}
     return {"ok": False}
 
+
 st.set_page_config(page_title="Buy Scans", page_icon="💳", layout="wide")
 
-    st.session_state["user"] = None
-    user = user
+st.session_state["user"] = None
+user = user
 db = get_supabase()
 service = get_service()
 
 # Fetch current scans
-    st.warning("⚠️ Please log in first.")
-    st.stop()
+st.warning("⚠️ Please log in first.")
+st.stop()
 
-    res = service.table("user_scans").select("scans_remaining, plan").eq("user_id", user.id).execute()
+res = service.table("user_scans").select(
+    "scans_remaining, plan").eq("user_id", user.id).execute()
 if res.data and len(res.data) > 0:
     scans = res.data[0].get("scans_remaining", 30)
     current_plan = res.data[0].get("plan", "free")
@@ -77,7 +88,8 @@ else:
 # Fetch user phone
 user_phone = ""
 try:
-    profile_res = service.table("user_profiles").select("phone").eq("user_id", user.id).execute()
+    profile_res = service.table("user_profiles").select(
+        "phone").eq("user_id", user.id).execute()
     if profile_res.data and len(profile_res.data) > 0:
         raw_phone = profile_res.data[0].get("phone", "")
         user_phone = normalize_phone(raw_phone)
@@ -85,16 +97,33 @@ except Exception:
     pass
 
 if not user_phone:
-    st.warning("⚠️ Please update your profile with your phone number to receive SMS receipts.")
+    st.warning(
+        "⚠️ Please update your profile with your phone number to receive SMS receipts.")
 
 # ============================================
 # NEW PLANS
 # ============================================
 PLANS = {
-    "starter":   {"name": "Starter",    "scans": 150,   "price": "₦3,000",  "kobo": 300000},
-    "pro":       {"name": "Pro",        "scans": 300,   "price": "₦5,000",  "kobo": 500000},
-    "business":  {"name": "Business",   "scans": 1000,  "price": "₦10,000", "kobo": 1000000},
-    "enterprise":{"name": "Enterprise", "scans": 5000,  "price": "₦20,000", "kobo": 2000000},
+    "starter": {
+        "name": "Starter",
+        "scans": 150,
+        "price": "₦3,000",
+        "kobo": 300000},
+    "pro": {
+        "name": "Pro",
+        "scans": 300,
+        "price": "₦5,000",
+        "kobo": 500000},
+    "business": {
+        "name": "Business",
+                "scans": 1000,
+                "price": "₦10,000",
+                "kobo": 1000000},
+    "enterprise": {
+        "name": "Enterprise",
+        "scans": 5000,
+        "price": "₦20,000",
+        "kobo": 2000000},
 }
 
 # ============================================
@@ -126,13 +155,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="title">Buy Scans</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Get more AI-powered diagnoses for your farm</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="subtitle">Get more AI-powered diagnoses for your farm</div>',
+    unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
-    st.markdown(f'<div style="text-align:center"><div class="badge"><div class="badge-num">{scans}</div><div class="badge-lbl">Scans Remaining</div></div></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="text-align:center"><div class="badge"><div class="badge-num">{scans}</div><div class="badge-lbl">Scans Remaining</div></div></div>',
+        unsafe_allow_html=True)
     if current_plan != "free":
-        st.markdown(f'<p style="text-align:center;color:#2e7d32;">Current Plan: {current_plan.title()}</p>', unsafe_allow_html=True)
+        st.markdown(
+            f'<p style="text-align:center;color:#2e7d32;">Current Plan: {
+                current_plan.title()}</p>',
+            unsafe_allow_html=True)
 
 st.markdown("### Choose Your Plan")
 
@@ -143,7 +179,12 @@ cols = st.columns(len(PLANS))
 for i, (key, p) in enumerate(PLANS.items()):
     with cols[i]:
         sel = "sel" if st.session_state.selected_plan == key else ""
-        st.markdown(f'<div class="card {sel}"><div class="card-name">{p["name"]}</div><div class="card-scans">{p["scans"]} scans</div><div class="card-price">{p["price"]}</div></div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="card {sel}"><div class="card-name">{
+                p["name"]}</div><div class="card-scans">{
+                p["scans"]} scans</div><div class="card-price">{
+                p["price"]}</div></div>',
+            unsafe_allow_html=True)
         if st.button("Select", key=f"btn_{key}", use_container_width=True):
             st.session_state.selected_plan = key
             st.rerun()
@@ -153,7 +194,10 @@ if st.session_state.selected_plan:
     label = f"{p['name']} ({p['scans']} scans)"
     ref = f"GAIA_{user.id[:8]}_{st.session_state.selected_plan}_{uuid.uuid4().hex[:6]}"
 
-    st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {p["price"]}</h3></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {
+            p["price"]}</h3></div>',
+        unsafe_allow_html=True)
 
     phone_for_sms = user_phone if user_phone else "08000000000"
 
@@ -191,14 +235,18 @@ st.markdown("### Already Paid? Enter Your Reference")
 
 c1, c2 = st.columns([3, 1])
 with c1:
-    ref_input = st.text_input("Reference", placeholder="e.g. GAIA_abc123", key="ref_input")
+    ref_input = st.text_input(
+        "Reference",
+        placeholder="e.g. GAIA_abc123",
+        key="ref_input")
 with c2:
     st.write("")
     if st.button("Verify", use_container_width=True) and ref_input:
         with st.spinner("Checking..."):
             v = verify_payment(ref_input)
             if v["ok"]:
-                exist = db.table("payment_history").select("*").eq("reference", ref_input).execute()
+                exist = db.table("payment_history").select(
+                    "*").eq("reference", ref_input).execute()
                 if exist.data:
                     st.warning("Already used.")
                 else:
@@ -210,11 +258,19 @@ with c2:
                             break
                     if match:
                         add = PLANS[match]["scans"]
-                        cur = db.table("user_scans").select("scans_remaining").eq("user_id", user.id).execute()
+                        cur = db.table("user_scans").select(
+                            "scans_remaining").eq("user_id", user.id).execute()
                         cur_scans = cur.data[0]["scans_remaining"] if cur.data else 0
                         new_total = cur_scans + add
-                        db.table("user_scans").update({"scans_remaining": new_total, "plan": match}).eq("user_id", user.id).execute()
-                        db.table("payment_history").insert({"user_id": user.id, "amount": amt, "scans_added": add, "plan": match, "reference": ref_input}).execute()
+                        db.table("user_scans").update({"scans_remaining": new_total, "plan": match}).eq(
+                            "user_id", user.id).execute()
+                        db.table("payment_history").insert(
+                            {
+                                "user_id": user.id,
+                                "amount": amt,
+                                "scans_added": add,
+                                "plan": match,
+                                "reference": ref_input}).execute()
                         st.success(f"{add} scans added! Balance: {new_total}")
                         st.rerun()
                     else:
@@ -227,12 +283,21 @@ st.caption("Secure payments by Paystack. Darkmoor Ltd")
 
 # Navigation (same as before)
 cols = st.columns(9)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]: st.page_link("pages/8_Profile.py", label="👤 Profile")
-with cols[6]: st.page_link("pages/20_Marketplace.py", label="🌍 Market")
-with cols[7]: st.page_link("pages/21_Crop_Insurance.py", label="🏦 Insurance")
-with cols[8]: st.page_link("pages/7_Admin.py", label="🔐 Admin")
+with cols[0]:
+    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]:
+   st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]:
+    st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]:
+   st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]:
+    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]:
+   st.page_link("pages/8_Profile.py", label="👤 Profile")
+with cols[6]:
+    st.page_link("pages/20_Marketplace.py", label="🌍 Market")
+with cols[7]:
+   st.page_link("pages/21_Crop_Insurance.py", label="🏦 Insurance")
+with cols[8]:
+    st.page_link("pages/7_Admin.py", label="🔐 Admin")

@@ -1,9 +1,12 @@
 
-import os, requests, streamlit as st, json
+import os
+import requests
+import streamlit as st
+import json
 
 MODEL_LINKS = {
     "poultry": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/poultry_best_model.pt",
-    "cattle":  "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/cattle_best_model.pt",
+    "cattle": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/cattle_best_model.pt",
     "pests_102class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/pests_102class_best_model.pt",
     "soil_11class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/soil_11class_best_model.pt",
     "maize": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_maize_4class.pt",
@@ -14,6 +17,7 @@ MODEL_LINKS = {
     "cabbage_8class": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_cabbage_8class.pt",
 }
 
+
 def _get_cached_url(model_key):
     """Return the URL stored in the .url file, if any."""
     meta_path = f"models/{model_key}/.url"
@@ -22,11 +26,13 @@ def _get_cached_url(model_key):
             return f.read().strip()
     return None
 
+
 def _write_cached_url(model_key, url):
     """Save the URL to a .url file."""
     os.makedirs(f"models/{model_key}", exist_ok=True)
     with open(f"models/{model_key}/.url", "w") as f:
         f.write(url)
+
 
 def ensure_model(model_key):
     checkpoint_dir = f"models/{model_key}"
@@ -54,7 +60,11 @@ def ensure_model(model_key):
 
         with st.spinner(f"Downloading {model_key} model (one‑time) …"):
             try:
-                r = requests.get(expected_url, stream=True, timeout=300, allow_redirects=True)
+                r = requests.get(
+                    expected_url,
+                    stream=True,
+                    timeout=300,
+                    allow_redirects=True)
                 r.raise_for_status()
                 total_size = 0
                 with open(checkpoint_path, "wb") as f:
@@ -62,10 +72,11 @@ def ensure_model(model_key):
                         if chunk:
                             f.write(chunk)
                             total_size += len(chunk)
-                size_mb = total_size / (1024*1024)
+                size_mb = total_size / (1024 * 1024)
                 if total_size < 10000:
                     os.remove(checkpoint_path)
-                    st.error(f"Download failed — file too small ({total_size} bytes).")
+                    st.error(
+                        f"Download failed — file too small ({total_size} bytes).")
                     return None
                 # Save the URL we just downloaded
                 _write_cached_url(model_key, expected_url)

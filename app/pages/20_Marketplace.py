@@ -1,17 +1,24 @@
 
+import os
+import json
+import hmac
+import hashlib
+import requests
+import uuid
+import pandas as pd
+from datetime import datetime, timedelta
+from supabase import create_client, Client
 import streamlit as st
     # Allow demo mode
     from supabase import create_client
-supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+supabase = create_client(
+    st.secrets["supabase"]["url"],
+     st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
     import streamlit.components.v1 as components
-from supabase import create_client, Client
-from datetime import datetime, timedelta
-import uuid, requests, hashlib, hmac, json, os
-import pandas as pd
 
 user = st.session_state.get("user", None)
 if user is None:
@@ -28,9 +35,11 @@ SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_PUBLIC = "pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057"
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
+
 @st.cache_resource
 def get_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
+
 
 def normalize_phone(phone):
     if not phone:
@@ -41,6 +50,7 @@ def normalize_phone(phone):
     elif phone.startswith("234"):
         return phone
     return "234" + phone
+
 
 # ============================================================
 # MULTI-LANGUAGE (abbreviated, no emoji in f-strings)
@@ -153,32 +163,43 @@ TXT = TRANSLATIONS["English"]
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
+
+
 def upload_listing_image(file_bytes, filename):
     supabase = get_service()
     unique_name = f"{uuid.uuid4().hex[:12]}_{filename}"
     try:
-        supabase.storage.from_("listing-images").upload(unique_name, file_bytes, {"content-type": "image/jpeg"})
-        return supabase.storage.from_("listing-images").get_public_url(unique_name), None
+        supabase.storage.from_(
+            "listing-images").upload(unique_name, file_bytes, {"content-type": "image/jpeg"})
+        return supabase.storage.from_(
+            "listing-images").get_public_url(unique_name), None
     except Exception as e:
         return None, str(e)[:200]
 
+
 def get_listing_by_id(listing_id):
     supabase = get_service()
-    res = supabase.table("marketplace_listings").select("*").eq("id", listing_id).execute()
+    res = supabase.table("marketplace_listings").select(
+        "*").eq("id", listing_id).execute()
     return res.data[0] if res.data else None
+
 
 def get_seller_profile(seller_id):
     supabase = get_service()
-    res = supabase.table("user_profiles").select("*").eq("user_id", seller_id).execute()
+    res = supabase.table("user_profiles").select(
+        "*").eq("user_id", seller_id).execute()
     return res.data[0] if res.data else {}
+
 
 def get_seller_rating(seller_id):
     supabase = get_service()
-    res = supabase.table("marketplace_reviews").select("rating").eq("seller_id", seller_id).execute()
+    res = supabase.table("marketplace_reviews").select(
+        "rating").eq("seller_id", seller_id).execute()
     if res.data:
         avg = sum(r["rating"] for r in res.data) / len(res.data)
         return round(avg, 1), len(res.data)
     return 0, 0
+
 
 def get_seller_trust_score(seller_id):
     supabase = get_service()
@@ -193,40 +214,55 @@ def get_seller_trust_score(seller_id):
     elif verification == "rejected":
         score -= 20
     try:
-        orders = supabase.table("marketplace_orders").select("status").eq("seller_id", seller_id).execute().data or []
+        orders = supabase.table("marketplace_orders").select(
+            "status").eq("seller_id", seller_id).execute().data or []
         completed = sum(1 for o in orders if o.get("status") == "completed")
         score += min(20, completed * 5)
     except:
         pass
     return min(100, max(0, score))
 
+
 def is_verified_seller(user_id):
     supabase = get_service()
-    res = supabase.table("user_profiles").select("verification_status").eq("user_id", user_id).execute()
-    return bool(res.data and res.data[0].get("verification_status") == "approved")
+    res = supabase.table("user_profiles").select(
+        "verification_status").eq("user_id", user_id).execute()
+    return bool(res.data and res.data[0].get(
+        "verification_status") == "approved")
+
 
 def toggle_favorite(user_id, listing_id):
     supabase = get_service()
-    res = supabase.table("marketplace_favorites").select("*").eq("user_id", user_id).eq("listing_id", listing_id).execute()
+    res = supabase.table("marketplace_favorites").select(
+        "*").eq("user_id", user_id).eq("listing_id", listing_id).execute()
     if res.data:
-        supabase.table("marketplace_favorites").delete().eq("user_id", user_id).eq("listing_id", listing_id).execute()
+        supabase.table("marketplace_favorites").delete().eq(
+    "user_id", user_id).eq(
+        "listing_id", listing_id).execute()
         return False
-    supabase.table("marketplace_favorites").insert({"user_id": user_id, "listing_id": listing_id}).execute()
+    supabase.table("marketplace_favorites").insert(
+        {"user_id": user_id, "listing_id": listing_id}).execute()
     return True
+
 
 def is_favorite(user_id, listing_id):
     supabase = get_service()
-    res = supabase.table("marketplace_favorites").select("*").eq("user_id", user_id).eq("listing_id", listing_id).execute()
+    res = supabase.table("marketplace_favorites").select(
+        "*").eq("user_id", user_id).eq("listing_id", listing_id).execute()
     return len(res.data) > 0
+
 
 def get_favorites(user_id):
     supabase = get_service()
-    res = supabase.table("marketplace_favorites").select("listing_id").eq("user_id", user_id).execute()
+    res = supabase.table("marketplace_favorites").select(
+        "listing_id").eq("user_id", user_id).execute()
     ids = [r["listing_id"] for r in res.data] if res.data else []
     if not ids:
         return []
-    listings = supabase.table("marketplace_listings").select("*").in_("id", ids).execute()
+    listings = supabase.table("marketplace_listings").select(
+        "*").in_("id", ids).execute()
     return listings.data if listings.data else []
+
 
 def add_review(listing_id, seller_id, reviewer_id, rating, comment):
     supabase = get_service()
@@ -235,37 +271,56 @@ def add_review(listing_id, seller_id, reviewer_id, rating, comment):
         "reviewer_id": reviewer_id, "rating": rating, "comment": comment
     }).execute()
 
+
 def get_reviews(listing_id):
     supabase = get_service()
-    res = supabase.table("marketplace_reviews").select("*").eq("listing_id", listing_id).order("created_at", desc=True).execute()
+    res = supabase.table("marketplace_reviews").select(
+        "*").eq("listing_id", listing_id).order("created_at", desc=True).execute()
     return res.data if res.data else []
+
 
 def create_escrow(order_id, amount):
     supabase = get_service()
-    supabase.table("marketplace_escrow").insert({"order_id": order_id, "amount": amount, "status": "held"}).execute()
+    supabase.table("marketplace_escrow").insert(
+        {"order_id": order_id, "amount": amount, "status": "held"}).execute()
+
 
 def release_escrow(order_id):
     supabase = get_service()
-    supabase.table("marketplace_escrow").update({"status": "released", "released_at": datetime.now().isoformat()}).eq("order_id", order_id).execute()
-    supabase.table("marketplace_orders").update({"status": "completed"}).eq("id", order_id).execute()
+    supabase.table("marketplace_escrow").update(
+    {
+        "status": "released",
+        "released_at": datetime.now().isoformat()}).eq(
+            "order_id",
+             order_id).execute()
+    supabase.table("marketplace_orders").update(
+        {"status": "completed"}).eq("id", order_id).execute()
+
 
 def create_dispute(order_id, user_id, reason):
     supabase = get_service()
-    supabase.table("marketplace_disputes").insert({"order_id": order_id, "user_id": user_id, "reason": reason, "status": "open"}).execute()
+    supabase.table("marketplace_disputes").insert(
+        {"order_id": order_id, "user_id": user_id, "reason": reason, "status": "open"}).execute()
+
 
 def create_price_alert(user_id, crop, max_price):
     supabase = get_service()
-    supabase.table("marketplace_price_alerts").insert({"user_id": user_id, "crop": crop, "max_price": max_price}).execute()
+    supabase.table("marketplace_price_alerts").insert(
+        {"user_id": user_id, "crop": crop, "max_price": max_price}).execute()
+
 
 def get_price_alerts(user_id):
     supabase = get_service()
-    res = supabase.table("marketplace_price_alerts").select("*").eq("user_id", user_id).execute()
+    res = supabase.table("marketplace_price_alerts").select(
+        "*").eq("user_id", user_id).execute()
     return res.data if res.data else []
+
 
 def get_wallet_balance(user_id):
     supabase = get_service()
     try:
-        res = supabase.table("seller_wallets").select("*").eq("user_id", user_id).execute()
+        res = supabase.table("seller_wallets").select(
+            "*").eq("user_id", user_id).execute()
         if res.data:
             return res.data[0]
     except:
@@ -273,18 +328,23 @@ def get_wallet_balance(user_id):
     # Return safe default if table doesn't exist
     return {"balance": 0, "pending_escrow": 0, "user_id": user_id}
 
+
 def request_withdrawal(user_id, amount):
     supabase = get_service()
     try:
-        supabase.table("seller_withdrawals").insert({"user_id": user_id, "amount": amount, "status": "pending"}).execute()
+        supabase.table("seller_withdrawals").insert(
+            {"user_id": user_id, "amount": amount, "status": "pending"}).execute()
         return True, None
     except Exception as e:
         return False, str(e)
 
+
 def get_price_trends(crop):
     supabase = get_service()
-    res = supabase.table("marketplace_listings").select("price, created_at").eq("crop", crop).eq("status", "active").execute()
+    res = supabase.table("marketplace_listings").select(
+        "price, created_at").eq("crop", crop).eq("status", "active").execute()
     return res.data if res.data else []
+
 
 # ============================================================
 # HEADER
@@ -297,7 +357,8 @@ st.markdown("""
 # ============================================================
 # FETCH LISTINGS
 # ============================================================
-all_listings = service.table("marketplace_listings").select("*").eq("status", "active").order("created_at", desc=True).execute().data or []
+all_listings = service.table("marketplace_listings").select(
+    "*").eq("status", "active").order("created_at", desc=True).execute().data or []
 
 # ============================================================
 # TABS
@@ -308,21 +369,41 @@ tab_browse, tab_orders, tab_sell, tab_store, tab_wallet, tab_alerts, tab_trends 
 
 # BROWSE TAB
 with tab_browse:
-    col_search, col_crop, col_state, col_price, col_org = st.columns([3, 2, 2, 2, 1])
+    col_search, col_crop, col_state, col_price, col_org = st.columns([
+                                                                     3, 2, 2, 2, 1])
     with col_search:
-        search_query = st.text_input("Search", placeholder="crop, variety, location...", label_visibility="collapsed")
+        search_query = st.text_input(
+    "Search",
+    placeholder="crop, variety, location...",
+     label_visibility="collapsed")
     with col_crop:
-        crop_filter = st.selectbox("Crop", ["All"] + sorted(set(l.get("crop","") for l in all_listings)))
+        crop_filter = st.selectbox(
+            "Crop", ["All"] + sorted(set(l.get("crop", "") for l in all_listings)))
     with col_state:
-        state_filter = st.selectbox("State", ["All"] + sorted(set(l.get("state","") for l in all_listings)))
+        state_filter = st.selectbox(
+            "State", ["All"] + sorted(set(l.get("state", "") for l in all_listings)))
     with col_price:
-        price_filter = st.selectbox("Price", ["Any", "Under ₦50k", "₦50k–₦200k", "₦200k–₦500k", "Over ₦500k"])
+        price_filter = st.selectbox(
+    "Price", [
+        "Any", "Under ₦50k", "₦50k–₦200k", "₦200k–₦500k", "Over ₦500k"])
     with col_org:
         organic_filter = st.checkbox("Organic", value=False)
 
     filtered = all_listings.copy()
     if search_query:
-        filtered = [l for l in filtered if search_query.lower() in (l.get("crop","") + " " + l.get("variety","") + " " + l.get("location","")).lower()]
+        filtered = [
+    l for l in filtered if search_query.lower() in (
+        l.get(
+            "crop",
+            "") +
+            " " +
+            l.get(
+                "variety",
+                "") +
+                " " +
+                l.get(
+                    "location",
+                     "")).lower()]
     if crop_filter != "All":
         filtered = [l for l in filtered if l.get("crop") == crop_filter]
     if state_filter != "All":
@@ -350,20 +431,26 @@ with tab_browse:
                     <div style="height:160px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e8f5e9,#c8e6c9);font-size:3rem;">🌱</div>
                     <div style="padding:12px;">
                         <div style="font-weight:600;color:#222;">{crop} {variety}</div>
-                        <div style="font-size:1.2rem;font-weight:800;color:#2e7d32;">₦{price_ngn:,} <small style="font-size:0.7rem;color:#888;">/ {listing.get("unit","tonne")}</small></div>
+                        <div style="font-size:1.2rem;font-weight:800;color:#2e7d32;">₦{price_ngn:,} <small style="font-size:0.7rem;color:#888;">/ {listing.get("unit", "tonne")}</small></div>
                         <div style="font-size:0.8rem;color:#888;">📍 {location}, {state}</div>
                         <div style="margin-top:4px;">{stars} {rating}({count}) <span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:4px;font-size:0.75rem;">Trust {trust}/100</span></div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-                col_btn, col_fav = st.columns([4,1])
+                col_btn, col_fav = st.columns([4, 1])
                 with col_btn:
-                    if st.button("Details", key=f"view_{listing['id']}", use_container_width=True):
+                    if st.button(
+    "Details",
+    key=f"view_{
+        listing['id']}",
+         use_container_width=True):
                         st.session_state.selected_listing = listing
                         st.rerun()
                 with col_fav:
                     fav = is_favorite(user.id, listing["id"])
-                    if st.button("❤️" if fav else "🤍", key=f"fav_{listing['id']}"):
+                    if st.button(
+    "❤️" if fav else "🤍", key=f"fav_{
+        listing['id']}"):
                         toggle_favorite(user.id, listing["id"])
                         st.rerun()
 
@@ -373,25 +460,49 @@ with tab_browse:
         st.markdown("## Listing Details")
         c1, c2 = st.columns([2, 1])
         with c1:
-            st.markdown(f"**Description:** {listing.get('description','No description')}")
+            st.markdown(
+                f"**Description:** {listing.get('description', 'No description')}")
             st.markdown("### Reviews")
             reviews = get_reviews(listing["id"])
             if not reviews:
                 st.info("No reviews yet.")
             for rev in reviews:
-                st.markdown(f'<div style="background:#fff;border-radius:8px;padding:10px;margin:5px 0;">{"⭐"*rev.get("rating",0)}<br>{rev.get("comment","")}</div>', unsafe_allow_html=True)
+                st.markdown(
+    f'<div style="background:#fff;border-radius:8px;padding:10px;margin:5px 0;">{
+        "⭐" *
+        rev.get(
+            "rating",
+            0)}<br>{
+                rev.get(
+                    "comment",
+                    "")}</div>',
+                     unsafe_allow_html=True)
         with c2:
             seller_profile = get_seller_profile(listing.get("user_id"))
-            seller_name = f"{seller_profile.get('first_name','')} {seller_profile.get('last_name','')}".strip() or "Seller"
+            seller_name = f"{
+    seller_profile.get(
+        'first_name',
+        '')} {
+            seller_profile.get(
+                'last_name',
+                 '')}".strip() or "Seller"
             st.markdown(f"**Seller:** {seller_name}")
             rating, count = get_seller_rating(listing.get("user_id"))
             trust = get_seller_trust_score(listing.get("user_id"))
             st.markdown(f"**Rating:** ⭐ {rating} ({count})")
             st.markdown(f"**Trust Score:** {trust}/100")
-            seller_phone = seller_profile.get("phone","")
+            seller_phone = seller_profile.get("phone", "")
             if seller_phone:
-                st.markdown(f'<a href="tel:{seller_phone}" style="background:#2196f3;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;">📞 Call</a>', unsafe_allow_html=True)
-                st.markdown(f'<a href="https://wa.me/{normalize_phone(seller_phone)}" style="background:#25d366;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;">💬 WhatsApp</a>', unsafe_allow_html=True)
+                st.markdown(
+    f'<a href="tel:{seller_phone}" style="background:#2196f3;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;">📞 Call</a>',
+     unsafe_allow_html=True)
+                st.markdown(
+    f'<a href="https://wa.me/{
+        # 25d366;color:#fff;padding:10px
+        # 20px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600;">💬
+        # WhatsApp</a>',
+        normalize_phone(seller_phone)}" style="background:
+         unsafe_allow_html=True)
             qty = st.number_input("Quantity", min_value=1, value=1)
             unit_price = listing.get("price", 0)
             total = unit_price * qty
@@ -421,7 +532,8 @@ with tab_browse:
     if not st.session_state.cart:
         st.info("Your cart is empty.")
     else:
-        total = sum(item.get("total_price", 0) for item in st.session_state.cart)
+        total = sum(item.get("total_price", 0)
+                    for item in st.session_state.cart)
         delivery = st.radio("Delivery Method", ["Pickup", "Home Delivery"])
         delivery_fee = 0 if delivery == "Pickup" else 1000
         final_total = total + delivery_fee
@@ -438,7 +550,8 @@ with tab_browse:
             "delivery_method": delivery.lower(), "delivery_fee": delivery_fee
         }
         service.table("marketplace_orders").insert(order_data).execute()
-        order_id = service.table("marketplace_orders").select("*").eq("payment_reference", ref).execute().data[0]["id"]
+        order_id = service.table("marketplace_orders").select(
+            "*").eq("payment_reference", ref).execute().data[0]["id"]
         create_escrow(order_id, final_total)
         components.html(f"""
         <!DOCTYPE html>
@@ -464,7 +577,12 @@ with tab_browse:
 # ORDERS TAB
 with tab_orders:
     st.markdown("## My Orders")
-    orders = service.table("marketplace_orders").select("*").or_(f"buyer_id.eq.{user.id},seller_id.eq.{user.id}").order("created_at", desc=True).execute().data or []
+    orders = service.table("marketplace_orders").select("*").or_(
+    f"buyer_id.eq.{
+        user.id},seller_id.eq.{
+            user.id}").order(
+                "created_at",
+                 desc=True).execute().data or []
     if not orders:
         st.info("No orders yet.")
     else:

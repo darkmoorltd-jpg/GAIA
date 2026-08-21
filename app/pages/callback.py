@@ -1,7 +1,7 @@
 
 import streamlit as st
-    # Allow demo mode
-    import requests
+# Allow demo mode
+import requests
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 
@@ -13,7 +13,10 @@ SUPABASE_URL = st.secrets["supabase"]["url"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
-st.set_page_config(page_title="Processing Payment", page_icon="⏳", layout="centered")
+st.set_page_config(
+    page_title="Processing Payment",
+    page_icon="⏳",
+    layout="centered")
 
 # Scan plans (new)
 SCAN_PLANS = {
@@ -37,6 +40,7 @@ BADGE_PLANS = {
     "badge_platinum": {"name": "Platinum", "duration_days": 30},
 }
 
+
 def verify_transaction(reference):
     url = f"https://api.paystack.co/transaction/verify/{reference}"
     headers = {"Authorization": f"Bearer {PAYSTACK_SECRET}"}
@@ -46,9 +50,10 @@ def verify_transaction(reference):
             data = r.json()
             if data.get("data", {}).get("status") == "success":
                 return data["data"]
-    except:
+    except BaseException:
         pass
     return None
+
 
 query_params = st.query_params
 reference = query_params.get("reference", [None])[0]
@@ -67,7 +72,7 @@ if not txn:
 email = ""
 try:
     email = txn.get("customer", {}).get("email", "")
-except:
+except BaseException:
     pass
 if not email:
     email = f"unknown_{reference[:10]}@paystack.pay"
@@ -106,7 +111,10 @@ if plan in BADGE_PLANS:
         "reference": reference,
     }).execute()
 
-    st.success(f"✅ Payment successful! You are now a {badge['name']} subscriber until {expiry.strftime('%d %b %Y')}.")
+    st.success(
+        f"✅ Payment successful! You are now a {
+            badge['name']} subscriber until {
+            expiry.strftime('%d %b %Y')}.")
     st.markdown("[Go to Dashboard](/~/)")
     st.stop()
 
@@ -127,7 +135,8 @@ if plan == "verification":
         "payment_reference": reference,
     }).eq("user_id", user_id).execute()
 
-    st.success("✅ Verification payment received! Your KYC is now pending admin review.")
+    st.success(
+        "✅ Verification payment received! Your KYC is now pending admin review.")
     st.markdown("[Go to Dashboard](/~/)")
     st.stop()
 
@@ -144,7 +153,8 @@ if plan in SCAN_PLANS:
     user_id = auth_user.id
 
     # Fetch current scans
-    cur_res = service.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+    cur_res = service.table("user_scans").select(
+        "scans_remaining").eq("user_id", user_id).execute()
     current_scans = cur_res.data[0]["scans_remaining"] if cur_res.data else 30
     new_total = current_scans + scans_to_add
 
@@ -163,7 +173,8 @@ if plan in SCAN_PLANS:
         "reference": reference,
     }).execute()
 
-    st.success(f"✅ Payment successful! {scans_to_add} scans added. Balance: {new_total}")
+    st.success(
+        f"✅ Payment successful! {scans_to_add} scans added. Balance: {new_total}")
     st.markdown("[Go to Dashboard](/~/)")
     st.stop()
 

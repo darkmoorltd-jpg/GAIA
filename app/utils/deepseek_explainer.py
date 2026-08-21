@@ -8,10 +8,16 @@ import json
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop"):
+
+def explain_diagnosis(
+        diagnosis,
+        confidence,
+        crop_or_type,
+        context_type="crop"):
     """Non-streaming fallback (returns full text)."""
     if context_type == "crop":
-        prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
+        prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {
+            confidence:.1f}% confidence.
 Please provide a comprehensive farmer-friendly guide covering:
 1. What This Means
 2. Organic Treatment
@@ -25,7 +31,8 @@ Please provide a comprehensive farmer-friendly guide covering:
 10. Safety
 Be practical, specific, and use Nigerian/local context."""
     elif context_type == "pest":
-        prompt = f"""GAIA identified: {diagnosis} with {confidence:.1f}% confidence.
+        prompt = f"""GAIA identified: {diagnosis} with {
+            confidence:.1f}% confidence.
 Please provide a comprehensive pest management guide covering:
 1. About This Pest
 2. Organic Control
@@ -39,7 +46,8 @@ Please provide a comprehensive pest management guide covering:
 10. Safety
 Be practical, specific, and use Nigerian/local context."""
     elif context_type == "soil":
-        prompt = f"""GAIA identified soil type: {diagnosis} with {confidence:.1f}% confidence.
+        prompt = f"""GAIA identified soil type: {diagnosis} with {
+            confidence:.1f}% confidence.
 Please provide a comprehensive soil management guide covering:
 1. Soil Characteristics
 2. Organic Improvement
@@ -55,7 +63,9 @@ Be practical, specific, and use Nigerian/local context."""
     else:
         prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
 
-    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [
@@ -66,7 +76,11 @@ Be practical, specific, and use Nigerian/local context."""
         "max_tokens": 4000
     }
     try:
-        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=60)
+        r = requests.post(
+            DEEPSEEK_URL,
+            headers=headers,
+            json=payload,
+            timeout=60)
         if r.status_code == 200:
             return r.json()["choices"][0]["message"]["content"], None
         return None, f"API error: {r.status_code}"
@@ -74,10 +88,15 @@ Be practical, specific, and use Nigerian/local context."""
         return None, str(e)
 
 
-def explain_diagnosis_stream(diagnosis, confidence, crop_or_type, context_type="crop"):
+def explain_diagnosis_stream(
+        diagnosis,
+        confidence,
+        crop_or_type,
+        context_type="crop"):
     """Streaming generator for fast AI generation."""
     if context_type == "crop":
-        prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {confidence:.1f}% confidence.
+        prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {
+            confidence:.1f}% confidence.
 Please provide a comprehensive farmer-friendly guide covering:
 1. What This Means
 2. Organic Treatment
@@ -91,7 +110,8 @@ Please provide a comprehensive farmer-friendly guide covering:
 10. Safety
 Be practical, specific, and use Nigerian/local context."""
     elif context_type == "pest":
-        prompt = f"""GAIA identified: {diagnosis} with {confidence:.1f}% confidence.
+        prompt = f"""GAIA identified: {diagnosis} with {
+            confidence:.1f}% confidence.
 Please provide a comprehensive pest management guide covering:
 1. About This Pest
 2. Organic Control
@@ -105,7 +125,8 @@ Please provide a comprehensive pest management guide covering:
 10. Safety
 Be practical, specific, and use Nigerian/local context."""
     elif context_type == "soil":
-        prompt = f"""GAIA identified soil type: {diagnosis} with {confidence:.1f}% confidence.
+        prompt = f"""GAIA identified soil type: {diagnosis} with {
+            confidence:.1f}% confidence.
 Please provide a comprehensive soil management guide covering:
 1. Soil Characteristics
 2. Organic Improvement
@@ -121,7 +142,9 @@ Be practical, specific, and use Nigerian/local context."""
     else:
         prompt = f"""GAIA diagnosis: {diagnosis}. Explain and give actionable advice."""
 
-    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"}
     payload = {
         "model": "deepseek-chat",
         "messages": [
@@ -134,7 +157,12 @@ Be practical, specific, and use Nigerian/local context."""
     }
 
     try:
-        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60)
+        r = requests.post(
+            DEEPSEEK_URL,
+            headers=headers,
+            json=payload,
+            stream=True,
+            timeout=60)
         if r.status_code != 200:
             yield f"Error: {r.status_code}"
             return
@@ -148,10 +176,11 @@ Be practical, specific, and use Nigerian/local context."""
                     break
                 try:
                     chunk = json.loads(data)
-                    delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                    delta = chunk['choices'][0].get(
+                        'delta', {}).get('content', '')
                     if delta:
                         yield delta
-                except:
+                except BaseException:
                     continue
     except Exception as e:
         yield f"Error: {str(e)}"

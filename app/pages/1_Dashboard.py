@@ -7,7 +7,10 @@ if user is None:
     st.stop()
     # Allow demo mode
 
-    st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wide")
+    st.set_page_config(
+        page_title="GAIA – Dashboard",
+        page_icon="🌱",
+        layout="wide")
 
 # ---------- Light / Dark mode toggle ----------
 if "theme" not in st.session_state:
@@ -21,7 +24,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-dark_mode = st.toggle("", value=st.session_state.theme == "dark", key="dashboard_theme_toggle")
+dark_mode = st.toggle("", value=st.session_state.theme ==
+                      "dark", key="dashboard_theme_toggle")
 st.session_state.theme = "dark" if dark_mode else "light"
 
 # ---------- CSS for both themes ----------
@@ -84,24 +88,36 @@ else:
 
 # ---------- Hero Section ----------
 st.markdown('<div class="hero-title">GAIA</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Global Agricultural Intelligence Assistant</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="subtitle">Global Agricultural Intelligence Assistant</div>',
+    unsafe_allow_html=True)
 
 # ---------- Lettuce image ----------
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
-    st.image("https://images.unsplash.com/photo-1556801712-76c8eb07bbc9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-             caption="", use_container_width=True)
+    st.image(
+        "https://images.unsplash.com/photo-1556801712-76c8eb07bbc9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        caption="",
+        use_container_width=True)
 
 # ---------- Stats Bar ----------
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.markdown('<div class="stat-item"><div class="stat-number">10+</div><div class="stat-label">Crop Models</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="stat-item"><div class="stat-number">10+</div><div class="stat-label">Crop Models</div></div>',
+        unsafe_allow_html=True)
 with col2:
-    st.markdown('<div class="stat-item"><div class="stat-number">99.5%</div><div class="stat-label">Top Accuracy</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="stat-item"><div class="stat-number">99.5%</div><div class="stat-label">Top Accuracy</div></div>',
+        unsafe_allow_html=True)
 with col3:
-    st.markdown('<div class="stat-item"><div class="stat-number">152</div><div class="stat-label">Diagnostic Classes</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="stat-item"><div class="stat-number">152</div><div class="stat-label">Diagnostic Classes</div></div>',
+        unsafe_allow_html=True)
 with col4:
-    st.markdown('<div class="stat-item"><div class="stat-number">24/7</div><div class="stat-label">Offline Ready</div></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="stat-item"><div class="stat-number">24/7</div><div class="stat-label">Offline Ready</div></div>',
+        unsafe_allow_html=True)
 
 # ---------- Footer ----------
 st.markdown("""
@@ -117,26 +133,46 @@ st.markdown("""
 st.markdown("---")
 st.markdown("### Quick Navigation")
 cols = st.columns(10)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="Livestock")
-with cols[5]: st.page_link("pages/17_Video_Scan.py", label="Video Scan")
-with cols[6]: st.page_link("pages/19_Satellite.py", label="Satellite")
-with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="Voice AI")
-with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="Buy Scans")
-with cols[9]: st.page_link("pages/10_Early_Warning.py", label="Alerts")
+with cols[0]:
+    st.page_link("pages/1_Dashboard.py", label="Dashboard")
+with cols[1]:
+    st.page_link("pages/2_Crops.py", label="Crops")
+with cols[2]:
+    st.page_link("pages/3_Pests.py", label="Pests")
+with cols[3]:
+    st.page_link("pages/4_Soil.py", label="Soil")
+with cols[4]:
+    st.page_link("pages/5_Livestock.py", label="Livestock")
+with cols[5]:
+    st.page_link("pages/17_Video_Scan.py", label="Video Scan")
+with cols[6]:
+    st.page_link("pages/19_Satellite.py", label="Satellite")
+with cols[7]:
+    st.page_link("pages/18_Voice_Agronomist.py", label="Voice AI")
+with cols[8]:
+    st.page_link("pages/9_Buy_Scans.py", label="Buy Scans")
+with cols[9]:
+    st.page_link("pages/10_Early_Warning.py", label="Alerts")
 
 st.markdown("### More Features")
 cols2 = st.columns(10)
-with cols2[0]: st.page_link("pages/11_Verify_Farmer.py", label="Verify")
-with cols2[1]: st.page_link("pages/12_Verification_History.py", label="History")
-with cols2[2]: st.page_link("pages/14_Wallet.py", label="Wallet")
-with cols2[3]: st.page_link("pages/15_Badges.py", label="Badges")
-with cols2[4]: st.page_link("pages/16_Chat.py", label="Chat")
-with cols2[5]: st.page_link("pages/20_Marketplace.py", label="Market")
-with cols2[6]: st.page_link("pages/21_Crop_Insurance.py", label="Insurance")
-with cols2[7]: st.page_link("pages/6_Payment_History.py", label="Payments")
-with cols2[8]: st.page_link("pages/8_Profile.py", label="Profile")
-with cols2[9]: st.page_link("pages/13_Help.py", label="Help")
+with cols2[0]:
+    st.page_link("pages/11_Verify_Farmer.py", label="Verify")
+with cols2[1]:
+    st.page_link("pages/12_Verification_History.py", label="History")
+with cols2[2]:
+    st.page_link("pages/14_Wallet.py", label="Wallet")
+with cols2[3]:
+    st.page_link("pages/15_Badges.py", label="Badges")
+with cols2[4]:
+    st.page_link("pages/16_Chat.py", label="Chat")
+with cols2[5]:
+    st.page_link("pages/20_Marketplace.py", label="Market")
+with cols2[6]:
+    st.page_link("pages/21_Crop_Insurance.py", label="Insurance")
+with cols2[7]:
+    st.page_link("pages/6_Payment_History.py", label="Payments")
+with cols2[8]:
+    st.page_link("pages/8_Profile.py", label="Profile")
+with cols2[9]:
+    st.page_link("pages/13_Help.py", label="Help")

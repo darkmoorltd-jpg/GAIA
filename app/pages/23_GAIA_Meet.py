@@ -1,20 +1,22 @@
 
+from supabase import create_client
+import hashlib
+import json
+import sys
+import os
+import datetime
+import uuid
 import streamlit as st
-    # Allow demo mode
-    from supabase import create_client
-supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+# Allow demo mode
+from supabase import create_client
+supabase = create_client(
+    st.secrets["supabase"]["url"],
+    st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
-except:
+except BaseException:
     import streamlit.components.v1 as components
-import uuid
-import datetime
-import os
-import sys
-import json
-import hashlib
-from supabase import create_client
 
 user = st.session_state.get("user", None)
 if user is None:
@@ -51,6 +53,8 @@ if "waiting_room" not in st.session_state:
 # ============================================
 # SUPABASE
 # ============================================
+
+
 @st.cache_resource
 def get_supabase():
     return create_client(
@@ -58,13 +62,16 @@ def get_supabase():
         st.secrets["supabase"]["service_key"]
     )
 
+
 def generate_room_id():
     return f"gaia-meet-{uuid.uuid4().hex[:10]}"
+
 
 def get_user_display_name():
     if "user" in st.session_state and user:
         return user.email.split('@')[0].title()
     return "Guest"
+
 
 def create_meeting(user_id, title, crop_focus=None, password=None):
     db = get_supabase()
@@ -83,21 +90,26 @@ def create_meeting(user_id, title, crop_focus=None, password=None):
     except Exception as e:
         return None, str(e)
 
+
 def get_meeting_info(room_id):
     db = get_supabase()
     try:
-        res = db.table("gaia_meetings").select("*").eq("room_id", room_id).execute()
+        res = db.table("gaia_meetings").select(
+            "*").eq("room_id", room_id).execute()
         return res.data[0] if res.data else None
-    except:
+    except BaseException:
         return None
+
 
 def get_meeting_chat(room_id):
     db = get_supabase()
     try:
-        res = db.table("meeting_chat").select("*").eq("room_id", room_id).order("created_at").execute()
+        res = db.table("meeting_chat").select(
+            "*").eq("room_id", room_id).order("created_at").execute()
         return res.data if res.data else []
-    except:
+    except BaseException:
         return []
+
 
 def send_chat_message(room_id, user_id, message):
     db = get_supabase()
@@ -109,23 +121,37 @@ def send_chat_message(room_id, user_id, message):
             "created_at": datetime.datetime.now().isoformat()
         }).execute()
         return True
-    except:
+    except BaseException:
         return False
+
 
 def get_user_name_by_id(user_id):
     db = get_supabase()
     try:
-        res = db.table("user_profiles").select("first_name,last_name").eq("user_id", user_id).execute()
+        res = db.table("user_profiles").select(
+            "first_name,last_name").eq("user_id", user_id).execute()
         if res.data:
             p = res.data[0]
-            name = f"{p.get('first_name','')} {p.get('last_name','')}".strip()
+            name = f"{
+                p.get(
+                    'first_name',
+                    '')} {
+                p.get(
+                    'last_name',
+                    '')}".strip()
             if name:
                 return name
-    except:
+    except BaseException:
         pass
     return f"Farmer-{str(user_id)[:6]}"
 
-def save_meeting_analytics(room_id, host_id, duration_minutes, participant_count, chat_count):
+
+def save_meeting_analytics(
+    room_id,
+    host_id,
+    duration_minutes,
+    participant_count,
+        chat_count):
     db = get_supabase()
     try:
         db.table("meeting_analytics").insert({
@@ -136,14 +162,16 @@ def save_meeting_analytics(room_id, host_id, duration_minutes, participant_count
             "chat_messages": chat_count,
             "created_at": datetime.datetime.now().isoformat()
         }).execute()
-    except:
+    except BaseException:
         pass
+
 
 def send_sms_invite(phone, room_id):
     """Send meeting invite via SMS (Termii)."""
     from app.utils.sms_util import send_sms
     message = f"GAIA Meet: Join video meeting now! Room ID: {room_id}. Link: https://gaiagpt.streamlit.app/~/23_GAIA_Meet"
     return send_sms(phone, message)
+
 
 def generate_ai_notes(meeting_title, participants, crop_focus):
     """Generate AI meeting notes."""
@@ -155,19 +183,20 @@ def generate_ai_notes(meeting_title, participants, crop_focus):
     🎥 Meeting: {meeting_title}
     🌾 Crop Focus: {crop_focus or 'General'}
     👥 Participants: {len(participants)}
-    
+
     🔑 Key Discussion Points:
     1. Crop disease assessment completed
     2. Treatment recommendations shared
     3. Follow-up actions assigned
-    
+
     ✅ Action Items:
     - Monitor affected fields daily
     - Apply recommended treatment within 48 hours
     - Schedule follow-up in 7 days
-    
+
     Powered by GAIA AI
     """
+
 
 # ============================================
 # ZOOM-STYLE CSS
@@ -199,8 +228,8 @@ st.markdown("""
 # ============================================
 # AUTH CHECK
 # ============================================
-    st.warning("Please log in to use GAIA Meet.")
-    st.stop()
+st.warning("Please log in to use GAIA Meet.")
+st.stop()
 
 user = user
 user_id = user.id
@@ -211,21 +240,42 @@ user_name = get_user_display_name()
 # ============================================
 if st.session_state.meet_room_id is None:
     # ========== JOIN/CREATE SCREEN ==========
-    st.markdown('<div style="text-align:center;padding:50px 20px;">', unsafe_allow_html=True)
-    st.markdown('<h1 style="font-size:2.5rem;font-weight:800;color:#fff;">🎥 GAIA Meet Pro</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="color:#8b949e;font-size:1.1rem;margin-bottom:40px;">Advanced agricultural video conferencing</p>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="text-align:center;padding:50px 20px;">',
+        unsafe_allow_html=True)
+    st.markdown(
+        '<h1 style="font-size:2.5rem;font-weight:800;color:#fff;">🎥 GAIA Meet Pro</h1>',
+        unsafe_allow_html=True)
+    st.markdown(
+        '<p style="color:#8b949e;font-size:1.1rem;margin-bottom:40px;">Advanced agricultural video conferencing</p>',
+        unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
-    
+
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         tab1, tab2, tab3 = st.tabs(["🎬 Start", "🔗 Join", "📱 SMS Invite"])
-        
+
         with tab1:
-            meeting_title = st.text_input("Meeting Title", value=f"{user_name}'s Agri Clinic")
-            crop_focus = st.selectbox("Crop Focus", ["None", "Maize", "Rice", "Beans", "Tomato", "Pepper", "Cabbage", "Millet", "Soybean"])
-            meeting_password = st.text_input("Meeting Password (optional)", type="password")
-            if st.button("🚀 Start Meeting", use_container_width=True, type="primary"):
-                room_id, err = create_meeting(user_id, meeting_title, crop_focus if crop_focus != "None" else None, meeting_password or None)
+            meeting_title = st.text_input(
+                "Meeting Title", value=f"{user_name}'s Agri Clinic")
+            crop_focus = st.selectbox("Crop Focus",
+                                      ["None",
+                                       "Maize",
+                                       "Rice",
+                                       "Beans",
+                                       "Tomato",
+                                       "Pepper",
+                                       "Cabbage",
+                                       "Millet",
+                                       "Soybean"])
+            meeting_password = st.text_input(
+                "Meeting Password (optional)", type="password")
+            if st.button(
+                "🚀 Start Meeting",
+                use_container_width=True,
+                    type="primary"):
+                room_id, err = create_meeting(
+                    user_id, meeting_title, crop_focus if crop_focus != "None" else None, meeting_password or None)
                 if room_id:
                     st.session_state.meet_room_id = room_id
                     st.session_state.meet_role = "host"
@@ -234,14 +284,16 @@ if st.session_state.meet_room_id is None:
                     st.rerun()
                 else:
                     st.error(f"Failed: {str(err)[:100]}")
-        
+
         with tab2:
             join_id = st.text_input("Room ID", placeholder="gaia-meet-xxxx")
-            join_password = st.text_input("Password (if required)", type="password")
+            join_password = st.text_input(
+                "Password (if required)", type="password")
             if st.button("🔗 Join Meeting", use_container_width=True):
                 meeting = get_meeting_info(join_id)
                 if meeting:
-                    if meeting.get("password") and meeting["password"] != join_password:
+                    if meeting.get(
+                            "password") and meeting["password"] != join_password:
                         st.error("Incorrect meeting password.")
                     else:
                         st.session_state.meet_room_id = join_id
@@ -252,9 +304,10 @@ if st.session_state.meet_room_id is None:
                         st.rerun()
                 else:
                     st.error("Meeting not found.")
-        
+
         with tab3:
-            phone_number = st.text_input("Phone Number", placeholder="08012345678")
+            phone_number = st.text_input(
+                "Phone Number", placeholder="08012345678")
             if st.button("📱 Send SMS Invite", use_container_width=True):
                 room = st.session_state.meet_room_id or generate_room_id()
                 ok, err = send_sms_invite(phone_number, room)
@@ -266,13 +319,15 @@ else:
     # ========== ACTIVE MEETING ==========
     room_id = st.session_state.meet_room_id
     meeting = get_meeting_info(room_id)
-    
+
     # Top bar
     duration = ""
     if st.session_state.meet_start_time:
         elapsed = datetime.datetime.now() - st.session_state.meet_start_time
-        duration = f"{int(elapsed.total_seconds() // 60)}:{int(elapsed.total_seconds() % 60):02d}"
-    
+        duration = f"{int(elapsed.total_seconds() //
+                          60)}:{int(elapsed.total_seconds() %
+                                    60):02d}"
+
     st.markdown(f"""
     <div class="meeting-top-bar">
         <p class="meeting-title">{"🎥 " + meeting['title'] if meeting else "GAIA Meeting"}</p>
@@ -283,12 +338,12 @@ else:
         <span style="color:#00c853;font-size:0.9rem;">● LIVE</span>
     </div>
     """, unsafe_allow_html=True)
-    
+
     # Main tabs
     tab_video, tab_chat, tab_controls, tab_features, tab_analytics = st.tabs([
         "📹 Video", "💬 Chat", "🎛️ Host Controls", "🔥 Features", "📊 Analytics"
     ])
-    
+
     with tab_video:
         video_html = f"""
         <!DOCTYPE html>
@@ -336,7 +391,7 @@ else:
                 let recordedChunks = [];
                 let isRecording = false;
                 let handRaised = false;
-                
+
                 async function startCamera() {{
                     try {{
                         localStream = await navigator.mediaDevices.getUserMedia({{
@@ -346,7 +401,7 @@ else:
                         document.getElementById('mainVideo').srcObject = localStream;
                     }} catch (e) {{ console.error('Camera error:', e); }}
                 }}
-                
+
                 function toggleMic() {{
                     if (localStream) {{
                         micEnabled = !micEnabled;
@@ -355,7 +410,7 @@ else:
                         document.getElementById('micBtn').classList.toggle('active', !micEnabled);
                     }}
                 }}
-                
+
                 function toggleCam() {{
                     if (localStream) {{
                         camEnabled = !camEnabled;
@@ -364,7 +419,7 @@ else:
                         document.getElementById('camBtn').classList.toggle('active', !camEnabled);
                     }}
                 }}
-                
+
                 async function toggleScreen() {{
                     if (!screenStream) {{
                         try {{
@@ -379,7 +434,7 @@ else:
                         document.getElementById('screenBtn').classList.remove('active');
                     }}
                 }}
-                
+
                 function toggleRecording() {{
                     if (!isRecording) {{
                         try {{
@@ -414,39 +469,45 @@ else:
                         document.getElementById('recIndicator').style.display = 'none';
                     }}
                 }}
-                
+
                 function toggleHand() {{
                     handRaised = !handRaised;
                     document.getElementById('handTag').style.display = handRaised ? 'block' : 'none';
                     document.getElementById('raiseBtn').textContent = handRaised ? '✋ Hand Raised' : '✋ Raise Hand';
                     document.getElementById('raiseBtn').classList.toggle('active', handRaised);
                 }}
-                
+
                 function endCall() {{
                     if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
                     if (localStream) localStream.getTracks().forEach(t => t.stop());
                     if (screenStream) screenStream.getTracks().forEach(t => t.stop());
                     window.location.reload();
                 }}
-                
+
                 startCamera();
             </script>
         </body>
         </html>
         """
         components.html(video_html, height=550)
-        
+
         if st.button("🚪 Leave Meeting", use_container_width=True):
             duration_min = 0
             if st.session_state.meet_start_time:
-                duration_min = int((datetime.datetime.now() - st.session_state.meet_start_time).total_seconds() // 60)
-            save_meeting_analytics(room_id, user_id, duration_min, len(st.session_state.meet_participants), len(get_meeting_chat(room_id)))
+                duration_min = int(
+                    (datetime.datetime.now() -
+                     st.session_state.meet_start_time).total_seconds() //
+                    60)
+            save_meeting_analytics(
+                room_id, user_id, duration_min, len(
+                    st.session_state.meet_participants), len(
+                    get_meeting_chat(room_id)))
             st.session_state.meet_room_id = None
             st.session_state.meet_role = None
             st.session_state.meet_participants = []
             st.session_state.meet_start_time = None
             st.rerun()
-    
+
     with tab_chat:
         chat_messages = get_meeting_chat(room_id)
         chat_parts = []
@@ -459,36 +520,42 @@ else:
             chat_parts.append(
                 f'<div class="chat-message {msg_class}">'
                 f'<div class="chat-sender">{"You" if is_me else sender_name}</div>'
-                f'{msg.get("message","")}'
+                f'{msg.get("message", "")}'
                 f'<div class="chat-time">{time_str}</div>'
                 f'</div>'
             )
-        chat_html = '<div style="height:350px;overflow-y:auto;padding:10px;">' + ''.join(chat_parts) + '</div>'
+        chat_html = '<div style="height:350px;overflow-y:auto;padding:10px;">' + \
+            ''.join(chat_parts) + '</div>'
         st.markdown(chat_html, unsafe_allow_html=True)
-        
+
         with st.form("chat_form", clear_on_submit=True):
-            chat_input = st.text_input("", placeholder="Type message...", label_visibility="collapsed")
+            chat_input = st.text_input(
+                "",
+                placeholder="Type message...",
+                label_visibility="collapsed")
             if st.form_submit_button("Send", use_container_width=True):
                 if chat_input.strip():
                     send_chat_message(room_id, user_id, chat_input.strip())
                     st.rerun()
-    
+
     with tab_controls:
         st.markdown("### 🎛️ Host Controls")
-        
+
         # Participants list with controls
         st.markdown("#### 👥 Participants")
         for pid in st.session_state.meet_participants:
             pname = get_user_name_by_id(pid)
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.markdown(f'<span class="participant-chip">👤 {pname}</span>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<span class="participant-chip">👤 {pname}</span>',
+                    unsafe_allow_html=True)
             with col2:
                 if st.session_state.meet_role == "host" and pid != user_id:
                     if st.button(f"Remove {pname}", key=f"remove_{pid}"):
                         st.session_state.meet_participants.remove(pid)
                         st.rerun()
-        
+
         # Waiting room
         st.markdown("#### 🚪 Waiting Room")
         if st.session_state.waiting_room:
@@ -504,19 +571,18 @@ else:
                         st.rerun()
         else:
             st.info("No one in waiting room.")
-        
+
         # Mute all
         if st.session_state.meet_role == "host":
             if st.button("🔇 Mute All Participants", use_container_width=True):
                 st.success("All participants muted (simulated).")
-    
+
     with tab_features:
         st.markdown("### 🔥 Advanced Features")
-        
-        feature_tab1, feature_tab2, feature_tab3, feature_tab4, feature_tab5, feature_tab6 = st.tabs([
-            "🖼️ Whiteboard", "🎭 Virtual BG", "🗣️ Breakouts", "📊 Polls", "📝 AI Notes", "📱 SMS"
-        ])
-        
+
+        feature_tab1, feature_tab2, feature_tab3, feature_tab4, feature_tab5, feature_tab6 = st.tabs(
+            ["🖼️ Whiteboard", "🎭 Virtual BG", "🗣️ Breakouts", "📊 Polls", "📝 AI Notes", "📱 SMS"])
+
         with feature_tab1:
             st.markdown("#### 🖼️ Whiteboard / Canvas")
             whiteboard_html = """
@@ -529,7 +595,7 @@ else:
                 const ctx = canvas.getContext('2d');
                 let drawing = false;
                 let lastX = 0, lastY = 0;
-                
+
                 canvas.addEventListener('mousedown', (e) => {
                     drawing = true;
                     lastX = e.offsetX;
@@ -548,7 +614,7 @@ else:
                 });
                 canvas.addEventListener('mouseup', () => { drawing = false; });
                 canvas.addEventListener('mouseleave', () => { drawing = false; });
-                
+
                 function clearCanvas() {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                 }
@@ -561,78 +627,90 @@ else:
             </script>
             """
             components.html(whiteboard_html, height=500)
-        
+
         with feature_tab2:
             st.markdown("#### 🎭 Virtual Background")
-            bg_options = st.selectbox("Select Background", ["None", "Farm", "Office", "Blur"])
+            bg_options = st.selectbox(
+                "Select Background", [
+                    "None", "Farm", "Office", "Blur"])
             if bg_options != "None":
-                st.success(f"Virtual background '{bg_options}' applied (simulated — requires ML model for real-time).")
-        
+                st.success(
+                    f"Virtual background '{bg_options}' applied (simulated — requires ML model for real-time).")
+
         with feature_tab3:
             st.markdown("#### 🗣️ Breakout Rooms")
-            num_rooms = st.number_input("Number of Rooms", min_value=1, max_value=10, value=2)
+            num_rooms = st.number_input(
+                "Number of Rooms", min_value=1, max_value=10, value=2)
             if st.button("Create Breakout Rooms", use_container_width=True):
                 rooms = {}
                 participants = list(st.session_state.meet_participants)
                 for i in range(int(num_rooms)):
-                    rooms[f"Room {i+1}"] = []
+                    rooms[f"Room {i + 1}"] = []
                 for i, pid in enumerate(participants):
                     rooms[f"Room {(i % int(num_rooms)) + 1}"].append(pid)
                 st.session_state.breakout_rooms = rooms
                 st.success(f"Created {int(num_rooms)} breakout rooms!")
-            
+
             if st.session_state.breakout_rooms:
                 for room_name, members in st.session_state.breakout_rooms.items():
-                    st.markdown(f"**{room_name}:** {', '.join([get_user_name_by_id(m) for m in members])}")
-        
+                    st.markdown(
+                        f"**{room_name}:** {', '.join([get_user_name_by_id(m) for m in members])}")
+
         with feature_tab4:
             st.markdown("#### 📊 Polls")
             poll_question = st.text_input("Poll Question")
-            poll_options = st.text_area("Options (one per line)", "Yes\nNo\nNot sure")
+            poll_options = st.text_area(
+                "Options (one per line)", "Yes\nNo\nNot sure")
             if st.button("Launch Poll", use_container_width=True):
-                options = [o.strip() for o in poll_options.split('\n') if o.strip()]
+                options = [o.strip()
+                           for o in poll_options.split('\n') if o.strip()]
                 st.session_state.current_poll = {
                     "question": poll_question,
                     "options": options,
                     "votes": {o: 0 for o in options}
                 }
                 st.success("Poll launched!")
-            
+
             if st.session_state.current_poll:
-                st.markdown(f"**Poll:** {st.session_state.current_poll['question']}")
+                st.markdown(
+                    f"**Poll:** {st.session_state.current_poll['question']}")
                 for opt in st.session_state.current_poll['options']:
                     if st.button(opt, key=f"vote_{opt}"):
                         st.session_state.current_poll['votes'][opt] += 1
                         st.rerun()
-                
+
                 st.markdown("#### Results:")
-                for opt, count in st.session_state.current_poll['votes'].items():
+                for opt, count in st.session_state.current_poll['votes'].items(
+                ):
                     st.write(f"{opt}: {count} vote(s)")
-        
+
         with feature_tab5:
             st.markdown("#### 📝 AI Meeting Notes")
             if st.button("Generate AI Notes", use_container_width=True):
-                notes = generate_ai_notes(meeting['title'] if meeting else "GAIA Meeting", 
-                                          st.session_state.meet_participants,
-                                          meeting.get('crop_focus') if meeting else None)
+                notes = generate_ai_notes(
+                    meeting['title'] if meeting else "GAIA Meeting",
+                    st.session_state.meet_participants,
+                    meeting.get('crop_focus') if meeting else None)
                 st.session_state.meeting_notes.append(notes)
                 st.markdown(notes)
-        
+
         with feature_tab6:
             st.markdown("#### 📱 SMS Invite")
-            invite_phone = st.text_input("Phone Number", placeholder="08012345678")
+            invite_phone = st.text_input(
+                "Phone Number", placeholder="08012345678")
             if st.button("Send SMS Invite", use_container_width=True):
                 ok, err = send_sms_invite(invite_phone, room_id)
                 if ok:
                     st.success(f"Invite sent!")
                 else:
                     st.error(f"Failed: {err}")
-    
+
     with tab_analytics:
         st.markdown("### 📊 Meeting Analytics")
-        elapsed = datetime.datetime.now() - st.session_state.meet_start_time if st.session_state.meet_start_time else datetime.timedelta(0)
+        elapsed = datetime.datetime.now() - \
+            st.session_state.meet_start_time if st.session_state.meet_start_time else datetime.timedelta(0)
         duration_min = int(elapsed.total_seconds() // 60)
-        
+
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Duration", f"{duration_min} min")
@@ -645,13 +723,23 @@ else:
 
 st.markdown("---")
 cols = st.columns(10)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
-with cols[9]: st.page_link("pages/23_GAIA_Meet.py", label="🎥 GAIA Meet")
+with cols[0]:
+    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]:
+   st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]:
+    st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]:
+   st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]:
+    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]:
+   st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
+with cols[6]:
+    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
+with cols[7]:
+   st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
+with cols[8]:
+    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[9]:
+   st.page_link("pages/23_GAIA_Meet.py", label="🎥 GAIA Meet")

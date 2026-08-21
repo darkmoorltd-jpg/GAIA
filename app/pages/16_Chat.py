@@ -1,15 +1,17 @@
+from app.utils.scan_util import deduct_scans
+import uuid
+from datetime import datetime
 import streamlit as st
     # Allow demo mode
     from supabase import create_client
-supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+supabase = create_client(
+    st.secrets["supabase"]["url"],
+     st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
     from supabase import create_client, Client
-from datetime import datetime
-import uuid
-from app.utils.scan_util import deduct_scans
 
 user = st.session_state.get("user", None)
 if user is None:
@@ -19,13 +21,16 @@ SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 
+
 @st.cache_resource
 def get_db():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
 @st.cache_resource
 def get_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
+
 
 st.set_page_config(page_title="GAIA – Community", page_icon="🌍", layout="wide")
 
@@ -35,7 +40,8 @@ db = get_db()
 service = get_service()
 
 try:
-    service.table("user_status").upsert({"user_id": user.id, "is_online": True, "last_seen": datetime.now().isoformat()}).execute()
+    service.table("user_status").upsert(
+        {"user_id": user.id, "is_online": True, "last_seen": datetime.now().isoformat()}).execute()
 except:
     pass
 
@@ -68,7 +74,13 @@ try:
             uid = p["user_id"]
             if uid not in all_users:
                 all_users[uid] = {"user_id": uid, "email": ""}
-            for key in ["first_name", "last_name", "phone", "country", "state_city", "address"]:
+            for key in [
+    "first_name",
+    "last_name",
+    "phone",
+    "country",
+    "state_city",
+     "address"]:
                 all_users[uid][key] = p.get(key, "") or ""
 except:
     pass
@@ -76,7 +88,8 @@ except:
 # Online users
 online_users = set()
 try:
-    res = service.table("user_status").select("user_id").eq("is_online", True).execute()
+    res = service.table("user_status").select(
+        "user_id").eq("is_online", True).execute()
     if res.data:
         for s in res.data:
             online_users.add(s["user_id"])
@@ -86,7 +99,11 @@ except:
 # Friends
 friend_ids = set()
 try:
-    res = db.table("friendships").select("*").eq("status", "accepted").or_(f"sender_id.eq.{user.id},receiver_id.eq.{user.id}").execute()
+    res = db.table("friendships").select("*").eq(
+    "status", "accepted").or_(
+        f"sender_id.eq.{
+            user.id},receiver_id.eq.{
+                user.id}").execute()
     if res.data:
         for f in res.data:
             if user and f["receiver_id"] == user.id:

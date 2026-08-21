@@ -63,7 +63,7 @@ def sign_in(email: str, password: str):
     supabase = init_supabase()
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        st.session_state.user = res.user
+        # Session is now stored in cookies automatically
         return res.user, None
     except Exception as e:
         return None, str(e)
@@ -73,7 +73,6 @@ def sign_out():
         init_supabase().auth.sign_out()
     except:
         pass
-    st.session_state.user = None
 
 def reset_password(email: str):
     supabase = init_supabase()
@@ -114,10 +113,13 @@ def verify_paystack_transaction(reference: str):
 # ---------- Streamlit page ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
-if "user" not in st.session_state:
-    st.session_state.user = None
-
-user = st.session_state.user
+# Use Supabase session for true multi-user support
+supabase = init_supabase()
+try:
+    session = supabase.auth.get_session()
+    user = session.user if session else None
+except:
+    user = None
 
 # ----- Google OAuth callback -----
 query_params = st.query_params

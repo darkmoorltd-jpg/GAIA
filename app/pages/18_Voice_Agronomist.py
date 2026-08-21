@@ -2,15 +2,18 @@
 import streamlit as st
 user = st.session_state.get("user", None)
 if user is None:
-    user = None  # Allow demo mode
+    st.warning("Please log in first.")
+    st.stop()
+
+if user is None:
+    # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
-    user = None
-import requests
+    import requests
 import os
 from datetime import datetime
 import uuid
@@ -119,7 +122,7 @@ def save_memory_to_db(user_id, key, value):
 
 # ===== INITIAL MEMORY LOAD =====
 if "user" in st.session_state and user is not None:
-    user_id = user.id if user else "demo_user"
+    user_id = user.id
     if not st.session_state.farmer_memory:
         st.session_state.farmer_memory.update(load_memory_from_db(user_id))
         try:
@@ -169,7 +172,7 @@ def build_memory_context():
 
 def update_farmer_memory(question, answer):
     q = question.lower()
-    user_id = user.id if user else "demo_user" if "user" in st.session_state and user else None
+    user_id = user.id if "user" in st.session_state and user else None
 
     if "my name is" in q:
         name = q.split("my name is")[-1].strip().split()[0].title()
@@ -331,7 +334,7 @@ if st.session_state.pending_transcription:
         update_farmer_memory(text, answer)
 
         if "user" in st.session_state and user is not None:
-            deduct_scans(user.id if user else "demo_user", 3, "Voice Agronomist")
+            deduct_scans(user.id, 3, "Voice Agronomist")
 
         lang = detect_language(text)
         audio_bytes, speech_err = speak_answer(answer, lang)
@@ -400,7 +403,7 @@ with c2:
             })
             update_farmer_memory(q, answer)
             if "user" in st.session_state and user is not None:
-                deduct_scans(user.id if user else "demo_user", 3, "Voice Agronomist (Text)")
+                deduct_scans(user.id, 3, "Voice Agronomist (Text)")
             lang = detect_language(q)
             audio_bytes, speech_err = speak_answer(answer, lang)
             if audio_bytes:
@@ -433,7 +436,7 @@ if st.session_state.farmer_memory:
         if st.button("Clear Memory"):
             if "user" in st.session_state and user is not None:
                 try:
-                    init_supabase().table("farmer_memory").delete().eq("user_id", user.id if user else "demo_user").execute()
+                    init_supabase().table("farmer_memory").delete().eq("user_id", user.id).execute()
                 except:
                     pass
             st.session_state.farmer_memory = {}

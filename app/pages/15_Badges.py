@@ -2,15 +2,18 @@
 import streamlit as st
 user = st.session_state.get("user", None)
 if user is None:
-    user = None  # Allow demo mode
+    st.warning("Please log in first.")
+    st.stop()
+
+if user is None:
+    # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
-    user = None
-import streamlit.components.v1 as components
+    import streamlit.components.v1 as components
 from supabase import create_client, Client
 import uuid
 from app.utils.phone_util import normalize_phone
@@ -83,13 +86,11 @@ st.set_page_config(page_title="GAIA – Badges", page_icon="🏅", layout="wide"
 
 if user is None:
     st.session_state["user"] = None
-    user = None
-
-user = user
+    user = user
 db = get_service()
 
 # Check verification
-verify = db.table("farmer_verifications").select("status").eq("user_id", user.id if user else "demo_user").execute()
+verify = db.table("farmer_verifications").select("status").eq("user_id", user.id).execute()
 is_verified = verify.data and len(verify.data) > 0 and verify.data[0].get("status") == "approved"
 
 if not is_verified:
@@ -98,7 +99,7 @@ if not is_verified:
     st.stop()
 
 # Get current badge
-badge_res = db.table("badge_subscriptions").select("*").eq("user_id", user.id if user else "demo_user").execute()
+badge_res = db.table("badge_subscriptions").select("*").eq("user_id", user.id).execute()
 current_badge = badge_res.data[0] if badge_res.data else None
 
 # ============================================
@@ -211,10 +212,10 @@ for i, (key, badge) in enumerate(BADGES.items()):
 
         # Payment button
         if st.button(f"Subscribe {badge['name']}", key=f"badge_btn_{key}", use_container_width=True):
-            ref = f"GAIA_BADGE_{user.id if user else "demo_user"[:8]}_{key}_{uuid.uuid4().hex[:6]}"
+            ref = f"GAIA_BADGE_{user.id[:8]}_{key}_{uuid.uuid4().hex[:6]}"
             phone_for_sms = ""
             try:
-                profile = db.table("user_profiles").select("phone").eq("user_id", user.id if user else "demo_user").execute()
+                profile = db.table("user_profiles").select("phone").eq("user_id", user.id).execute()
                 if profile.data and len(profile.data) > 0:
                     phone_for_sms = normalize_phone(profile.data[0].get("phone", ""))
             except:

@@ -27,6 +27,7 @@ def sign_in(email, password):
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state["user"] = res.user
+        st.session_state.user = res.user
         st.session_state["logged_in"] = True
         st.session_state.user = res.user
         return True, None
@@ -40,6 +41,7 @@ def sign_up(email, password):
         res = supabase.auth.sign_up({"email": email, "password": password})
         if res.user:
             st.session_state["user"] = res.user
+        st.session_state.user = res.user
             st.session_state["logged_in"] = True
             # Create scan record
             try:
@@ -67,6 +69,8 @@ if "logged_in" not in st.session_state:
 
 if "user" not in st.session_state:
     st.session_state["user"] = None
+if "user" not in st.session_state:
+    st.session_state.user = None
 
 # ============================================
 # LOGIN PAGE

@@ -1,15 +1,18 @@
 import streamlit as st
 user = st.session_state.get("user", None)
 if user is None:
-    user = None  # Allow demo mode
+    st.warning("Please log in first.")
+    st.stop()
+
+if user is None:
+    # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
-    user = None
-from supabase import create_client, Client
+    from supabase import create_client, Client
 import pandas as pd
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
@@ -23,9 +26,7 @@ st.set_page_config(page_title="GAIA – Payment History", page_icon="💳", layo
 
 if user is None:
     st.session_state["user"] = None
-    user = None
-
-user_id = user.id if user else "demo_user"
+    user_id = user.id
 supabase = init_supabase()
 
 st.title("💳 Payment History")

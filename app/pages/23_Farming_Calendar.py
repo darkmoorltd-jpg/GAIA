@@ -2,15 +2,18 @@
 import streamlit as st
 user = st.session_state.get("user", None)
 if user is None:
-    user = None  # Allow demo mode
+    st.warning("Please log in first.")
+    st.stop()
+
+if user is None:
+    # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
-    user = None
-import datetime
+    import datetime
 import json
 import os
 import sys
@@ -343,7 +346,7 @@ else:
         elif "user" not in st.session_state or not user:
             st.warning("Please log in first.")
         else:
-            user_id = user.id if user else "demo_user"
+            user_id = user.id
             with st.spinner("🌍 Geocoding location and fetching climate..."):
                 lat, lon = geocode_location(location)
                 if lat is None:
@@ -419,7 +422,7 @@ st.markdown("---")
 st.subheader("📂 My Saved Calendars")
 if "user" in st.session_state and user:
     supabase = get_service()
-    res = supabase.table("farming_calendar").select("*").eq("user_id", user.id if user else "demo_user").order("created_at", desc=True).execute()
+    res = supabase.table("farming_calendar").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
     if res.data:
         for cal_entry in res.data:
             crop = cal_entry['crop']

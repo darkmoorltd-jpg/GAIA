@@ -2,15 +2,18 @@
 import streamlit as st
 user = st.session_state.get("user", None)
 if user is None:
-    user = None  # Allow demo mode
+    st.warning("Please log in first.")
+    st.stop()
+
+if user is None:
+    # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
-    user = None
-import streamlit.components.v1 as components
+    import streamlit.components.v1 as components
 import uuid
 import datetime
 import os
@@ -203,7 +206,7 @@ if user is None:
     st.stop()
 
 user = user
-user_id = user.id if user else "demo_user"
+user_id = user.id
 user_name = get_user_display_name()
 
 # ============================================

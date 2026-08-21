@@ -1,15 +1,18 @@
 import streamlit as st
 user = st.session_state.get("user", None)
 if user is None:
-    user = None  # Allow demo mode
+    st.warning("Please log in first.")
+    st.stop()
+
+if user is None:
+    # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
-    user = None
-import streamlit.components.v1 as components
+    import streamlit.components.v1 as components
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 import uuid
@@ -34,9 +37,7 @@ st.set_page_config(page_title="GAIA – Crop Insurance", page_icon="🏦", layou
 
 if user is None:
     st.session_state["user"] = None
-    user = None
-
-user = user
+    user = user
 db = get_db()
 service = get_service()
 
@@ -56,7 +57,7 @@ def verify_paystack(ref):
     return {"ok": False}
 
 try:
-    policies_res = db.table("insurance_policies").select("*").eq("user_id", user.id if user else "demo_user").order("created_at", desc=True).execute()
+    policies_res = db.table("insurance_policies").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
     my_policies = policies_res.data if policies_res.data else []
 except:
     my_policies = []
@@ -152,7 +153,7 @@ with tab2:
                 field_size = st.number_input("Field Size (acres)", min_value=1, value=1)
                 
                 if st.form_submit_button("💳 Pay Premium", type="primary", use_container_width=True):
-                    ref = f"GAIA_INS_{user.id if user else "demo_user"[:8]}_{uuid.uuid4().hex[:6]}"
+                    ref = f"GAIA_INS_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
                     components.html(f"""
                     <script src="https://js.paystack.co/v1/inline.js"></script>
                     <script>

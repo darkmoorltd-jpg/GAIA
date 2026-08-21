@@ -2,15 +2,18 @@
 import streamlit as st
 user = st.session_state.get("user", None)
 if user is None:
-    user = None  # Allow demo mode
+    st.warning("Please log in first.")
+    st.stop()
+
+if user is None:
+    # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
-    user = None
-from PIL import Image
+    from PIL import Image
 import torch, torch.nn as nn, torch.nn.functional as F, numpy as np, os, sys, datetime, hashlib
 import requests, json
 from collections import Counter
@@ -57,14 +60,14 @@ def save_feedback(image_name, predicted_class, helpful):
     if "user" not in st.session_state or user is None: return
     from supabase import create_client
     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
-    try: supabase.table("user_feedback").insert({"user_id": user.id if user else "demo_user", "image_name": image_name, "predicted_class": predicted_class, "helpful": helpful, "created_at": datetime.datetime.now().isoformat()}).execute()
+    try: supabase.table("user_feedback").insert({"user_id": user.id, "image_name": image_name, "predicted_class": predicted_class, "helpful": helpful, "created_at": datetime.datetime.now().isoformat()}).execute()
     except: pass
 
 def deduct_one_scan():
     if "user" not in st.session_state or user is None: return
     from supabase import create_client
     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
-    uid = user.id if user else "demo_user"
+    uid = user.id
     try: supabase.table("user_scans").insert({"user_id":uid,"scans_remaining":30,"plan":"free"}).execute()
     except: pass
     try: supabase.table("user_scans").update({"scans_remaining": supabase.raw("scans_remaining - 1")}).eq("user_id", uid).execute()

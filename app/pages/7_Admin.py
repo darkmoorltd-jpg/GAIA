@@ -2,15 +2,18 @@
 import streamlit as st
 user = st.session_state.get("user", None)
 if user is None:
-    user = None  # Allow demo mode
+    st.warning("Please log in first.")
+    st.stop()
+
+if user is None:
+    # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
-    user = None
-from supabase import create_client, Client
+    from supabase import create_client, Client
 import pandas as pd
 from datetime import datetime
 
@@ -67,9 +70,7 @@ st.markdown("""
 
 if user is None:
     st.session_state["user"] = None
-    user = None
-
-if user.email != ADMIN_EMAIL:
+    if user.email != ADMIN_EMAIL:
     st.error("Access denied. Admin only.")
     st.stop()
 
@@ -208,7 +209,7 @@ def create_user(email, password, first_name, last_name, phone, state):
             "email": email, "password": password, "email_confirm": True
         })
         if resp.user:
-            uid = resp.user.id if user else "demo_user"
+            uid = resp.user.id
             supabase.table("user_profiles").insert({
                 "user_id": uid, "first_name": first_name, "last_name": last_name,
                 "phone": phone, "state": state, "verification_status": "pending"
@@ -585,7 +586,7 @@ with tab6:
                         try:
                             supabase.table("support_replies").insert({
                                 "ticket_id": ticket["id"],
-                                "sender_id": user.id if user else "demo_user",
+                                "sender_id": user.id,
                                 "is_admin": True,
                                 "message": admin_reply.strip()
                             }).execute()

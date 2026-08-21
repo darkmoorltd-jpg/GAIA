@@ -2,15 +2,18 @@
 import streamlit as st
 user = st.session_state.get("user", None)
 if user is None:
-    user = None  # Allow demo mode
+    st.warning("Please log in first.")
+    st.stop()
+
+if user is None:
+    # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
     session = supabase.auth.get_session()
     user = session.user if session else None
 except:
-    user = None
-import os, sys, hashlib, time, tempfile
+    import os, sys, hashlib, time, tempfile
 import numpy as np
 import torch
 import torch.nn as nn
@@ -387,7 +390,7 @@ def extract_frames_from_video(video_file, interval_sec=0.5):
 def deduct_scans_for_video(amount=2):
     if "user" in st.session_state and user:
         from app.utils.scan_util import deduct_scans
-        deduct_scans(user.id if user else "demo_user", amount, "Video Scan")
+        deduct_scans(user.id, amount, "Video Scan")
 
 # ============================================
 # HEADER

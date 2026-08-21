@@ -1,7 +1,6 @@
 
 import streamlit as st
 from supabase import create_client, Client
-from streamlit_cookies_manager import CookieManager
 import requests
 import time
 
@@ -17,19 +16,22 @@ PAYSTACK_PLANS = {
     "enterprise": {"scans": 5000, "price": "₦20,000", "kobo": 2000000},
 }
 
-cookies = CookieManager()
-if not cookies.ready():
-    st.stop()
+# ============================================
+# COOKIE HANDLING (using built-in st.cookies)
+# ============================================
+def save_session_to_cookies(session):
+    """Store Supabase tokens in browser cookies."""
+    st.cookies["gaia_access_token"] = session.access_token
+    st.cookies["gaia_refresh_token"] = session.refresh_token
 
-def get_anon_client() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-
-def get_service_client() -> Client:
-    return create_client(SUPABASE_URL, SERVICE_KEY)
+def clear_session_cookies():
+    st.cookies["gaia_access_token"] = ""
+    st.cookies["gaia_refresh_token"] = ""
 
 def restore_session_from_cookies():
-    access_token = cookies.get("gaia_access_token")
-    refresh_token = cookies.get("gaia_refresh_token")
+    """Restore user session from cookies on page load."""
+    access_token = st.cookies.get("gaia_access_token")
+    refresh_token = st.cookies.get("gaia_refresh_token")
     if access_token and refresh_token:
         supabase = get_anon_client()
         try:
@@ -41,15 +43,11 @@ def restore_session_from_cookies():
             pass
     return None
 
-def save_session_to_cookies(session):
-    cookies["gaia_access_token"] = session.access_token
-    cookies["gaia_refresh_token"] = session.refresh_token
-    cookies.save()
+def get_anon_client() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-def clear_session_cookies():
-    cookies["gaia_access_token"] = ""
-    cookies["gaia_refresh_token"] = ""
-    cookies.save()
+def get_service_client() -> Client:
+    return create_client(SUPABASE_URL, SERVICE_KEY)
 
 def sign_up(email, password, first_name="", last_name="", phone="", state=""):
     supabase = get_anon_client()

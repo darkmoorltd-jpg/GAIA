@@ -11,9 +11,6 @@ st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 
-# ============================================
-# SUPABASE CLIENT (cached)
-# ============================================
 @st.cache_resource
 def get_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -22,28 +19,22 @@ def get_supabase():
 # AUTH FUNCTIONS
 # ============================================
 def sign_in(email, password):
-    """Log in user and store in session state."""
     supabase = get_supabase()
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state["user"] = res.user
-        st.session_state.user = res.user
         st.session_state["logged_in"] = True
-        st.session_state.user = res.user
         return True, None
     except Exception as e:
         return False, str(e)
 
 def sign_up(email, password):
-    """Create new account."""
     supabase = get_supabase()
     try:
         res = supabase.auth.sign_up({"email": email, "password": password})
         if res.user:
             st.session_state["user"] = res.user
-        st.session_state.user = res.user
             st.session_state["logged_in"] = True
-            # Create scan record
             try:
                 supabase.table("user_scans").insert({
                     "user_id": res.user.id,
@@ -52,79 +43,65 @@ def sign_up(email, password):
                 }).execute()
             except:
                 pass
-        return True, None
+            return True, None
+        return False, "Sign up failed"
     except Exception as e:
         return False, str(e)
 
 def sign_out():
-    """Clear session."""
     st.session_state["user"] = None
     st.session_state["logged_in"] = False
 
 # ============================================
-# CHECK LOGIN STATUS
+# SESSION STATE
 # ============================================
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
-
 if "user" not in st.session_state:
     st.session_state["user"] = None
-if "user" not in st.session_state:
-    st.session_state.user = None
 
 # ============================================
 # LOGIN PAGE
 # ============================================
 if not st.session_state["logged_in"]:
     st.title("🌱 GAIA — Sign In")
-    
+
     tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
-    
+
     with tab1:
         with st.form("login_form"):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
-            submit = st.form_submit_button("Login", use_container_width=True)
-            
-            if submit:
-                if email and password:
-                    ok, err = sign_in(email, password)
-                    if ok:
-                        st.success("✅ Logged in!")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error(f"Login failed: {err}")
+            if st.form_submit_button("Login", use_container_width=True):
+                ok, err = sign_in(email, password)
+                if ok:
+                    st.success("✅ Logged in!")
+                    time.sleep(1)
+                    st.rerun()
                 else:
-                    st.warning("Enter email and password.")
-    
+                    st.error(f"Login failed: {err}")
+
     with tab2:
         with st.form("signup_form"):
             new_email = st.text_input("Email")
             new_password = st.text_input("Password (min 6 chars)", type="password")
-            submit_signup = st.form_submit_button("Create Account", use_container_width=True)
-            
-            if submit_signup:
-                if new_email and len(new_password) >= 6:
-                    ok, err = sign_up(new_email, new_password)
-                    if ok:
-                        st.success("✅ Account created!")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error(f"Sign up failed: {err}")
+            if st.form_submit_button("Create Account", use_container_width=True):
+                ok, err = sign_up(new_email, new_password)
+                if ok:
+                    st.success("✅ Account created!")
+                    time.sleep(1)
+                    st.rerun()
                 else:
-                    st.warning("Email required. Password must be 6+ characters.")
-    
+                    st.error(f"Sign up failed: {err}")
+
     st.stop()
 
 # ============================================
-# LOGGED IN — SHOW APP
+# LOGGED IN
 # ============================================
 user = st.session_state["user"]
 
 st.sidebar.write(f"👤 {user.email if user else 'Unknown'}")
-
 if st.sidebar.button("🚪 Logout", use_container_width=True):
     sign_out()
     st.rerun()

@@ -22,3 +22,5 @@ scipy
 edge-tts
 gTTS
 plotly
+
+streamlit>=1.31

@@ -16,6 +16,43 @@ PAYSTACK_PLANS = {
     "enterprise": {"scans": 5000, "price": "₦20,000", "kobo": 2000000},
 }
 
+# ============================================
+# COOKIE HELPERS (safe on all Streamlit versions)
+# ============================================
+def save_session_to_cookies(session):
+    """Store tokens in browser cookies if st.cookies is available."""
+    if "cookies" in st.__dict__:
+        try:
+            st.cookies.set("gaia_access_token", session.access_token, max_age=30*24*3600)
+            st.cookies.set("gaia_refresh_token", session.refresh_token, max_age=30*24*3600)
+        except:
+            pass
+
+def clear_session_cookies():
+    if "cookies" in st.__dict__:
+        try:
+            st.cookies.delete("gaia_access_token")
+            st.cookies.delete("gaia_refresh_token")
+        except:
+            pass
+
+def restore_session_from_cookies():
+    """Restore user from cookies; returns None if unavailable."""
+    if "cookies" not in st.__dict__:
+        return None
+    try:
+        access_token = st.cookies.get("gaia_access_token")
+        refresh_token = st.cookies.get("gaia_refresh_token")
+        if access_token and refresh_token:
+            supabase = get_anon_client()
+            supabase.auth.set_session(access_token, refresh_token)
+            session = supabase.auth.get_session()
+            if session and session.user:
+                return session.user
+    except:
+        pass
+    return None
+
 def get_anon_client() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -43,6 +80,8 @@ def sign_up(email, password, first_name="", last_name="", phone="", state=""):
                     "phone": phone,
                     "state": state
                 }).execute()
+            if res.session:
+                save_session_to_cookies(res.session)
             st.session_state.user = res.user
         return res.user, None
     except Exception as e:
@@ -52,6 +91,8 @@ def sign_in(email, password):
     supabase = get_anon_client()
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        if res.session:
+            save_session_to_cookies(res.session)
         st.session_state.user = res.user
         return res.user, None
     except Exception as e:
@@ -62,6 +103,7 @@ def sign_out():
         get_anon_client().auth.sign_out()
     except:
         pass
+    clear_session_cookies()
     st.session_state.user = None
 
 def reset_password(email):
@@ -105,6 +147,7 @@ st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 if "user" not in st.session_state:
     st.session_state.user = None
 
+# Google OAuth callback
 query_params = st.query_params
 auth_code = query_params.get("code", [None])[0]
 if auth_code and st.session_state.user is None:
@@ -113,11 +156,13 @@ if auth_code and st.session_state.user is None:
         supabase.auth.exchange_code_for_session({"auth_code": auth_code})
         session = supabase.auth.get_session()
         if session and session.user:
+            save_session_to_cookies(session)
             st.session_state.user = session.user
         st.rerun()
     except Exception as e:
         st.error(f"Google sign-in failed: {e}")
 
+# Paystack callback
 reference = query_params.get("reference", [None])[0]
 plan = query_params.get("plan", [None])[0]
 if reference and plan and plan in PAYSTACK_PLANS:
@@ -144,6 +189,13 @@ if reference and plan and plan in PAYSTACK_PLANS:
             st.success(f"Payment successful! {scans_to_add} scans added.")
             st.query_params.clear()
             st.rerun()
+
+# Restore session from cookies on page load
+if st.session_state.user is None:
+    restored_user = restore_session_from_cookies()
+    if restored_user:
+        st.session_state.user = restored_user
+        st.rerun()
 
 if st.session_state.user is None:
     st.title("🌱 GAIA – Sign In / Create Account")

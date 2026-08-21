@@ -1,7 +1,6 @@
 
 import streamlit as st
-from app.utils.auth_helper import get_current_user
-user = get_current_user()
+user = st.session_state.get("user", None)
 import requests
 import os
 from datetime import datetime

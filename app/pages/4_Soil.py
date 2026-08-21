@@ -1,7 +1,6 @@
 
 import streamlit as st
-from app.utils.auth_helper import get_current_user
-user = get_current_user()
+user = st.session_state.get("user", None)
 from PIL import Image
 import torch
 import torch.nn as nn
@@ -43,8 +42,7 @@ else:
     st.markdown("""<style>.stApp{background:linear-gradient(rgba(255,255,255,0.45),rgba(255,255,255,0.45)),url('https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover fixed;color:#3e2723}header,footer{visibility:hidden}.title{font-size:3.5rem;font-weight:900;text-align:center;background:linear-gradient(90deg,#5d4037,#8d6e63,#5d4037);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.subtitle{font-size:1.2rem;color:#4e342e}.card{background:rgba(255,255,255,.8);backdrop-filter:blur(10px);border-radius:20px;padding:1.5rem;margin:.5rem 0}.stProgress>div>div>div>div{background:linear-gradient(90deg,#8d6e63,#bcaaa4)}</style>""", unsafe_allow_html=True)
 
 def deduct_one_scan():
-    user = get_current_user()
-if user is None:
+    if user is None:
     return
     from supabase import create_client
     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])

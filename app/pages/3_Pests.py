@@ -1,7 +1,6 @@
 
 import streamlit as st
-from app.utils.auth_helper import get_current_user
-user = get_current_user()
+user = st.session_state.get("user", None)
 from PIL import Image
 import torch, torch.nn.functional as F, numpy as np, os, sys, datetime, hashlib
 from collections import Counter

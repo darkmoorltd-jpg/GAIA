@@ -1,11 +1,10 @@
 import streamlit as st
+user = st.session_state.get("user", None)
 import requests
 from datetime import datetime, date, timedelta
 import numpy as np
 import json
 import os
-
-from app.utils.auth_helper import get_current_user
 
 try:
     from streamlit_folium import st_folium

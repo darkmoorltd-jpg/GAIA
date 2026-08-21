@@ -1,6 +1,5 @@
 import streamlit as st
-from app.utils.auth_helper import get_current_user
-user = get_current_user()
+user = st.session_state.get("user", None)
 from supabase import create_client, Client
 import uuid
 
@@ -30,7 +29,6 @@ def upload_file_to_supabase(file_bytes, filename):
 
 st.set_page_config(page_title="GAIA – Help & Support", page_icon="💬", layout="wide")
 
-user = get_current_user()
 if user is None:
     st.warning("Please log in first.")
     st.stop()

@@ -4,6 +4,7 @@ import uuid
 import datetime
 import os
 import sys
+import json
 from supabase import create_client
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
@@ -21,16 +22,6 @@ if "meet_participants" not in st.session_state:
     st.session_state.meet_participants = []
 if "meet_start_time" not in st.session_state:
     st.session_state.meet_start_time = None
-if "raise_hand" not in st.session_state:
-    st.session_state.raise_hand = False
-if "current_poll" not in st.session_state:
-    st.session_state.current_poll = None
-if "meeting_notes" not in st.session_state:
-    st.session_state.meeting_notes = []
-if "breakout_rooms" not in st.session_state:
-    st.session_state.breakout_rooms = {}
-if "waiting_room" not in st.session_state:
-    st.session_state.waiting_room = []
 
 # ============================================
 # SUPABASE
@@ -42,6 +33,13 @@ def get_supabase():
         st.secrets["supabase"]["service_key"]
     )
 
+@st.cache_resource
+def get_supabase_anon():
+    return create_client(
+        st.secrets["supabase"]["url"],
+        st.secrets["supabase"]["key"]
+    )
+
 def generate_room_id():
     return f"gaia-meet-{uuid.uuid4().hex[:10]}"
 
@@ -50,7 +48,7 @@ def get_user_display_name():
         return st.session_state.user.email.split('@')[0].title()
     return "Guest"
 
-def create_meeting(user_id, title, crop_focus=None, password=None):
+def create_meeting(user_id, title, crop_focus=None):
     db = get_supabase()
     room_id = generate_room_id()
     try:
@@ -59,13 +57,34 @@ def create_meeting(user_id, title, crop_focus=None, password=None):
             "host_id": user_id,
             "title": title,
             "crop_focus": crop_focus,
-            "password": password,
             "status": "active",
             "created_at": datetime.datetime.now().isoformat()
         }).execute()
-        return room_id, None
+        # Register host as participant with peer ID
+        peer_id = f"{room_id}-{user_id[:8]}"
+        db.table("meeting_participants").insert({
+            "room_id": room_id,
+            "user_id": user_id,
+            "peer_id": peer_id,
+            "joined_at": datetime.datetime.now().isoformat()
+        }).execute()
+        return room_id, peer_id, None
     except Exception as e:
-        return None, str(e)
+        return None, None, str(e)
+
+def join_meeting(user_id, room_id):
+    db = get_supabase()
+    peer_id = f"{room_id}-{user_id[:8]}"
+    try:
+        db.table("meeting_participants").insert({
+            "room_id": room_id,
+            "user_id": user_id,
+            "peer_id": peer_id,
+            "joined_at": datetime.datetime.now().isoformat()
+        }).execute()
+        return peer_id, None
+    except Exception as e:
+        return peer_id, str(e)  # likely already exists
 
 def get_meeting_info(room_id):
     db = get_supabase()
@@ -74,6 +93,15 @@ def get_meeting_info(room_id):
         return res.data[0] if res.data else None
     except:
         return None
+
+def get_participants(room_id):
+    """Return list of participants with peer_id."""
+    db = get_supabase()
+    try:
+        res = db.table("meeting_participants").select("user_id,peer_id").eq("room_id", room_id).execute()
+        return res.data if res.data else []
+    except:
+        return []
 
 def get_meeting_chat(room_id):
     db = get_supabase()
@@ -109,39 +137,6 @@ def get_user_name_by_id(user_id):
         pass
     return f"Farmer-{str(user_id)[:6]}"
 
-def save_meeting_analytics(room_id, host_id, duration_minutes, participant_count, chat_count):
-    db = get_supabase()
-    try:
-        db.table("meeting_analytics").insert({
-            "room_id": room_id,
-            "host_id": host_id,
-            "duration_minutes": duration_minutes,
-            "participant_count": participant_count,
-            "chat_messages": chat_count,
-            "created_at": datetime.datetime.now().isoformat()
-        }).execute()
-    except:
-        pass
-
-def send_sms_invite(phone, room_id):
-    from app.utils.sms_util import send_sms
-    message = f"GAIA Meet: Join video meeting now! Room ID: {room_id}"
-    return send_sms(phone, message)
-
-def generate_ai_notes(meeting_title, participants, crop_focus):
-    return f"""📋 GAIA MEETING NOTES
-    Date: {datetime.datetime.now().strftime('%d %B %Y')}
-    Time: {datetime.datetime.now().strftime('%H:%M')}
-    Meeting: {meeting_title}
-    Crop: {crop_focus or 'General'}
-    Participants: {len(participants)}
-    
-    ✅ Action Items:
-    - Monitor affected fields
-    - Apply treatment within 48 hours
-    - Follow-up in 7 days
-    """
-
 # ============================================
 # CSS
 # ============================================
@@ -172,61 +167,59 @@ user_id = user.id
 user_name = get_user_display_name()
 
 # ============================================
-# JOIN / CREATE SCREEN
+# JOIN / CREATE
 # ============================================
 if st.session_state.meet_room_id is None:
     st.markdown("<h1 style='text-align:center;color:#fff;'>🎥 GAIA Meet</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;color:#8b949e;'>Agricultural video conferencing</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;color:#8b949e;'>Real-time agricultural video conferencing</p>", unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        tab1, tab2, tab3 = st.tabs(["🎬 Start", "🔗 Join", "📱 SMS Invite"])
+        tab1, tab2 = st.tabs(["🎬 Start", "🔗 Join"])
 
         with tab1:
             meeting_title = st.text_input("Meeting Title", value=f"{user_name}'s Agri Clinic")
             crop_focus = st.selectbox("Crop Focus", ["None", "Maize", "Rice", "Beans", "Tomato"])
-            meeting_password = st.text_input("Password (optional)", type="password")
             if st.button("🚀 Start Meeting", use_container_width=True, type="primary"):
-                room_id, err = create_meeting(user_id, meeting_title, crop_focus, meeting_password or None)
+                room_id, peer_id, err = create_meeting(user_id, meeting_title, crop_focus if crop_focus != "None" else None)
                 if room_id:
                     st.session_state.meet_room_id = room_id
                     st.session_state.meet_role = "host"
-                    st.session_state.meet_participants = [user_id]
                     st.session_state.meet_start_time = datetime.datetime.now()
+                    st.session_state.my_peer_id = peer_id
+                    st.session_state.meet_participants = [{"user_id": user_id, "peer_id": peer_id, "name": user_name}]
                     st.rerun()
                 else:
                     st.error(str(err)[:120])
 
         with tab2:
             join_id = st.text_input("Room ID", placeholder="gaia-meet-xxxx")
-            join_password = st.text_input("Password", type="password")
             if st.button("🔗 Join Meeting", use_container_width=True):
                 meeting = get_meeting_info(join_id)
                 if meeting:
-                    if meeting.get("password") and meeting["password"] != join_password:
-                        st.error("Incorrect password.")
-                    else:
-                        st.session_state.meet_room_id = join_id
-                        st.session_state.meet_role = "participant"
-                        if user_id not in st.session_state.meet_participants:
-                            st.session_state.meet_participants.append(user_id)
-                        st.session_state.meet_start_time = datetime.datetime.now()
-                        st.rerun()
+                    peer_id, err = join_meeting(user_id, join_id)
+                    st.session_state.meet_room_id = join_id
+                    st.session_state.meet_role = "participant"
+                    st.session_state.meet_start_time = datetime.datetime.now()
+                    st.session_state.my_peer_id = peer_id
+                    # Fetch participants
+                    parts = get_participants(join_id)
+                    st.session_state.meet_participants = parts
+                    st.rerun()
                 else:
                     st.error("Meeting not found.")
-
-        with tab3:
-            phone_number = st.text_input("Phone Number", placeholder="08012345678")
-            if st.button("📱 Send SMS Invite", use_container_width=True):
-                room = st.session_state.meet_room_id or generate_room_id()
-                ok, err = send_sms_invite(phone_number, room)
-                if ok:
-                    st.success("Invite sent!")
-                else:
-                    st.error(str(err))
 else:
     room_id = st.session_state.meet_room_id
+    my_peer_id = st.session_state.my_peer_id
     meeting = get_meeting_info(room_id)
+
+    # Refresh participants
+    participants = get_participants(room_id)
+    # Build peer list for JS
+    existing_peers = []
+    for p in participants:
+        if p.get("peer_id") and p["peer_id"] != my_peer_id:
+            existing_peers.append(p["peer_id"])
 
     # Top bar
     elapsed = datetime.datetime.now() - st.session_state.meet_start_time if st.session_state.meet_start_time else datetime.timedelta(0)
@@ -240,18 +233,26 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    tab_video, tab_chat, tab_controls, tab_features = st.tabs(["📹 Video", "💬 Chat", "🎛️ Controls", "🔥 Features"])
+    tab_video, tab_chat, tab_controls = st.tabs(["📹 Video", "💬 Chat", "🎛️ Controls"])
 
     with tab_video:
-        st.info("💡 For screen share, click the **Pop-out button (⤢)** in the top-right corner of the video to open in a new tab.")
+        # Build JSON data for JS
+        peer_data = {
+            "room_id": room_id,
+            "my_peer_id": my_peer_id,
+            "supabase_url": st.secrets["supabase"]["url"],
+            "supabase_anon_key": st.secrets["supabase"]["key"],
+            "existing_peers": existing_peers,
+        }
 
         video_html = f"""
         <!DOCTYPE html>
         <html>
         <head>
+            <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
             <style>
                 body {{ background:#0e1117; margin:0; padding:0; font-family:'Inter',sans-serif; }}
-                .video-grid {{ display:grid; grid-template-columns:1fr; gap:10px; padding:15px; }}
+                .video-grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:10px; padding:15px; }}
                 .video-tile {{ background:#1e2733; border-radius:12px; overflow:hidden; position:relative; aspect-ratio:16/9; }}
                 .video-tile video {{ width:100%; height:100%; object-fit:cover; }}
                 .name-tag {{ position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.7); color:#fff; padding:4px 14px; border-radius:6px; font-size:0.8rem; }}
@@ -263,11 +264,10 @@ else:
                 .ctrl-btn.end {{ background:#dc3545; color:#fff; }}
                 .recording-indicator {{ position:fixed; top:10px; right:10px; background:#dc3545; color:#fff; padding:5px 15px; border-radius:20px; font-size:0.8rem; display:none; z-index:999; }}
             </style>
-        <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-</head>
+        </head>
         <body>
             <div class="recording-indicator" id="recIndicator">⏺ RECORDING</div>
-            <div class="video-grid">
+            <div class="video-grid" id="videoGrid">
                 <div class="video-tile">
                     <video id="mainVideo" autoplay muted playsinline></video>
                     <div class="name-tag">You ({user_name})</div>
@@ -278,172 +278,185 @@ else:
                 <button class="ctrl-btn" id="camBtn" onclick="toggleCam()">📷 Camera</button>
                 <button class="ctrl-btn" id="screenBtn" onclick="toggleScreen()">🖥️ Share</button>
                 <button class="ctrl-btn" id="recordBtn" onclick="toggleRecording()">⏺️ Record</button>
-                <button class="ctrl-btn" id="raiseBtn" onclick="toggleHand()">✋ Raise Hand</button>
                 <button class="ctrl-btn end" onclick="endCall()">📞 End</button>
             </div>
             <script>
-                
-        // ========== PEERJS REAL-TIME AUDIO/VIDEO ==========
-        const roomId = '{room_id}';
-        const myUserId = '{user_id}';
-        const myPeerId = roomId + '-' + myUserId.substring(0, 8);
-        let myPeer = null;
-        let localStream = null;
-        let remoteStreams = new Map();
+                // Parse data from Python
+                const config = {json.dumps(peer_data)};
+                const SUPABASE_URL = config.supabase_url;
+                const SUPABASE_ANON_KEY = config.supabase_anon_key;
+                const ROOM_ID = config.room_id;
+                const MY_PEER_ID = config.my_peer_id;
+                let existingPeers = config.existing_peers || [];
 
-        // Initialize PeerJS
-        function initPeerJS() {{
-            myPeer = new Peer(myPeerId);
-            myPeer.on('open', (id) => {{
-                console.log('My peer ID:', id);
-                // Register in Supabase via Streamlit (we'll do a postMessage or use a hidden input)
-                window.parent.postMessage({{
-                    type: 'peer_registered',
-                    peer_id: id,
-                    room_id: roomId
-                }}, '*');
-            }});
+                let myPeer;
+                let localStream;
+                let screenStream;
+                let mediaRecorder;
+                let recordedChunks = [];
+                let isRecording = false;
+                let remoteStreams = new Map();
 
-            myPeer.on('call', (call) => {{
-                navigator.mediaDevices.getUserMedia({{
-                    audio: true,
-                    video: true
-                }}).then((stream) => {{
-                    call.answer(stream);
-                    call.on('stream', (remoteStream) => {{
-                        addRemoteVideo(call.peer, remoteStream);
+                // Initialize PeerJS
+                function initPeerJS() {{
+                    myPeer = new Peer(MY_PEER_ID);
+                    myPeer.on('open', (id) => {{
+                        console.log('Peer open: ' + id);
+                        // Call existing peers
+                        existingPeers.forEach(peerId => callPeer(peerId));
                     }});
-                }}).catch(err => console.error('Mic/cam error:', err));
-            }});
-        }}
 
-        // Start local video and mic
-        async function startCamera() {{
-            try {{
-                localStream = await navigator.mediaDevices.getUserMedia({{
-                    audio: true,
-                    video: {{ width: 640, height: 480 }}
+                    myPeer.on('call', (call) => {{
+                        getLocalStream().then(stream => {{
+                            call.answer(stream);
+                            call.on('stream', remoteStream => addRemoteVideo(call.peer, remoteStream));
+                        }});
+                    }});
+
+                    myPeer.on('error', (err) => {{
+                        console.error('PeerJS error:', err);
+                    }});
+                }}
+
+                // Get local stream
+                function getLocalStream() {{
+                    if (localStream) return Promise.resolve(localStream);
+                    return navigator.mediaDevices.getUserMedia({{
+                        audio: true,
+                        video: {{ width: 640, height: 480 }}
+                    }}).then(stream => {{
+                        localStream = stream;
+                        document.getElementById('mainVideo').srcObject = stream;
+                        return stream;
+                    }});
+                }}
+
+                // Call a peer
+                function callPeer(peerId) {{
+                    if (remoteStreams.has(peerId)) return;
+                    getLocalStream().then(stream => {{
+                        const call = myPeer.call(peerId, stream);
+                        call.on('stream', remoteStream => addRemoteVideo(peerId, remoteStream));
+                    }});
+                }}
+
+                // Add remote video tile
+                function addRemoteVideo(peerId, stream) {{
+                    if (remoteStreams.has(peerId)) return;
+                    remoteStreams.set(peerId, stream);
+                    const grid = document.getElementById('videoGrid');
+                    const tile = document.createElement('div');
+                    tile.className = 'video-tile';
+                    tile.id = 'remote-' + peerId;
+                    tile.innerHTML = '<video autoplay playsinline></video><div class="name-tag">Participant</div>';
+                    grid.appendChild(tile);
+                    tile.querySelector('video').srcObject = stream;
+                }}
+
+                // Poll for new participants
+                function pollParticipants() {{
+                    fetch(`${{SUPABASE_URL}}/rest/v1/meeting_participants?room_id=eq.${{ROOM_ID}}&select=peer_id`, {{
+                        headers: {{
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+                        }}
+                    }})
+                    .then(res => res.json())
+                    .then(data => {{
+                        data.forEach(p => {{
+                            if (p.peer_id && p.peer_id !== MY_PEER_ID) {{
+                                callPeer(p.peer_id);
+                            }}
+                        }});
+                    }})
+                    .catch(err => console.error('Poll error:', err));
+                }}
+
+                // Toggle controls
+                function toggleMic() {{
+                    if (localStream) {{
+                        const enabled = localStream.getAudioTracks()[0]?.enabled;
+                        localStream.getAudioTracks().forEach(t => t.enabled = !enabled);
+                        document.getElementById('micBtn').textContent = enabled ? '🔇 Unmute' : '🎙️ Mute';
+                    }}
+                }}
+                function toggleCam() {{
+                    if (localStream) {{
+                        const enabled = localStream.getVideoTracks()[0]?.enabled;
+                        localStream.getVideoTracks().forEach(t => t.enabled = !enabled);
+                        document.getElementById('camBtn').textContent = enabled ? '🚫 Off' : '📷 Camera';
+                    }}
+                }}
+                async function toggleScreen() {{
+                    if (!screenStream) {{
+                        try {{
+                            screenStream = await navigator.mediaDevices.getDisplayMedia({{ video: true }});
+                            document.getElementById('screenBtn').textContent = '🖥️ Stop';
+                        }} catch (e) {{
+                            alert('Screen share blocked. Use Pop-out.');
+                        }}
+                    }} else {{
+                        screenStream.getTracks().forEach(t => t.stop());
+                        screenStream = null;
+                        document.getElementById('screenBtn').textContent = '🖥️ Share';
+                    }}
+                }}
+                function toggleRecording() {{
+                    if (!isRecording) {{
+                        const combined = new MediaStream();
+                        if (localStream) localStream.getTracks().forEach(t => combined.addTrack(t));
+                        if (screenStream) screenStream.getTracks().forEach(t => combined.addTrack(t));
+                        remoteStreams.forEach(s => s.getTracks().forEach(t => combined.addTrack(t)));
+                        mediaRecorder = new MediaRecorder(combined, {{ mimeType: 'video/webm' }});
+                        recordedChunks = [];
+                        mediaRecorder.ondataavailable = e => {{ if (e.data.size > 0) recordedChunks.push(e.data); }};
+                        mediaRecorder.onstop = () => {{
+                            const blob = new Blob(recordedChunks, {{ type: 'video/webm' }});
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'GAIA_Meeting.webm';
+                            a.click();
+                            URL.revokeObjectURL(url);
+                        }};
+                        mediaRecorder.start();
+                        isRecording = true;
+                        document.getElementById('recordBtn').textContent = '⏺️ Recording...';
+                        document.getElementById('recordBtn').classList.add('recording');
+                        document.getElementById('recIndicator').style.display = 'block';
+                    }} else {{
+                        mediaRecorder.stop();
+                        isRecording = false;
+                        document.getElementById('recordBtn').textContent = '⏺️ Record';
+                        document.getElementById('recordBtn').classList.remove('recording');
+                        document.getElementById('recIndicator').style.display = 'none';
+                    }}
+                }}
+                function endCall() {{
+                    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+                    if (localStream) localStream.getTracks().forEach(t => t.stop());
+                    remoteStreams.forEach(s => s.getTracks().forEach(t => t.stop()));
+                    if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+                    if (myPeer) myPeer.destroy();
+                    window.location.reload();
+                }}
+
+                // Initialize
+                getLocalStream().then(() => {{
+                    initPeerJS();
+                    // Poll every 10 seconds
+                    setInterval(pollParticipants, 10000);
                 }});
-                document.getElementById('mainVideo').srcObject = localStream;
-            }} catch (e) {{
-                console.error('Camera error:', e);
-            }}
-        }}
-
-        // Call a peer
-        function callPeer(remotePeerId) {{
-            if (!localStream) {{
-                // try to get stream if not already
-                navigator.mediaDevices.getUserMedia({{
-                    audio: true,
-                    video: true
-                }}).then(stream => {{
-                    localStream = stream;
-                    document.getElementById('mainVideo').srcObject = localStream;
-                    doCall(remotePeerId, stream);
-                }});
-            }} else {{
-                doCall(remotePeerId, localStream);
-            }}
-        }}
-
-        function doCall(remotePeerId, stream) {{
-            const call = myPeer.call(remotePeerId, stream);
-            call.on('stream', (remoteStream) => {{
-                addRemoteVideo(remotePeerId, remoteStream);
-            }});
-        }}
-
-        // Add remote video tile
-        function addRemoteVideo(peerId, stream) {{
-            if (remoteStreams.has(peerId)) return;
-            remoteStreams.set(peerId, stream);
-            const grid = document.getElementById('videoGrid');
-            const tile = document.createElement('div');
-            tile.className = 'video-tile';
-            tile.id = 'remote-' + peerId;
-            tile.innerHTML = '<video autoplay playsinline></video><div class="name-tag">Participant</div>';
-            grid.appendChild(tile);
-            tile.querySelector('video').srcObject = stream;
-        }}
-
-        // Signal to Streamlit that we are ready
-        window.parent.postMessage({{ type: 'meet_ready' }}, '*');
-
-        // Start everything
-        initPeerJS();
-        startCamera();
-
-        // ========== EXISTING CONTROLS (mic, cam, etc.) ==========
-        // We'll keep the existing control functions but ensure they work on localStream
-        function toggleMic() {{
-            if (localStream) {{
-                micEnabled = !micEnabled;
-                localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
-                document.getElementById('micBtn').textContent = micEnabled ? '🎙️ Mute' : '🔇 Unmute';
-                document.getElementById('micBtn').classList.toggle('active', !micEnabled);
-            }}
-        }}
-        function toggleCam() {{
-            if (localStream) {{
-                camEnabled = !camEnabled;
-                localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
-                document.getElementById('camBtn').textContent = camEnabled ? '📷 Camera' : '🚫 Off';
-                document.getElementById('camBtn').classList.toggle('active', !camEnabled);
-            }}
-        }}
-        function toggleRecording() {{
-            if (!isRecording) {{
-                try {{
-                    const combined = new MediaStream();
-                    if (localStream) localStream.getTracks().forEach(t => combined.addTrack(t));
-                    remoteStreams.forEach(s => s.getTracks().forEach(t => combined.addTrack(t)));
-                    mediaRecorder = new MediaRecorder(combined, {{ mimeType: 'video/webm' }});
-                    recordedChunks = [];
-                    mediaRecorder.ondataavailable = e => {{ if (e.data.size > 0) recordedChunks.push(e.data); }};
-                    mediaRecorder.onstop = () => {{
-                        const blob = new Blob(recordedChunks, {{ type: 'video/webm' }});
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'GAIA_Meeting.webm';
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    }};
-                    mediaRecorder.start();
-                    isRecording = true;
-                    document.getElementById('recordBtn').textContent = '⏺️ Recording...';
-                    document.getElementById('recordBtn').classList.add('recording');
-                    document.getElementById('recIndicator').style.display = 'block';
-                }} catch (e) {{ alert('Recording failed: ' + e.message); }}
-            }} else {{
-                mediaRecorder.stop();
-                isRecording = false;
-                document.getElementById('recordBtn').textContent = '⏺️ Record';
-                document.getElementById('recordBtn').classList.remove('recording');
-                document.getElementById('recIndicator').style.display = 'none';
-            }}
-        }}
-        function endCall() {{
-            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-            if (localStream) localStream.getTracks().forEach(t => t.stop());
-            remoteStreams.forEach(s => s.getTracks().forEach(t => t.stop()));
-            if (myPeer) myPeer.destroy();
-            window.location.reload();
-        }}
-
             </script>
         </body>
         </html>
         """
-        components.html(video_html, height=550)
+        components.html(video_html, height=580)
 
         if st.button("🚪 Leave Meeting", use_container_width=True):
-            dur_min = int((datetime.datetime.now() - st.session_state.meet_start_time).total_seconds() // 60) if st.session_state.meet_start_time else 0
-            save_meeting_analytics(room_id, user_id, dur_min, len(st.session_state.meet_participants), len(get_meeting_chat(room_id)))
             st.session_state.meet_room_id = None
-            st.session_state.meet_participants = []
             st.session_state.meet_start_time = None
+            st.session_state.meet_participants = []
             st.rerun()
 
     with tab_chat:
@@ -457,13 +470,12 @@ else:
             time_str = str(msg.get("created_at", ""))[11:16]
             chat_parts.append(
                 f'<div class="chat-message {msg_class}">'
-                f'<div class="chat-sender">{"You" if is_me else sender_name}</div>'
+                f'<div style="font-size:0.75rem;color:#8b949e;">{"You" if is_me else sender_name}</div>'
                 f'{msg.get("message","")}'
                 f'<div style="font-size:0.7rem;color:#6b7280;">{time_str}</div>'
                 f'</div>'
             )
-        chat_html = '<div style="height:350px;overflow-y:auto;padding:10px;">' + ''.join(chat_parts) + '</div>'
-        st.markdown(chat_html, unsafe_allow_html=True)
+        st.markdown('<div style="height:350px;overflow-y:auto;padding:10px;">' + ''.join(chat_parts) + '</div>', unsafe_allow_html=True)
 
         with st.form("chat_form", clear_on_submit=True):
             chat_input = st.text_input("", placeholder="Type message...", label_visibility="collapsed")
@@ -473,103 +485,7 @@ else:
                     st.rerun()
 
     with tab_controls:
-        st.markdown("### Host Controls")
-        for pid in st.session_state.meet_participants:
-            pname = get_user_name_by_id(pid)
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown(f'<span class="participant-chip">👤 {pname}</span>', unsafe_allow_html=True)
-            with col2:
-                if st.session_state.meet_role == "host" and pid != user_id:
-                    if st.button(f"Remove", key=f"rm_{pid}"):
-                        st.session_state.meet_participants.remove(pid)
-                        st.rerun()
-        if st.session_state.meet_role == "host":
-            if st.button("🔇 Mute All (simulated)", use_container_width=True):
-                st.success("Muted all.")
-
-    with tab_features:
-        feat1, feat2, feat3, feat4, feat5, feat6 = st.tabs(["🖼️ Whiteboard", "🎭 BG", "🗣️ Breakouts", "📊 Polls", "📝 Notes", "📱 SMS"])
-
-        with feat1:
-            st.markdown("#### Whiteboard")
-            st.markdown("Draw on the canvas (pop-out for best experience):")
-            components.html("""
-            <canvas id="wb" width="600" height="400" style="border:2px solid #2d8cff;border-radius:8px;background:#fff;cursor:crosshair;"></canvas>
-            <br><button onclick="clearWB()" style="background:#dc3545;color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;">Clear</button>
-            <script>
-                const c = document.getElementById('wb');
-                const x = c.getContext('2d');
-                let d = false, lx = 0, ly = 0;
-                c.addEventListener('mousedown', e => { d = true; lx = e.offsetX; ly = e.offsetY; });
-                c.addEventListener('mousemove', e => { if (!d) return; x.beginPath(); x.moveTo(lx, ly); x.lineTo(e.offsetX, e.offsetY); x.strokeStyle = '#000'; x.lineWidth = 2; x.stroke(); lx = e.offsetX; ly = e.offsetY; });
-                c.addEventListener('mouseup', () => { d = false; });
-                function clearWB() { x.clearRect(0, 0, c.width, c.height); }
-            </script>
-            """, height=500)
-
-        with feat2:
-            st.markdown("#### Virtual Background")
-            bg = st.selectbox("Background", ["None", "Farm", "Office", "Blur"])
-            if bg != "None":
-                st.success(f"Background '{bg}' selected (simulated).")
-
-        with feat3:
-            st.markdown("#### Breakout Rooms")
-            n = st.number_input("Rooms", min_value=1, max_value=10, value=2)
-            if st.button("Create Breakout Rooms", use_container_width=True):
-                parts = list(st.session_state.meet_participants)
-                rooms = {f"Room {i+1}": [] for i in range(int(n))}
-                for i, p in enumerate(parts):
-                    rooms[f"Room {(i % int(n)) + 1}"].append(p)
-                st.session_state.breakout_rooms = rooms
-                st.success("Created!")
-            for rname, members in st.session_state.breakout_rooms.items():
-                st.markdown(f"**{rname}:** {', '.join([get_user_name_by_id(m) for m in members])}")
-
-        with feat4:
-            st.markdown("#### Polls")
-            pq = st.text_input("Poll Question")
-            po = st.text_area("Options (one per line)", "Yes\nNo\nNot sure")
-            if st.button("Launch Poll", use_container_width=True):
-                opts = [o.strip() for o in po.split('\n') if o.strip()]
-                st.session_state.current_poll = {"q": pq, "opts": opts, "votes": {o: 0 for o in opts}}
-                st.success("Poll launched!")
-            if st.session_state.current_poll:
-                st.markdown(f"**{st.session_state.current_poll['q']}**")
-                for opt in st.session_state.current_poll['opts']:
-                    if st.button(opt, key=f"vote_{opt}"):
-                        st.session_state.current_poll['votes'][opt] += 1
-                        st.rerun()
-                st.markdown("#### Results")
-                for opt, cnt in st.session_state.current_poll['votes'].items():
-                    st.write(f"{opt}: {cnt}")
-
-        with feat5:
-            st.markdown("#### AI Meeting Notes")
-            if st.button("Generate Notes", use_container_width=True):
-                notes = generate_ai_notes(meeting['title'] if meeting else "GAIA Meeting", st.session_state.meet_participants, meeting.get('crop_focus') if meeting else None)
-                st.markdown(notes)
-
-        with feat6:
-            st.markdown("#### SMS Invite")
-            inv_phone = st.text_input("Phone", placeholder="08012345678")
-            if st.button("Send Invite", use_container_width=True):
-                ok, err = send_sms_invite(inv_phone, room_id)
-                if ok:
-                    st.success("Sent!")
-                else:
-                    st.error(str(err))
-
-st.markdown("---")
-cols = st.columns(10)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
-with cols[9]: st.page_link("pages/23_GAIA_Meet.py", label="🎥 GAIA Meet")
+        st.markdown("### Participants")
+        for p in participants:
+            pname = get_user_name_by_id(p["user_id"])
+            st.markdown(f'<span class="participant-chip">👤 {pname}</span>', unsafe_allow_html=True)

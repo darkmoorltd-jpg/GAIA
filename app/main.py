@@ -63,18 +63,17 @@ def sign_in(email: str, password: str):
     supabase = init_supabase()
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        user = res.user
+        st.session_state.user = res.user
         return res.user, None
     except Exception as e:
         return None, str(e)
 
 def sign_out():
-    supabase = init_supabase()
     try:
-        supabase.auth.sign_out()
+        init_supabase().auth.sign_out()
     except:
         pass
-    user = None
+    st.session_state.user = None
 
 def reset_password(email: str):
     supabase = init_supabase()
@@ -117,7 +116,8 @@ st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
 if "user" not in st.session_state:
     st.session_state.user = None
-    user = None
+
+user = st.session_state.user
 
 # ----- Google OAuth callback -----
 query_params = st.query_params
@@ -129,6 +129,7 @@ if auth_code and user is None:
         supabase.auth.exchange_code_for_session({"auth_code": auth_code})
         session = supabase.auth.get_session()
         if session and session.user:
+            st.session_state.user = session.user
             user = session.user
         st.rerun()
     except Exception as e:
@@ -167,6 +168,7 @@ if user is None:
     try:
         session = supabase.auth.get_session()
         if session and session.user:
+            st.session_state.user = session.user
             user = session.user
     except:
         pass

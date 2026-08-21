@@ -1,6 +1,8 @@
 
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 import requests
 from supabase import create_client, Client
 from datetime import datetime, timedelta

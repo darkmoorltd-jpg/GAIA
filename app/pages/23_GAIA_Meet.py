@@ -1,6 +1,8 @@
 
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -201,7 +203,7 @@ if user is None:
     st.stop()
 
 user = user
-user_id = user.id
+user_id = user.id if user else "demo_user"
 user_name = get_user_display_name()
 
 # ============================================

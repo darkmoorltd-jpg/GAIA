@@ -28,6 +28,7 @@ def sign_in(email, password):
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state["user"] = res.user
         st.session_state["logged_in"] = True
+        st.session_state.user = res.user
         return True, None
     except Exception as e:
         return False, str(e)

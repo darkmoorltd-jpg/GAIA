@@ -1,6 +1,8 @@
 
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -385,7 +387,7 @@ def extract_frames_from_video(video_file, interval_sec=0.5):
 def deduct_scans_for_video(amount=2):
     if "user" in st.session_state and user:
         from app.utils.scan_util import deduct_scans
-        deduct_scans(user.id, amount, "Video Scan")
+        deduct_scans(user.id if user else "demo_user", amount, "Video Scan")
 
 # ============================================
 # HEADER

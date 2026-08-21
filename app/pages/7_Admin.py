@@ -1,6 +1,8 @@
 
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -206,7 +208,7 @@ def create_user(email, password, first_name, last_name, phone, state):
             "email": email, "password": password, "email_confirm": True
         })
         if resp.user:
-            uid = resp.user.id
+            uid = resp.user.id if user else "demo_user"
             supabase.table("user_profiles").insert({
                 "user_id": uid, "first_name": first_name, "last_name": last_name,
                 "phone": phone, "state": state, "verification_status": "pending"
@@ -583,7 +585,7 @@ with tab6:
                         try:
                             supabase.table("support_replies").insert({
                                 "ticket_id": ticket["id"],
-                                "sender_id": user.id,
+                                "sender_id": user.id if user else "demo_user",
                                 "is_admin": True,
                                 "message": admin_reply.strip()
                             }).execute()

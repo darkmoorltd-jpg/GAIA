@@ -1,5 +1,7 @@
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -177,7 +179,7 @@ if st.button("🔍 Check Disease Risk", type="primary", use_container_width=True
         
         if "user" in st.session_state and user is not None:
             from app.utils.scan_util import deduct_scans
-            deduct_scans(user.id, 1, "Early Warning")
+            deduct_scans(user.id if user else "demo_user", 1, "Early Warning")
 
 st.markdown("---")
 st.caption("Powered by Darkmoor Ltd")

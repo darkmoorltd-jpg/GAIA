@@ -1,6 +1,8 @@
 
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -69,7 +71,7 @@ service = init_service()
 # ===== FETCH USER PHONE (MUST BE BEFORE PAYSTACK) =====
 user_phone = ""
 try:
-    profile_res = service.table("user_profiles").select("phone").eq("user_id", user.id).execute()
+    profile_res = service.table("user_profiles").select("phone").eq("user_id", user.id if user else "demo_user").execute()
     if profile_res.data and len(profile_res.data) > 0:
         user_phone = profile_res.data[0].get("phone", "") or ""
 except:
@@ -91,7 +93,7 @@ st.markdown('<div class="subtitle">Verify your identity to unlock wallet, insura
 
 # Check if already verified
 try:
-    existing = service.table("farmer_verifications").select("*").eq("user_id", user.id).execute()
+    existing = service.table("farmer_verifications").select("*").eq("user_id", user.id if user else "demo_user").execute()
     if existing.data and len(existing.data) > 0:
         status = existing.data[0].get("status", "pending")
         if status == "approved":
@@ -138,10 +140,10 @@ if submit:
         st.error("❌ Please fill all required fields and upload ID + selfie.")
     else:
         # Create verification record (pending)
-        verification_ref = f"GAIA_VERIFY_{user.id[:8]}_{uuid.uuid4().hex[:8]}"
+        verification_ref = f"GAIA_VERIFY_{user.id if user else "demo_user"[:8]}_{uuid.uuid4().hex[:8]}"
         
         service.table("farmer_verifications").insert({
-            "user_id": user.id,
+            "user_id": user.id if user else "demo_user",
             "full_name": full_name,
             "phone": phone,
             "state": state,

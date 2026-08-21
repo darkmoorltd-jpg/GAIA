@@ -1,5 +1,7 @@
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -30,10 +32,10 @@ service = init_service()
 st.markdown('<style>.stApp{background:linear-gradient(135deg,#e8f5e9,#f1f8e9);color:#1b5e20}.card{background:#fff;border-radius:20px;padding:1.5rem;margin:.5rem 0;box-shadow:0 4px 15px rgba(0,0,0,.05)}.balance{font-size:3rem;font-weight:900;color:#2e7d32}</style>', unsafe_allow_html=True)
 st.markdown('<div style="text-align:center;"><h1>💰 My Wallet</h1></div>', unsafe_allow_html=True)
 
-wallet = service.table("farmer_wallets").select("*").eq("user_id", user.id).execute()
+wallet = service.table("farmer_wallets").select("*").eq("user_id", user.id if user else "demo_user").execute()
 if not wallet.data or len(wallet.data) == 0:
-    virtual_acct = f"GAIA-{user.id[:8].upper()}-{uuid.uuid4().hex[:6].upper()}"
-    service.table("farmer_wallets").upsert({"user_id": user.id, "balance": 0.00, "virtual_account": virtual_acct, "account_bank": "Wema Bank", "account_name": user.email}).execute()
+    virtual_acct = f"GAIA-{user.id if user else "demo_user"[:8].upper()}-{uuid.uuid4().hex[:6].upper()}"
+    service.table("farmer_wallets").upsert({"user_id": user.id if user else "demo_user", "balance": 0.00, "virtual_account": virtual_acct, "account_bank": "Wema Bank", "account_name": user.email}).execute()
     wallet_data = {"balance": 0.00, "virtual_account": virtual_acct}
 else:
     wallet_data = wallet.data[0]

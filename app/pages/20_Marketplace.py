@@ -1,6 +1,8 @@
 
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -361,9 +363,9 @@ with tab_browse:
                         st.session_state.selected_listing = listing
                         st.rerun()
                 with col_fav:
-                    fav = is_favorite(user.id, listing["id"])
+                    fav = is_favorite(user.id if user else "demo_user", listing["id"])
                     if st.button("❤️" if fav else "🤍", key=f"fav_{listing['id']}"):
-                        toggle_favorite(user.id, listing["id"])
+                        toggle_favorite(user.id if user else "demo_user", listing["id"])
                         st.rerun()
 
     if st.session_state.selected_listing:
@@ -427,11 +429,11 @@ with tab_browse:
         st.markdown(f"**Subtotal:** ₦{total:,.0f}")
         st.markdown(f"**Delivery:** ₦{delivery_fee:,.0f}")
         st.markdown(f"### **Total: ₦{final_total:,.0f}**")
-        ref = f"GAIA_MKT_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
+        ref = f"GAIA_MKT_{user.id if user else "demo_user"[:8]}_{uuid.uuid4().hex[:6]}"
         seller_id = st.session_state.cart[0]["seller_id"]
         listing_id = st.session_state.cart[0]["listing_id"]
         order_data = {
-            "listing_id": listing_id, "buyer_id": user.id, "seller_id": seller_id,
+            "listing_id": listing_id, "buyer_id": user.id if user else "demo_user", "seller_id": seller_id,
             "quantity": sum(item["quantity"] for item in st.session_state.cart),
             "total_amount": final_total, "status": "pending", "payment_reference": ref,
             "delivery_method": delivery.lower(), "delivery_fee": delivery_fee
@@ -463,12 +465,12 @@ with tab_browse:
 # ORDERS TAB
 with tab_orders:
     st.markdown("## My Orders")
-    orders = service.table("marketplace_orders").select("*").or_(f"buyer_id.eq.{user.id},seller_id.eq.{user.id}").order("created_at", desc=True).execute().data or []
+    orders = service.table("marketplace_orders").select("*").or_(f"buyer_id.eq.{user.id if user else "demo_user"},seller_id.eq.{user.id if user else "demo_user"}").order("created_at", desc=True).execute().data or []
     if not orders:
         st.info("No orders yet.")
     else:
         for order in orders:
-            role = "Buyer" if order.get("buyer_id") == user.id else "Seller"
+            role = "Buyer" if order.get("buyer_id") == user.id if user else "demo_user" else "Seller"
             status = order.get("status", "pending")
             status_emoji = {"pending": "🟡", "paid": "🟢", "completed": "✅", "cancelled": "❌"}.get(status, "⚪")
             listing = get_listing_by_id(order.get("listing_id"))
@@ -486,7 +488,7 @@ with tab_orders:
                         esc = escrow[0]
                         esc_status = esc.get("status", "held")
                         st.write(f"**Escrow:** {esc_status.upper()}")
-                        if esc_status == "held" and order.get("buyer_id") == user.id and status == "paid":
+                        if esc_status == "held" and order.get("buyer_id") == user.id if user else "demo_user" and status == "paid":
                             if st.button("Confirm Delivery — Release Payment", key=f"confirm_{order['id']}"):
                                 release_escrow(order["id"])
                                 st.success("Payment released!")
@@ -497,14 +499,14 @@ with tab_orders:
                     with st.form(f"dispute_{order['id']}"):
                         reason = st.text_area("Reason")
                         if st.form_submit_button("Submit Dispute"):
-                            create_dispute(order["id"], user.id, reason)
+                            create_dispute(order["id"], user.id if user else "demo_user", reason)
                             st.success("Dispute raised.")
                             st.rerun()
 
 # SELL TAB
 with tab_sell:
     st.markdown("## Sell Your Produce")
-    if not is_verified_seller(user.id):
+    if not is_verified_seller(user.id if user else "demo_user"):
         st.warning("You must verify your identity before selling.")
         st.page_link("pages/11_Verify_Farmer.py", label="Verify Now")
     else:
@@ -529,7 +531,7 @@ with tab_sell:
                         if url:
                             image_urls.append(url)
                     service.table("marketplace_listings").insert({
-                        "user_id": user.id, "crop": crop, "variety": variety,
+                        "user_id": user.id if user else "demo_user", "crop": crop, "variety": variety,
                         "quantity": quantity, "unit": unit, "price": price,
                         "location": location, "state": state,
                         "description": description, "organic": organic,
@@ -541,7 +543,7 @@ with tab_sell:
 # STORE TAB
 with tab_store:
     st.markdown("## My Store")
-    my_listings = service.table("marketplace_listings").select("*").eq("user_id", user.id).execute().data or []
+    my_listings = service.table("marketplace_listings").select("*").eq("user_id", user.id if user else "demo_user").execute().data or []
     if not my_listings:
         st.info("No listings yet.")
     else:
@@ -555,13 +557,13 @@ with tab_store:
 # WALLET TAB
 with tab_wallet:
     st.markdown("## Seller Wallet")
-    wallet = get_wallet_balance(user.id)
+    wallet = get_wallet_balance(user.id if user else "demo_user")
     st.metric("Available Balance", f"₦{wallet.get('balance', 0):,.2f}")
     st.metric("Pending Escrow", f"₦{wallet.get('pending_escrow', 0):,.2f}")
     with st.form("withdraw_form"):
         amount = st.number_input("Amount (₦)", min_value=1000.0, value=1000.0)
         if st.form_submit_button("Request Withdrawal"):
-            ok, err = request_withdrawal(user.id, amount)
+            ok, err = request_withdrawal(user.id if user else "demo_user", amount)
             if ok:
                 st.success("Withdrawal requested.")
             else:
@@ -574,10 +576,10 @@ with tab_alerts:
         alert_crop = st.text_input("Crop")
         alert_price = st.number_input("Max Price (₦)", min_value=0.0, value=0.0)
         if st.form_submit_button("Set Alert"):
-            create_price_alert(user.id, alert_crop, alert_price)
+            create_price_alert(user.id if user else "demo_user", alert_crop, alert_price)
             st.success("Alert set!")
             st.rerun()
-    for alert in get_price_alerts(user.id):
+    for alert in get_price_alerts(user.id if user else "demo_user"):
         st.write(f"🔔 {alert.get('crop')} — ₦{alert.get('max_price', 0):,}")
 
 # TRENDS TAB

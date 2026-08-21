@@ -1,5 +1,7 @@
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -54,7 +56,7 @@ def verify_paystack(ref):
     return {"ok": False}
 
 try:
-    policies_res = db.table("insurance_policies").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
+    policies_res = db.table("insurance_policies").select("*").eq("user_id", user.id if user else "demo_user").order("created_at", desc=True).execute()
     my_policies = policies_res.data if policies_res.data else []
 except:
     my_policies = []
@@ -150,7 +152,7 @@ with tab2:
                 field_size = st.number_input("Field Size (acres)", min_value=1, value=1)
                 
                 if st.form_submit_button("💳 Pay Premium", type="primary", use_container_width=True):
-                    ref = f"GAIA_INS_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
+                    ref = f"GAIA_INS_{user.id if user else "demo_user"[:8]}_{uuid.uuid4().hex[:6]}"
                     components.html(f"""
                     <script src="https://js.paystack.co/v1/inline.js"></script>
                     <script>

@@ -1,6 +1,8 @@
 
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -215,7 +217,7 @@ with right_col:
                     from supabase import create_client
                     supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["service_key"])
                     supabase.table("consultation_logs").insert({
-                        "user_id": user.id,
+                        "user_id": user.id if user else "demo_user",
                         "crop": crop,
                         "diagnosis": diagnosis,
                         "confidence": confidence,

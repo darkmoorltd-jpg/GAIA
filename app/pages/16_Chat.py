@@ -1,5 +1,7 @@
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -35,7 +37,7 @@ db = get_db()
 service = get_service()
 
 try:
-    service.table("user_status").upsert({"user_id": user.id, "is_online": True, "last_seen": datetime.now().isoformat()}).execute()
+    service.table("user_status").upsert({"user_id": user.id if user else "demo_user", "is_online": True, "last_seen": datetime.now().isoformat()}).execute()
 except:
     pass
 
@@ -86,10 +88,10 @@ except:
 # Friends
 friend_ids = set()
 try:
-    res = db.table("friendships").select("*").eq("status", "accepted").or_(f"sender_id.eq.{user.id},receiver_id.eq.{user.id}").execute()
+    res = db.table("friendships").select("*").eq("status", "accepted").or_(f"sender_id.eq.{user.id if user else "demo_user"},receiver_id.eq.{user.id if user else "demo_user"}").execute()
     if res.data:
         for f in res.data:
-            fid = f["sender_id"] if f["receiver_id"] == user.id else f["receiver_id"]
+            fid = f["sender_id"] if f["receiver_id"] == user.id if user else "demo_user" else f["receiver_id"]
             friend_ids.add(fid)
 except:
     pass
@@ -97,7 +99,7 @@ except:
 # Pending requests
 pending_requests = []
 try:
-    res = db.table("friendships").select("*").eq("receiver_id", user.id).eq("status", "pending").execute()
+    res = db.table("friendships").select("*").eq("receiver_id", user.id if user else "demo_user").eq("status", "pending").execute()
     if res.data:
         pending_requests = res.data
 except:
@@ -106,7 +108,7 @@ except:
 # Chat rooms
 my_rooms = []
 try:
-    res = db.table("chat_members").select("room_id").eq("user_id", user.id).execute()
+    res = db.table("chat_members").select("room_id").eq("user_id", user.id if user else "demo_user").execute()
     room_ids = [r["room_id"] for r in res.data] if res.data else []
     if room_ids:
         rooms = service.table("chat_rooms").select("*").in_("id", room_ids).execute()
@@ -119,7 +121,7 @@ try:
                     other_id = None
                     if members.data:
                         for m in members.data:
-                            if m["user_id"] != user.id:
+                            if m["user_id"] != user.id if user else "demo_user":
                                 other_id = m["user_id"]
                                 break
                     if other_id and other_id in all_users:
@@ -187,7 +189,7 @@ with tabs[0]:
             except:
                 msgs = type('obj', (object,), {'data': []})()
             for msg in (msgs.data or []):
-                is_mine = msg["sender_id"] == user.id
+                is_mine = msg["sender_id"] == user.id if user else "demo_user"
                 with st.chat_message("user" if is_mine else "assistant"):
                     if msg.get("content"):
                         st.write(msg["content"])
@@ -198,9 +200,9 @@ with tabs[0]:
             with cb:
                 if st.button("📤", key=f"send_{room_id}"):
                     if msg_text:
-                        service.table("messages").insert({"room_id": room_id, "sender_id": user.id, "content": msg_text}).execute()
+                        service.table("messages").insert({"room_id": room_id, "sender_id": user.id if user else "demo_user", "content": msg_text}).execute()
                         # Deduct 2 scans for chat message
-                        ok, remaining = deduct_scans(user.id, 2, "Chat with GAIA")
+                        ok, remaining = deduct_scans(user.id if user else "demo_user", 2, "Chat with GAIA")
                         st.rerun()
         else:
             st.markdown('<div class="empty-state"><h3>💬 Your Messages</h3><p>Select a chat or find a farmer</p></div>', unsafe_allow_html=True)
@@ -218,10 +220,10 @@ with tabs[1]:
             st.markdown(f'<div class="user-card"><div class="avatar">{name[0].upper() if name else "?"}</div><div><strong>{name}</strong><br><span style="color:rgba(255,255,255,0.4);">wants to be your friend</span></div></div>', unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             if c1.button("✅ Accept", key=f"acc_{sender_id}"):
-                service.table("friendships").update({"status": "accepted"}).eq("sender_id", sender_id).eq("receiver_id", user.id).execute()
+                service.table("friendships").update({"status": "accepted"}).eq("sender_id", sender_id).eq("receiver_id", user.id if user else "demo_user").execute()
                 st.rerun()
             if c2.button("❌ Decline", key=f"dec_{sender_id}"):
-                service.table("friendships").delete().eq("sender_id", sender_id).eq("receiver_id", user.id).execute()
+                service.table("friendships").delete().eq("sender_id", sender_id).eq("receiver_id", user.id if user else "demo_user").execute()
                 st.rerun()
     st.markdown("### 👥 My Friends")
     found_friends = [f for f in friend_ids if f in all_users]
@@ -245,7 +247,7 @@ with tabs[2]:
         s = search.lower().strip()
         found = False
         for uid, prof in all_users.items():
-            if uid == user.id:
+            if uid == user.id if user else "demo_user":
                 continue
             name = f"{prof.get('first_name','')} {prof.get('last_name','')}".strip()
             email = prof.get('email', '') or ''
@@ -263,7 +265,7 @@ with tabs[2]:
                 if not is_friend:
                     if st.button("➕ Add Friend", key=f"add_{uid}"):
                         try:
-                            service.table("friendships").insert({"sender_id": user.id, "receiver_id": uid, "status": "pending"}).execute()
+                            service.table("friendships").insert({"sender_id": user.id if user else "demo_user", "receiver_id": uid, "status": "pending"}).execute()
                             st.success("Request sent!")
                             st.rerun()
                         except:
@@ -280,7 +282,7 @@ with tabs[3]:
     post_content = st.text_area("Share something...", max_chars=500)
     if st.button("📤 Post"):
         if post_content:
-            service.table("posts").insert({"user_id": user.id, "content": post_content}).execute()
+            service.table("posts").insert({"user_id": user.id if user else "demo_user", "content": post_content}).execute()
             st.rerun()
     try:
         posts = service.table("posts").select("*").order("created_at", desc=True).limit(20).execute()

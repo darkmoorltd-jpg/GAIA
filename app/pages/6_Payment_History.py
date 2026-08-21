@@ -1,5 +1,7 @@
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -23,7 +25,7 @@ if user is None:
     st.session_state["user"] = None
     user = None
 
-user_id = user.id
+user_id = user.id if user else "demo_user"
 supabase = init_supabase()
 
 st.title("💳 Payment History")

@@ -1,6 +1,8 @@
 
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -38,7 +40,7 @@ is_admin = (user.email == ADMIN_EMAIL)
 
 # Fetch profile using service role (always works)
 try:
-    res = service.table("user_profiles").select("*").eq("user_id", user.id).execute()
+    res = service.table("user_profiles").select("*").eq("user_id", user.id if user else "demo_user").execute()
     profile = res.data[0] if res.data and len(res.data) > 0 else None
 except:
     profile = None
@@ -157,7 +159,7 @@ if submitted:
         st.error("❌ First name, last name, and phone are required.")
     else:
         update_data = {
-            "user_id": user.id,
+            "user_id": user.id if user else "demo_user",
             "first_name": first_name.strip(),
             "last_name": last_name.strip(),
             "middle_name": middle_name.strip() if middle_name else None,
@@ -201,7 +203,7 @@ if submitted:
         try:
             if profile:
                 # Update existing
-                service.table("user_profiles").update(update_data).eq("user_id", user.id).execute()
+                service.table("user_profiles").update(update_data).eq("user_id", user.id if user else "demo_user").execute()
             else:
                 # Insert new
                 service.table("user_profiles").insert(update_data).execute()

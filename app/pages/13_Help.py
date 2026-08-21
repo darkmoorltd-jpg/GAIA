@@ -1,5 +1,7 @@
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 from supabase import create_client
 supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 try:
@@ -78,7 +80,7 @@ with tab1:
                 
                 try:
                     supabase.table("support_tickets").insert({
-                        "user_id": user.id,
+                        "user_id": user.id if user else "demo_user",
                         "subject": subject.strip(),
                         "message": message.strip(),
                         "attachment_url": attachment_url,
@@ -93,7 +95,7 @@ with tab2:
     st.markdown("### My Support Tickets")
     
     try:
-        tickets = supabase.table("support_tickets").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
+        tickets = supabase.table("support_tickets").select("*").eq("user_id", user.id if user else "demo_user").order("created_at", desc=True).execute()
         my_tickets = tickets.data if tickets.data else []
     except Exception as e:
         my_tickets = []
@@ -138,7 +140,7 @@ with tab2:
                             try:
                                 supabase.table("support_replies").insert({
                                     "ticket_id": ticket_id,
-                                    "sender_id": user.id,
+                                    "sender_id": user.id if user else "demo_user",
                                     "is_admin": False,
                                     "message": user_reply.strip()
                                 }).execute()

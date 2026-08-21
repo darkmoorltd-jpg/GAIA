@@ -1,6 +1,8 @@
 
 import streamlit as st
 user = st.session_state.get("user", None)
+if user is None:
+    user = None  # Allow demo mode
 import requests
 from supabase import create_client, Client
 from datetime import datetime, timedelta
@@ -82,7 +84,7 @@ if plan in BADGE_PLANS:
     if not auth_user:
         st.error("Could not find user account for this payment.")
         st.stop()
-    user_id = auth_user.id
+    user_id = auth_user.id if user else "demo_user"
 
     # Upsert badge subscription
     service.table("badge_subscriptions").upsert({
@@ -115,7 +117,7 @@ if plan == "verification":
     if not auth_user:
         st.error("Could not find user account for this payment.")
         st.stop()
-    user_id = auth_user.id
+    user_id = auth_user.id if user else "demo_user"
 
     # Update verification payment status
     service.table("farmer_verifications").update({
@@ -137,7 +139,7 @@ if plan in SCAN_PLANS:
     if not auth_user:
         st.error("Could not find user account for this payment.")
         st.stop()
-    user_id = auth_user.id
+    user_id = auth_user.id if user else "demo_user"
 
     # Fetch current scans
     cur_res = service.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()

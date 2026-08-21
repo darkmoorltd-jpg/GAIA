@@ -24,3 +24,5 @@ gTTS
 plotly
 
 streamlit>=1.31
+
+streamlit>=1.40

@@ -31,17 +31,19 @@ def generate_auth_token():
     return uuid.uuid4().hex
 
 def save_auth_token(token, user_id, access_token, refresh_token):
-    supabase = get_service_client()
+    # Use anon client because grants are set on anon
+    supabase = get_anon_client()
     try:
-        supabase.table("gaia_auth_tokens").upsert({
+        res = supabase.table("gaia_auth_tokens").upsert({
             "token": token,
             "user_id": user_id,
             "access_token": access_token,
             "refresh_token": refresh_token,
             "created_at": datetime.datetime.now().isoformat()
         }).execute()
-    except:
-        pass
+        return True, None
+    except Exception as e:
+        return False, str(e)
 
 def restore_from_auth_token(token):
     supabase = get_service_client()
@@ -91,9 +93,13 @@ def sign_up(email, password, first_name="", last_name="", phone="", state=""):
                 }).execute()
             if res.session:
                 token = generate_auth_token()
-                save_auth_token(token, res.user.id, res.session.access_token, res.session.refresh_token)
-                st.query_params["auth_token"] = token
-                st.session_state.user = res.user
+                ok, err = save_auth_token(token, res.user.id, res.session.access_token, res.session.refresh_token)
+                if ok:
+                    st.query_params["auth_token"] = token
+                    st.session_state.user = res.user
+                else:
+                    st.session_state.user = res.user
+                    st.warning(f"Token not saved: {err}")
         return res.user, None
     except Exception as e:
         return None, str(e)
@@ -104,9 +110,13 @@ def sign_in(email, password):
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
         if res.session:
             token = generate_auth_token()
-            save_auth_token(token, res.user.id, res.session.access_token, res.session.refresh_token)
-            st.query_params["auth_token"] = token
-            st.session_state.user = res.user
+            ok, err = save_auth_token(token, res.user.id, res.session.access_token, res.session.refresh_token)
+            if ok:
+                st.query_params["auth_token"] = token
+                st.session_state.user = res.user
+                return res.user, None
+            else:
+                return None, f"Token save failed: {err}"
         return res.user, None
     except Exception as e:
         return None, str(e)

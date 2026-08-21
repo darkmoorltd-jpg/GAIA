@@ -1,10 +1,5 @@
 
 import streamlit as st
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
-
 if user is None:
     # Allow demo mode
     from supabase import create_client
@@ -20,6 +15,10 @@ import uuid
 import json
 from app.utils.scan_util import deduct_scans
 from supabase import create_client, Client
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"

@@ -1,10 +1,5 @@
 
 import streamlit as st
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
-
 if user is None:
     # Allow demo mode
     from supabase import create_client
@@ -15,6 +10,10 @@ try:
 except:
     from supabase import create_client, Client
 from datetime import datetime
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]

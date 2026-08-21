@@ -1,10 +1,5 @@
 
 import streamlit as st
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
-
 if user is None:
     # Allow demo mode
     from supabase import create_client
@@ -27,6 +22,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from supabase import create_client, Client
 from PIL import Image, ImageDraw
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 
 # ---------- Config ----------
 SUPABASE_URL = st.secrets["supabase"]["url"]

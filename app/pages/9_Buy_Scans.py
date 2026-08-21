@@ -1,11 +1,5 @@
 
 import streamlit as st
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
-
-
 # Get user from session state
 if user is None:
     # Allow demo mode
@@ -21,6 +15,10 @@ import uuid
 import requests
 import sys
 import os
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 

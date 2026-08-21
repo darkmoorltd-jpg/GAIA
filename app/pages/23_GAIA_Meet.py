@@ -1,10 +1,5 @@
 
 import streamlit as st
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
-
 if user is None:
     # Allow demo mode
     from supabase import create_client
@@ -21,6 +16,10 @@ import sys
 import json
 import hashlib
 from supabase import create_client
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 

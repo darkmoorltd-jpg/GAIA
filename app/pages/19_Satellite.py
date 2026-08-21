@@ -1,9 +1,4 @@
 import streamlit as st
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
-
 if user is None:
     # Allow demo mode
     from supabase import create_client
@@ -19,6 +14,10 @@ from io import BytesIO
 from datetime import datetime, timedelta
 import folium
 from streamlit_folium import st_folium
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 
 # ===== SENTINEL HUB CONFIG =====
 try:

@@ -1,10 +1,5 @@
 
 import streamlit as st
-user = st.session_state.get("user", None)
-if user is None:
-    st.warning("Please log in first.")
-    st.stop()
-
 if user is None:
     # Allow demo mode
     from supabase import create_client
@@ -18,6 +13,10 @@ import torch, torch.nn as nn, torch.nn.functional as F, numpy as np, os, sys, ha
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 from timm.models.vision_transformer import VisionTransformer
 from collections import Counter
+user = st.session_state.get("user", None)
+if user is None:
+    st.warning("Please log in first.")
+    st.stop()
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌾", layout="wide")

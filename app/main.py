@@ -4,6 +4,10 @@ from supabase import create_client, Client
 import requests
 import time
 
+# Ensure user is always defined
+user = None
+
+
 # ---------- Secrets ----------
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -157,6 +161,7 @@ if reference and plan and plan in PAYSTACK_PLANS:
             st.rerun()
 
 # ----- Try restore session -----
+user = st.session_state.get("user", None)
 if user is None:
     supabase = init_supabase()
     try:
@@ -167,6 +172,7 @@ if user is None:
         pass
 
 # ----- Login page -----
+user = st.session_state.get("user", None)
 if user is None:
     st.title("🌱 GAIA – Sign In / Create Account")
     tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Sign Up", "🅶 Google"])

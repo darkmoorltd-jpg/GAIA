@@ -1,5 +1,6 @@
 
 import streamlit as st
+from supabase import create_client
 user = st.session_state.get("user", None)
 if user is None:
     st.warning("Please log in first.")

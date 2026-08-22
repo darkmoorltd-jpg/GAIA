@@ -47,9 +47,52 @@ def init_supabase():
 def init_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
+def check_identifier_conflicts(data: dict):
+    """Return an error message if email/phone/username/BVN/NIN already exists."""
+    service = init_service()
+
+    # Email is enforced by Supabase Auth, but check anyway for clearer message
+    # We'll rely on sign_up error for email.
+
+    # Phone
+    phone = normalize_phone(data.get("phone", ""))
+    if phone and phone != "234":
+        res = service.table("user_profiles").select("user_id").eq("phone", phone).execute()
+        if res.data:
+            return "Phone number already registered."
+
+    # Username
+    username = data.get("username", "").strip().lower()
+    if username:
+        res = service.table("user_profiles").select("user_id").eq("username", username).execute()
+        if res.data:
+            return "Username already taken."
+
+    # BVN
+    bvn = data.get("bvn", "").strip()
+    if bvn:
+        res = service.table("user_profiles").select("user_id").eq("bvn", bvn).execute()
+        if res.data:
+            return "BVN already registered."
+
+    # NIN
+    nin = data.get("nin", "").strip()
+    if nin:
+        res = service.table("user_profiles").select("user_id").eq("nin", nin).execute()
+        if res.data:
+            return "NIN already registered."
+
+    return None
+
 def sign_up_comprehensive(data: dict):
     supabase = init_supabase()
     service = init_service()
+
+    # Pre-check uniqueness
+    conflict = check_identifier_conflicts(data)
+    if conflict:
+        return None, conflict
+
     try:
         # 1. Create auth user
         auth_res = supabase.auth.sign_up({

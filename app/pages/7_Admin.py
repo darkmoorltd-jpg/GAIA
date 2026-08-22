@@ -638,6 +638,7 @@ with tab6:
                     '')}".strip() or user_email
 
             with st.expander(f"{status_emoji} {ticket.get('subject', '')} — {user_email}"):
+    pass
                 # User details
                 st.markdown("#### 👤 User Information")
                 col1, col2, col3 = st.columns(3)
@@ -790,6 +791,7 @@ with cols[7]:
 with cols[8]:
     st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
 with cols[9]:
+    pass
     #     st.page_link("pages/10_Early_Warning.py", label="⚠️ Alerts")
 
 st.markdown("### 📱 More Features")

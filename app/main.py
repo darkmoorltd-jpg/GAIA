@@ -93,6 +93,10 @@ def sign_up_comprehensive(data: dict):
     if conflict:
         return None, conflict
 
+    # Normalize phone numbers
+    normalized_phone = normalize_phone(data.get("phone", ""))
+    normalized_whatsapp = normalize_phone(data.get("whatsapp", data.get("phone", "")))
+
     try:
         # 1. Create auth user
         auth_res = supabase.auth.sign_up({
@@ -100,8 +104,13 @@ def sign_up_comprehensive(data: dict):
             "password": data["password"]
         })
         if not auth_res.user:
-            return None, "Auth signup failed"
+            return None, "Email already registered."
         user_id = auth_res.user.id
+    except Exception as e:
+        err_str = str(e).lower()
+        if "already" in err_str or "unique" in err_str or "duplicate" in err_str:
+            return None, "Email already registered."
+        return None, f"Signup failed: {err_str}"
 
         # 2. Create user_profiles row
         profile_data = {
@@ -113,8 +122,8 @@ def sign_up_comprehensive(data: dict):
             "date_of_birth": data.get("dob", None),
             "marital_status": data.get("marital_status", ""),
             "username": data.get("username", "").lower(),
-            "phone": data.get("phone", ""),
-            "whatsapp": data.get("whatsapp", data.get("phone", "")),
+            "phone": normalized_phone,
+            "whatsapp": normalized_whatsapp,
             "country": data.get("country", "Nigeria"),
             "state": data.get("state", ""),
             "lga": data.get("lga", ""),
@@ -158,7 +167,7 @@ def sign_up_comprehensive(data: dict):
             "state": data.get("farm_state", ""),
             "lga": data.get("farm_lga", ""),
             "username": data.get("username", "").lower(),
-            "phone": data.get("phone", ""),
+            "phone": normalized_phone,
             "crop": data.get("primary_crop", ""),
             "farm_size_acres": data.get("farm_size", 0.0),
             "farmer_type": data.get("farming_type", "Smallholder"),

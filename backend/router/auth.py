@@ -1,18 +1,19 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from backend.services.supabase_service import SupabaseService
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from services.supabase_service import SupabaseService
 
 router = APIRouter()
 
 class SignupRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
     first_name: str = ""
     last_name: str = ""
     phone: str = ""
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 class GoogleAuthRequest(BaseModel):
@@ -20,15 +21,35 @@ class GoogleAuthRequest(BaseModel):
     redirect_to: str = ""
 
 class PasswordResetRequest(BaseModel):
-    email: str
+    email: EmailStr
 
-@router.post("/signup")
+class SignupResponse(BaseModel):
+    success: bool
+    message: str
+    user: Optional[dict] = None
+
+@router.post("/signup", response_model=SignupResponse)
 async def signup(req: SignupRequest):
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+    
     service = SupabaseService()
-    user, error = service.sign_up(req.email, req.password, req.first_name, req.last_name, req.phone)
+    user, error = service.sign_up(
+        email=req.email,
+        password=req.password,
+        first_name=req.first_name,
+        last_name=req.last_name,
+        phone=req.phone
+    )
+    
     if error:
         raise HTTPException(status_code=400, detail=error)
-    return {"success": True, "user": user}
+    
+    return {
+        "success": True,
+        "message": "Account created successfully. 30 free scans added.",
+        "user": user
+    }
 
 @router.post("/login")
 async def login(req: LoginRequest):

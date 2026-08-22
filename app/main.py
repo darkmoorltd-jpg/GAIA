@@ -278,9 +278,9 @@ if st.session_state.user is None:
                     last_name = st.text_input("Last Name *")
                     date_of_birth = st.date_input(
         "Date of Birth",
-        value=datetime.date.today() - datetime.timedelta(days=70*365),
-        min_value=datetime.date.today() - datetime.timedelta(days=100*365),
-        max_value=datetime.date.today() - datetime.timedelta(days=10*365)
+        value=datetime.date(1956, 1, 1),
+        min_value=datetime.date(1956, 1, 1),
+        max_value=datetime.date.today()
     )
                     marital_status = st.selectbox("Marital Status", ["", "Single", "Married", "Divorced", "Widowed"])
                 email = st.text_input("Email *")

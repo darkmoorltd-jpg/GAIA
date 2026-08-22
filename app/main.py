@@ -69,6 +69,7 @@ def sign_up_comprehensive(data: dict):
             "gender": data.get("gender", ""),
             "date_of_birth": data.get("dob", None),
             "marital_status": data.get("marital_status", ""),
+            "username": data.get("username", "").lower(),
             "phone": data.get("phone", ""),
             "whatsapp": data.get("whatsapp", data.get("phone", "")),
             "country": data.get("country", "Nigeria"),
@@ -113,6 +114,7 @@ def sign_up_comprehensive(data: dict):
             "user_id": user_id,
             "state": data.get("farm_state", ""),
             "lga": data.get("farm_lga", ""),
+            "username": data.get("username", "").lower(),
             "phone": data.get("phone", ""),
             "crop": data.get("primary_crop", ""),
             "farm_size_acres": data.get("farm_size", 0.0),
@@ -142,8 +144,58 @@ def sign_up_comprehensive(data: dict):
     except Exception as e:
         return None, str(e)
 
-def sign_in(email: str, password: str):
+
+def normalize_phone(phone):
+    if not phone:
+        return ""
+    phone = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
+    if phone.startswith("0"):
+        return "234" + phone[1:]
+    elif phone.startswith("234"):
+        return phone
+    else:
+        return "234" + phone
+
+def find_email_by_identifier(identifier):
+    """Resolve email from email, phone, or username using service role."""
+    service = init_service()
+    identifier = identifier.strip()
+
+    # If it looks like an email, return as-is
+    if "@" in identifier:
+        return identifier
+
+    # Try phone number (normalized)
+    normalized = normalize_phone(identifier)
+    if normalized and normalized != "234":
+        try:
+            res = service.table("user_profiles").select("user_id").eq("phone", normalized).execute()
+            if res.data and res.data[0].get("user_id"):
+                user_id = res.data[0]["user_id"]
+                user = service.auth.admin.get_user_by_id(user_id)
+                if user and user.email:
+                    return user.email
+        except:
+            pass
+
+    # Try username (case‑insensitive)
+    try:
+        res = service.table("user_profiles").select("user_id").eq("username", identifier.lower()).execute()
+        if res.data and res.data[0].get("user_id"):
+            user_id = res.data[0]["user_id"]
+            user = service.auth.admin.get_user_by_id(user_id)
+            if user and user.email:
+                return user.email
+    except:
+        pass
+
+    return None
+
+def sign_in(identifier: str, password: str):
     supabase = init_supabase()
+    email = find_email_by_identifier(identifier)
+    if not email:
+        return None, "No account found with that email, phone number, or username."
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
         st.session_state.user = res.user
@@ -242,12 +294,12 @@ if st.session_state.user is None:
 
     with tab_login:
         with st.form("login_form"):
-            email = st.text_input("Email")
+            login_identifier = st.text_input("Email, Phone, or Username")
             password = st.text_input("Password", type="password")
             col1, col2 = st.columns(2)
             with col1:
                 if st.form_submit_button("Login"):
-                    user, err = sign_in(email, password)
+                    user, err = sign_in(login_identifier, password)
                     if err:
                         st.error(f"Login failed: {err}")
                     else:
@@ -255,8 +307,8 @@ if st.session_state.user is None:
                         st.rerun()
             with col2:
                 if st.form_submit_button("Forgot Password?"):
-                    if email:
-                        err = reset_password(email)
+                    if login_identifier and "@" in login_identifier:
+                        err = reset_password(login_identifier)
                         if err:
                             st.error(err)
                         else:
@@ -283,6 +335,7 @@ if st.session_state.user is None:
         max_value=datetime.date.today()
     )
                     marital_status = st.selectbox("Marital Status", ["", "Single", "Married", "Divorced", "Widowed"])
+                username = st.text_input("Username *")
                 email = st.text_input("Email *")
                 password = st.text_input("Password *", type="password")
                 confirm = st.text_input("Confirm Password *", type="password")
@@ -301,6 +354,7 @@ if st.session_state.user is None:
                             "last_name": last_name, "gender": gender,
                             "date_of_birth": str(date_of_birth) if date_of_birth else None,
                             "marital_status": marital_status, "email": email,
+                            "username": username,
                             "password": password, "phone": phone, "whatsapp": whatsapp or phone
                         }
                         st.session_state.signup_step = 2

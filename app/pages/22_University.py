@@ -49,8 +49,12 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
-st.markdown('<div class="title">🎓 GAIA University</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Maize Agronomist Course — University-Level Field Manual</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="title">🎓 GAIA University</div>',
+    unsafe_allow_html=True)
+st.markdown(
+    '<div class="subtitle">Maize Agronomist Course — University-Level Field Manual</div>',
+    unsafe_allow_html=True)
 
 # Complete course data with full lesson content
 COURSE = {
@@ -157,15 +161,27 @@ if "quiz_score" not in st.session_state:
 if st.session_state.selected_module_id is None:
     st.markdown("## 📚 Course Modules")
     for module_id, module in COURSE.items():
-        st.markdown(f'<div class="module-card"><h3>Module {module_id}: {module["title"]}</h3><p>{len(module["lessons"])} lessons</p></div>', unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="module-card"><h3>Module {module_id}: {
+                module["title"]}</h3><p>{
+                len(
+                    module["lessons"])} lessons</p></div>',
+            unsafe_allow_html=True)
         if st.button(f"Open Module {module_id}", key=f"mod_{module_id}"):
             st.session_state.selected_module_id = module_id
             st.rerun()
 elif st.session_state.selected_lesson is None:
     module = COURSE[st.session_state.selected_module_id]
-    st.markdown(f"## Module {st.session_state.selected_module_id}: {module['title']}")
+    st.markdown(
+        f"## Module {
+            st.session_state.selected_module_id}: {
+            module['title']}")
     for lesson_title in module["lessons"].keys():
-        if st.button(lesson_title, key=f"les_{st.session_state.selected_module_id}_{lesson_title}", use_container_width=True):
+        if st.button(
+                lesson_title,
+                key=f"les_{
+                    st.session_state.selected_module_id}_{lesson_title}",
+                use_container_width=True):
             st.session_state.selected_lesson = lesson_title
             st.rerun()
     if st.button("← Back to Modules"):
@@ -175,11 +191,12 @@ else:
     module = COURSE[st.session_state.selected_module_id]
     lesson_title = st.session_state.selected_lesson
     lesson_content = module["lessons"][lesson_title]
-    
+
     st.markdown(f"## {lesson_title}")
-    st.markdown(f"*Module {st.session_state.selected_module_id}: {module['title']}*")
+    st.markdown(
+        f"*Module {st.session_state.selected_module_id}: {module['title']}*")
     st.markdown(lesson_content)
-    
+
     # Voice narration
     if st.button("🔊 Listen to this lesson"):
         try:
@@ -189,9 +206,9 @@ else:
                 st.audio(audio_bytes, format="audio/mp3")
             else:
                 st.warning(f"Voice unavailable: {err}")
-        except:
+        except BaseException:
             st.warning("Voice generation not available.")
-    
+
     # Mark lesson complete button
     if st.button("✅ Mark Complete & Next Lesson"):
         # Find next lesson in module
@@ -202,7 +219,7 @@ else:
             st.rerun()
         else:
             st.success("Module complete! Take the quiz to earn your badge.")
-    
+
     if st.button("← Back to Lessons"):
         st.session_state.selected_lesson = None
         st.rerun()
@@ -211,13 +228,23 @@ else:
 st.markdown("---")
 st.markdown("### 🔗 Quick Navigation")
 cols = st.columns(10)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
-with cols[9]: st.page_link("pages/22_University.py", label="🎓 University")
+with cols[0]:
+    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
+with cols[1]:
+    st.page_link("pages/2_Crops.py", label="🌿 Crops")
+with cols[2]:
+    st.page_link("pages/3_Pests.py", label="🐛 Pests")
+with cols[3]:
+    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
+with cols[4]:
+    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
+with cols[5]:
+    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
+with cols[6]:
+    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
+with cols[7]:
+    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
+with cols[8]:
+    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+with cols[9]:
+    st.page_link("pages/22_University.py", label="🎓 University")

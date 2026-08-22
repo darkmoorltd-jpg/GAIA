@@ -11,23 +11,38 @@ from streamlit_folium import st_folium
 try:
     CLIENT_ID = st.secrets["sentinel"]["client_id"]
     CLIENT_SECRET = st.secrets["sentinel"]["client_secret"]
-except:
+except BaseException:
     CLIENT_ID = "86ed44fa-793b-47da-973b-345a83ae18c0"
     CLIENT_SECRET = "qYTQXnQFpgstJSrAulJ6NREflI2m2eCN"
 TOKEN_URL = "https://services.sentinel-hub.com/oauth/token"
 PROCESS_URL = "https://services.sentinel-hub.com/api/v1/process"
 
+
 @st.cache_data(ttl=3500)
 def get_access_token():
     import base64
-    credentials = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
-    headers = {"Authorization": f"Basic {credentials}", "Content-Type": "application/x-www-form-urlencoded"}
-    resp = requests.post(TOKEN_URL, data={"grant_type": "client_credentials"}, headers=headers)
+    credentials = base64.b64encode(
+        f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+    headers = {"Authorization": f"Basic {credentials}",
+               "Content-Type": "application/x-www-form-urlencoded"}
+    resp = requests.post(
+        TOKEN_URL,
+        data={
+            "grant_type": "client_credentials"},
+        headers=headers)
     if resp.status_code == 200:
         return resp.json().get("access_token")
     return None
 
-def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", date_from=None, date_to=None):
+
+def fetch_satellite_image(
+        lat,
+        lon,
+        width=512,
+        height=512,
+        layers="TRUE_COLOR",
+        date_from=None,
+        date_to=None):
     token = get_access_token()
     if not token:
         return None, "Failed to authenticate with Sentinel Hub"
@@ -96,31 +111,44 @@ def fetch_satellite_image(lat, lon, width=512, height=512, layers="TRUE_COLOR", 
         "input": {
             "bounds": {
                 "bbox": bbox,
-                "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"}
-            },
-            "data": [{
-                "type": "sentinel-2-l1c",
-                "dataFilter": {
-                    "timeRange": {"from": f"{date_from}T00:00:00Z", "to": f"{date_to}T23:59:59Z"},
-                    "maxCloudCoverage": 50,
-                    "mosaickingOrder": "leastCC"
-                }
-            }]
-        },
-        "output": {"width": width, "height": height, "responses": [{"identifier": "default", "format": {"type": "image/png"}}]},
-        "evalscript": evalscript
-    }
+                "properties": {
+                    "crs": "http://www.opengis.net/def/crs/EPSG/0/4326"}},
+            "data": [
+                {
+                    "type": "sentinel-2-l1c",
+                    "dataFilter": {
+                            "timeRange": {
+                                "from": f"{date_from}T00:00:00Z",
+                                "to": f"{date_to}T23:59:59Z"},
+                            "maxCloudCoverage": 50,
+                            "mosaickingOrder": "leastCC"}}]},
+        "output": {
+            "width": width,
+            "height": height,
+            "responses": [
+                {
+                    "identifier": "default",
+                    "format": {
+                        "type": "image/png"}}]},
+        "evalscript": evalscript}
 
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"}
 
     try:
-        resp = requests.post(PROCESS_URL, headers=headers, json=payload, timeout=30)
+        resp = requests.post(
+            PROCESS_URL,
+            headers=headers,
+            json=payload,
+            timeout=30)
         if resp.status_code == 200:
             img = Image.open(BytesIO(resp.content))
             return img, None
         return None, f"API error: {resp.status_code}"
     except Exception as e:
         return None, str(e)
+
 
 def calculate_vegetation_health(ndvi_img):
     arr = np.array(ndvi_img.convert("L"), dtype=float) / 255.0
@@ -131,7 +159,9 @@ def calculate_vegetation_health(ndvi_img):
     stressed = ((arr > 0) & (arr <= 0.2)).mean() * 100
     barren = (arr <= 0).mean() * 100
     avg_ndvi = arr.mean()
-    health_status = "Excellent" if avg_ndvi > 0.6 else ("Good" if avg_ndvi > 0.4 else ("Moderate" if avg_ndvi > 0.2 else "Poor"))
+    health_status = "Excellent" if avg_ndvi > 0.6 else (
+        "Good" if avg_ndvi > 0.4 else (
+            "Moderate" if avg_ndvi > 0.2 else "Poor"))
     return {
         "healthy_pct": healthy,
         "moderate_pct": moderate,
@@ -141,8 +171,12 @@ def calculate_vegetation_health(ndvi_img):
         "health_status": health_status
     }
 
+
 # ===== PAGE CONFIG =====
-st.set_page_config(page_title="GAIA – Satellite Monitoring", page_icon="🛰️", layout="wide")
+st.set_page_config(
+    page_title="GAIA – Satellite Monitoring",
+    page_icon="🛰️",
+    layout="wide")
 
 # Theme toggle
 st.markdown("""
@@ -184,8 +218,12 @@ else:
     """, unsafe_allow_html=True)
 
 # ===== HEADER =====
-st.markdown('<div class="title">🛰️ Satellite Monitor</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Monitor your farm health from space</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="title">🛰️ Satellite Monitor</div>',
+    unsafe_allow_html=True)
+st.markdown(
+    '<div class="subtitle">Monitor your farm health from space</div>',
+    unsafe_allow_html=True)
 
 # ===== LOCATION INPUT =====
 st.markdown("### 📍 Enter Your Farm Location")
@@ -199,31 +237,51 @@ with col2:
 st.markdown("### 🎨 Select Analysis Type")
 layer = st.selectbox("Layer", ["TRUE_COLOR", "NDVI", "MOISTURE"])
 
-if st.button("🛰️ Fetch Satellite Image", type="primary", use_container_width=True):
+if st.button(
+    "🛰️ Fetch Satellite Image",
+    type="primary",
+        use_container_width=True):
     with st.spinner("📡 Fetching satellite imagery..."):
         img, err = fetch_satellite_image(lat, lon, layers=layer)
-    
+
     if err:
         st.error(f"Failed to fetch image: {err}")
     else:
-        st.image(img, caption=f"{layer} — {lat:.4f}, {lon:.4f}", use_container_width=True)
-        
+        st.image(
+            img,
+            caption=f"{layer} — {
+                lat:.4f}, {
+                lon:.4f}",
+            use_container_width=True)
+
         if layer == "NDVI":
             health = calculate_vegetation_health(img)
-            
+
             st.markdown("---")
             st.markdown("### 📊 Vegetation Health Report")
-            
+
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.markdown(f'<div class="stat-box"><div class="stat-number">{health["healthy_pct"]:.1f}%</div><div class="stat-label">Healthy</div></div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="stat-box"><div class="stat-number">{
+                        health["healthy_pct"]:.1f}%</div><div class="stat-label">Healthy</div></div>',
+                    unsafe_allow_html=True)
             with col2:
-                st.markdown(f'<div class="stat-box"><div class="stat-number">{health["moderate_pct"]:.1f}%</div><div class="stat-label">Moderate</div></div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="stat-box"><div class="stat-number">{
+                        health["moderate_pct"]:.1f}%</div><div class="stat-label">Moderate</div></div>',
+                    unsafe_allow_html=True)
             with col3:
-                st.markdown(f'<div class="stat-box"><div class="stat-number">{health["stressed_pct"]:.1f}%</div><div class="stat-label">Stressed</div></div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="stat-box"><div class="stat-number">{
+                        health["stressed_pct"]:.1f}%</div><div class="stat-label">Stressed</div></div>',
+                    unsafe_allow_html=True)
             with col4:
-                st.markdown(f'<div class="stat-box"><div class="stat-number">{health["health_status"]}</div><div class="stat-label">Status</div></div>', unsafe_allow_html=True)
-        
+                st.markdown(
+                    f'<div class="stat-box"><div class="stat-number">{
+                        health["health_status"]}</div><div class="stat-label">Status</div></div>',
+                    unsafe_allow_html=True)
+
         if "user" in st.session_state and st.session_state.user is not None:
             from app.utils.scan_util import deduct_scans
             deduct_scans(st.session_state.user.id, 2, "Satellite Monitor")
@@ -237,26 +295,45 @@ st.caption("Powered by Darkmoor Ltd")
 st.markdown("---")
 st.markdown("### Quick Navigation")
 cols = st.columns(10)
-with cols[0]: st.page_link("pages/1_Dashboard.py", label="Dashboard")
-with cols[1]: st.page_link("pages/2_Crops.py", label="Crops")
-with cols[2]: st.page_link("pages/3_Pests.py", label="Pests")
-with cols[3]: st.page_link("pages/4_Soil.py", label="Soil")
-with cols[4]: st.page_link("pages/5_Livestock.py", label="Livestock")
-with cols[5]: st.page_link("pages/17_Video_Scan.py", label="Video Scan")
-with cols[6]: st.page_link("pages/19_Satellite.py", label="Satellite")
-with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="Voice AI")
-with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="Buy Scans")
+with cols[0]:
+    st.page_link("pages/1_Dashboard.py", label="Dashboard")
+with cols[1]:
+    st.page_link("pages/2_Crops.py", label="Crops")
+with cols[2]:
+    st.page_link("pages/3_Pests.py", label="Pests")
+with cols[3]:
+    st.page_link("pages/4_Soil.py", label="Soil")
+with cols[4]:
+    st.page_link("pages/5_Livestock.py", label="Livestock")
+with cols[5]:
+    st.page_link("pages/17_Video_Scan.py", label="Video Scan")
+with cols[6]:
+    st.page_link("pages/19_Satellite.py", label="Satellite")
+with cols[7]:
+    st.page_link("pages/18_Voice_Agronomist.py", label="Voice AI")
+with cols[8]:
+    st.page_link("pages/9_Buy_Scans.py", label="Buy Scans")
 # with cols[9]: st.page_link("pages/10_Early_Warning.py", label="Alerts")
 
 st.markdown("### More Features")
 cols2 = st.columns(10)
-with cols2[0]: st.page_link("pages/11_Verify_Farmer.py", label="Verify")
-with cols2[1]: st.page_link("pages/12_Verification_History.py", label="History")
-with cols2[2]: st.page_link("pages/14_Wallet.py", label="Wallet")
-with cols2[3]: st.page_link("pages/15_Badges.py", label="Badges")
-with cols2[4]: st.page_link("pages/16_Chat.py", label="Chat")
-with cols2[5]: st.page_link("pages/20_Marketplace.py", label="Market")
-with cols2[6]: st.page_link("pages/21_Crop_Insurance.py", label="Insurance")
-with cols2[7]: st.page_link("pages/6_Payment_History.py", label="Payments")
-with cols2[8]: st.page_link("pages/8_Profile.py", label="Profile")
-with cols2[9]: st.page_link("pages/13_Help.py", label="Help")
+with cols2[0]:
+    st.page_link("pages/11_Verify_Farmer.py", label="Verify")
+with cols2[1]:
+    st.page_link("pages/12_Verification_History.py", label="History")
+with cols2[2]:
+    st.page_link("pages/14_Wallet.py", label="Wallet")
+with cols2[3]:
+    st.page_link("pages/15_Badges.py", label="Badges")
+with cols2[4]:
+    st.page_link("pages/16_Chat.py", label="Chat")
+with cols2[5]:
+    st.page_link("pages/20_Marketplace.py", label="Market")
+with cols2[6]:
+    st.page_link("pages/21_Crop_Insurance.py", label="Insurance")
+with cols2[7]:
+    st.page_link("pages/6_Payment_History.py", label="Payments")
+with cols2[8]:
+    st.page_link("pages/8_Profile.py", label="Profile")
+with cols2[9]:
+    st.page_link("pages/13_Help.py", label="Help")

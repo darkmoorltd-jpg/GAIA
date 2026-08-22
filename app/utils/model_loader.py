@@ -2,9 +2,13 @@
 import torch
 from timm.models.vision_transformer import VisionTransformer
 
+
 def create_model_from_checkpoint(checkpoint_path, num_classes):
     """Rebuild the exact architecture from a saved state dict."""
-    state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    state_dict = torch.load(
+        checkpoint_path,
+        map_location="cpu",
+        weights_only=False)
 
     # ── Separate backbone and head keys ──
     backbone_state = {}
@@ -72,6 +76,7 @@ def create_model_from_checkpoint(checkpoint_path, num_classes):
             super().__init__()
             self.backbone = backbone
             self.head = head
+
         def forward(self, x):
             return self.head(self.backbone(x))
 

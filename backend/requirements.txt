@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+supabase
+torch
+torchvision
+timm
+pillow
+python-multipart
+pydantic
+python-dotenv
+requests
+numpy

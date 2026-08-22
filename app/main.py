@@ -1,249 +1,256 @@
 
 import streamlit as st
-import datetime
 from supabase import create_client, Client
-import hashlib
 import requests
 import time
 import uuid
 
+# ---------- Secrets ----------
 SUPABASE_URL = st.secrets["supabase"]["url"]
-SUPABASE_ANON_KEY = st.secrets["supabase"]["key"]
+SUPABASE_KEY = st.secrets["supabase"]["key"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
+# ---------- Paystack plans ----------
 PAYSTACK_PLANS = {
-    "starter": {"scans": 150, "price": "₦3,000", "kobo": 300000},
-    "pro": {"scans": 300, "price": "₦5,000", "kobo": 500000},
-    "business": {"scans": 1000, "price": "₦10,000", "kobo": 1000000},
-    "enterprise": {"scans": 5000, "price": "₦20,000", "kobo": 2000000},
+    "starter": 150, "pro": 300, "business": 1000, "enterprise": 5000
 }
 
-def get_anon_client() -> Client:
-    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+# ---------- Nigerian states ----------
+NIGERIAN_STATES = [
+    "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa",
+    "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti",
+    "Enugu", "FCT Abuja", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano",
+    "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger",
+    "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto",
+    "Taraba", "Yobe", "Zamfara"
+]
 
-def get_service_client() -> Client:
+CROPS = [
+    "Maize", "Rice", "Beans", "Tomato", "Pepper", "Cabbage", "Cassava",
+    "Yam", "Potato", "Sorghum", "Millet", "Groundnut", "Soybean",
+    "Wheat", "Cotton", "Cocoa", "Oil Palm", "Other"
+]
+
+BANKS = [
+    "Access Bank", "GTBank", "Zenith Bank", "UBA", "First Bank",
+    "Kuda", "Opay", "Palmpay", "Moniepoint", "Sterling Bank",
+    "Union Bank", "Fidelity Bank", "Wema Bank", "Jaiz Bank", "Other"
+]
+
+@st.cache_resource
+def init_supabase():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+@st.cache_resource
+def init_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
-# ============================================
-# URL TOKEN HELPERS
-# ============================================
-def generate_auth_token():
-    return uuid.uuid4().hex
-
-def save_auth_token(token, user_id, access_token, refresh_token):
-    # Use service client to bypass RLS
-    supabase = get_service_client()
+def sign_up_comprehensive(data: dict):
+    supabase = init_supabase()
+    service = init_service()
     try:
-        res = supabase.table("gaia_auth_tokens").upsert({
-            "token": token,
+        # 1. Create auth user
+        auth_res = supabase.auth.sign_up({
+            "email": data["email"],
+            "password": data["password"]
+        })
+        if not auth_res.user:
+            return None, "Auth signup failed"
+        user_id = auth_res.user.id
+
+        # 2. Create user_profiles row
+        profile_data = {
             "user_id": user_id,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "created_at": datetime.datetime.now().isoformat()
-        }).execute()
-        return True, None
-    except Exception as e:
-        return False, str(e)
+            "first_name": data.get("first_name", ""),
+            "middle_name": data.get("middle_name", ""),
+            "last_name": data.get("last_name", ""),
+            "gender": data.get("gender", ""),
+            "date_of_birth": data.get("dob", None),
+            "marital_status": data.get("marital_status", ""),
+            "phone": data.get("phone", ""),
+            "whatsapp": data.get("whatsapp", data.get("phone", "")),
+            "country": data.get("country", "Nigeria"),
+            "state": data.get("state", ""),
+            "lga": data.get("lga", ""),
+            "city": data.get("city", ""),
+            "street_address": data.get("street", ""),
+            "landmark": data.get("landmark", ""),
+            "postal_code": data.get("postal", ""),
+            "bvn": data.get("bvn", ""),
+            "nin": data.get("nin", ""),
+            "govt_id_type": data.get("id_type", ""),
+            "govt_id_number": data.get("id_number", ""),
+            "farm_state": data.get("farm_state", ""),
+            "farm_lga": data.get("farm_lga", ""),
+            "farm_address": data.get("farm_address", ""),
+            "farm_size_acres": data.get("farm_size", 0.0),
+            "years_experience": data.get("years_exp", 0),
+            "primary_crops": data.get("primary_crop", ""),
+            "farming_type": data.get("farming_type", ""),
+            "account_name": data.get("account_name", ""),
+            "account_number": data.get("account_number", ""),
+            "bank_name": data.get("bank_name", ""),
+            "emergency_contact_name": data.get("emergency_name", ""),
+            "emergency_contact_phone": data.get("emergency_phone", ""),
+            "emergency_relationship": data.get("emergency_rel", ""),
+            "notify_sms": data.get("notify_sms", True),
+            "notify_whatsapp": data.get("notify_whatsapp", True),
+            "notify_weather": data.get("notify_weather", True),
+            "notify_disease": data.get("notify_disease", True),
+            "notify_payment": data.get("notify_payment", True),
+            "preferred_language": data.get("language", "English"),
+            "verification_status": "pending"
+        }
+        try:
+            service.table("user_profiles").insert(profile_data).execute()
+        except:
+            pass
 
-def restore_from_auth_token(token):
-    supabase = get_service_client()
-    try:
-        res = supabase.table("gaia_auth_tokens").select("*").eq("token", token).execute()
-        if res.data:
-            row = res.data[0]
-            supabase = get_anon_client()
-            supabase.auth.set_session(row["access_token"], row["refresh_token"])
-            session = supabase.auth.get_session()
-            if session and session.user:
-                return session.user
-    except:
-        pass
-    return None
+        # 3. Create farmer_registry row
+        farmer_data = {
+            "user_id": user_id,
+            "state": data.get("farm_state", ""),
+            "lga": data.get("farm_lga", ""),
+            "phone": data.get("phone", ""),
+            "crop": data.get("primary_crop", ""),
+            "farm_size_acres": data.get("farm_size", 0.0),
+            "farmer_type": data.get("farming_type", "Smallholder"),
+            "gender": data.get("gender", ""),
+            "youth": data.get("youth", False),
+            "gps_lat": data.get("gps_lat", None),
+            "gps_lon": data.get("gps_lon", None),
+            "unique_farmer_id": f"GAIA-{uuid.uuid4().hex[:8].upper()}"
+        }
+        try:
+            service.table("farmer_registry").insert(farmer_data).execute()
+        except:
+            pass
 
-def delete_auth_token(token):
-    supabase = get_service_client()
-    try:
-        supabase.table("gaia_auth_tokens").delete().eq("token", token).execute()
-    except:
-        pass
+        # 4. Create user_scans row (30 free)
+        try:
+            service.table("user_scans").insert({
+                "user_id": user_id,
+                "scans_remaining": 30,
+                "plan": "free"
+            }).execute()
+        except:
+            pass
 
-# ============================================
-# AUTH FUNCTIONS
-# ============================================
-def sign_up(email, password, first_name="", last_name="", phone="", state=""):
-    supabase = get_anon_client()
-    try:
-        res = supabase.auth.sign_up({"email": email, "password": password})
-        if res.user:
-            try:
-                supabase.table("user_scans").insert({
-                    "user_id": res.user.id,
-                    "scans_remaining": 30,
-                    "plan": "free"
-                }).execute()
-            except:
-                pass
-            if first_name or last_name or phone or state:
-                supabase.table("user_profiles").insert({
-                    "user_id": res.user.id,
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "phone": phone,
-                    "state": state
-                }).execute()
-            if res.session:
-                token = generate_auth_token()
-                ok, err = save_auth_token(token, res.user.id, res.session.access_token, res.session.refresh_token)
-                if ok:
-                    st.query_params["auth_token"] = token
-                    st.session_state.user = res.user
-                else:
-                    st.session_state.user = res.user
-                    st.warning(f"Token not saved: {err}")
-        return res.user, None
+        return auth_res.user, None
     except Exception as e:
         return None, str(e)
 
-def sign_in(email, password):
-    supabase = get_anon_client()
+def sign_in(email: str, password: str):
+    supabase = init_supabase()
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        if res.session:
-            token = generate_auth_token()
-            ok, err = save_auth_token(token, res.user.id, res.session.access_token, res.session.refresh_token)
-            if ok:
-                st.query_params["auth_token"] = token
-                st.session_state.user = res.user
-                return res.user, None
-            else:
-                return None, f"Token save failed: {err}"
+        st.session_state.user = res.user
         return res.user, None
     except Exception as e:
         return None, str(e)
 
 def sign_out():
-    try:
-        get_anon_client().auth.sign_out()
-    except:
-        pass
-    token = st.query_params.get("auth_token")
-    if token:
-        delete_auth_token(token)
-        st.query_params.clear()
+    supabase = init_supabase()
+    supabase.auth.sign_out()
     st.session_state.user = None
 
-def reset_password(email):
-    supabase = get_anon_client()
+def reset_password(email: str):
+    supabase = init_supabase()
     try:
         supabase.auth.reset_password_for_email(email)
         return None
     except Exception as e:
         return str(e)
 
-def get_user_scans(user_id):
-    supabase = get_service_client()
+def get_user_scans(user_id: str):
+    service = init_service()
     try:
-        res = supabase.table("user_scans").select("*").eq("user_id", user_id).execute()
+        res = service.table("user_scans").select("*").eq("user_id", user_id).execute()
         if res.data:
             return res.data[0]
     except:
         pass
-    try:
-        supabase.table("user_scans").insert({
-            "user_id": user_id,
-            "scans_remaining": 30,
-            "plan": "free"
-        }).execute()
-    except:
-        pass
     return {"scans_remaining": 30, "plan": "free"}
 
-def verify_paystack_transaction(reference):
+def verify_paystack_transaction(reference: str):
     url = f"https://api.paystack.co/transaction/verify/{reference}"
     headers = {"Authorization": f"Bearer {PAYSTACK_SECRET}"}
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=headers, timeout=10)
     if r.status_code == 200:
         data = r.json()
         if data["data"]["status"] == "success":
             return data["data"]
     return None
 
+# ---------- Streamlit page ----------
 st.set_page_config(page_title="GAIA", page_icon="🌱", layout="wide")
 
 if "user" not in st.session_state:
     st.session_state.user = None
+if "signup_step" not in st.session_state:
+    st.session_state.signup_step = 1
 
+# ----- Google OAuth callback -----
 query_params = st.query_params
-
-# Google OAuth callback
 auth_code = query_params.get("code", [None])[0]
 if auth_code and st.session_state.user is None:
-    supabase = get_anon_client()
+    supabase = init_supabase()
     try:
         supabase.auth.exchange_code_for_session({"auth_code": auth_code})
-        session = supabase.auth.get_session()
-        if session and session.user:
-            token = generate_auth_token()
-            save_auth_token(token, session.user.id, session.access_token, session.refresh_token)
-            st.query_params["auth_token"] = token
-            st.session_state.user = session.user
         st.rerun()
-    except Exception as e:
-        st.error(f"Google sign-in failed: {e}")
+    except:
+        pass
 
-# Paystack callback
+# ----- Paystack callback -----
 reference = query_params.get("reference", [None])[0]
 plan = query_params.get("plan", [None])[0]
-if reference and plan and plan in PAYSTACK_PLANS:
+if reference and plan:
     txn = verify_paystack_transaction(reference)
-    if txn:
-        user_id = st.session_state.user.id if st.session_state.user else None
-        if user_id:
-            supabase = get_service_client()
-            scans_to_add = PAYSTACK_PLANS[plan]["scans"]
-            supabase.table("user_scans").update({
-                "scans_remaining": scans_to_add,
-                "plan": plan
-            }).eq("user_id", user_id).execute()
-            try:
-                supabase.table("payment_history").insert({
-                    "user_id": user_id,
-                    "amount": txn["amount"] / 100,
-                    "scans_added": scans_to_add,
-                    "plan": plan,
-                    "reference": reference
-                }).execute()
-            except:
-                pass
-            st.success(f"Payment successful! {scans_to_add} scans added.")
-            st.query_params.clear()
-            st.rerun()
+    if txn and st.session_state.user:
+        user_id = st.session_state.user.id
+        scans_to_add = PAYSTACK_PLANS.get(plan, 0)
+        service = init_service()
+        current = service.table("user_scans").select("scans_remaining").eq("user_id", user_id).execute()
+        cur = current.data[0]["scans_remaining"] if current.data else 30
+        new_total = cur + scans_to_add
+        service.table("user_scans").update({"scans_remaining": new_total, "plan": plan}).eq("user_id", user_id).execute()
+        service.table("payment_history").insert({
+            "user_id": user_id, "amount": txn["amount"]/100,
+            "scans_added": scans_to_add, "plan": plan, "reference": reference
+        }).execute()
+        st.success(f"Payment successful! {scans_to_add} scans added.")
+        st.query_params.clear()
+        st.rerun()
 
-# Restore from URL token on refresh
+# ----- Restore session -----
 if st.session_state.user is None:
-    token = query_params.get("auth_token", [None])[0]
-    if token:
-        restored_user = restore_from_auth_token(token)
-        if restored_user:
-            st.session_state.user = restored_user
-            st.rerun()
+    supabase = init_supabase()
+    try:
+        session = supabase.auth.get_session()
+        if session and session.user:
+            st.session_state.user = session.user
+    except:
+        pass
 
+# ----- Authentication UI -----
 if st.session_state.user is None:
-    st.title("🌱 GAIA – Sign In / Create Account")
-    tab1, tab2, tab3 = st.tabs(["🔐 Login", "📝 Sign Up", "🅶 Google"])
-    with tab1:
+    st.title("🌱 GAIA – Create Account")
+
+    tab_login, tab_signup = st.tabs(["🔐 Login", "📝 Sign Up"])
+
+    with tab_login:
         with st.form("login_form"):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
             col1, col2 = st.columns(2)
             with col1:
                 if st.form_submit_button("Login"):
-                    user, error = sign_in(email, password)
-                    if error:
-                        st.error(f"Login failed: {error}")
+                    user, err = sign_in(email, password)
+                    if err:
+                        st.error(f"Login failed: {err}")
                     else:
-                        st.success("Logged in!")
+                        st.session_state.user = user
                         st.rerun()
             with col2:
                 if st.form_submit_button("Forgot Password?"):
@@ -252,52 +259,152 @@ if st.session_state.user is None:
                         if err:
                             st.error(err)
                         else:
-                            st.success("Password reset email sent.")
-    with tab2:
-        with st.form("signup_form"):
-            new_email = st.text_input("Email")
-            new_password = st.text_input("Password (min 6 characters)", type="password")
-            if st.form_submit_button("Create Account"):
-                if len(new_password) < 6:
-                    st.error("Password must be at least 6 characters.")
-                else:
-                    user, error = sign_up(new_email, new_password)
-                    if error:
-                        st.error(f"Sign up failed: {error}")
+                            st.success("Reset email sent.")
+
+    with tab_signup:
+        # Multi-step signup
+        step = st.session_state.signup_step
+
+        if step == 1:
+            st.subheader("Step 1 of 3: Account & Personal")
+            with st.form("step1_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    first_name = st.text_input("First Name *")
+                    middle_name = st.text_input("Middle Name")
+                    gender = st.selectbox("Gender", ["", "Male", "Female", "Other"])
+                with col2:
+                    last_name = st.text_input("Last Name *")
+                    date_of_birth = st.date_input("Date of Birth", value=None)
+                    marital_status = st.selectbox("Marital Status", ["", "Single", "Married", "Divorced", "Widowed"])
+                email = st.text_input("Email *")
+                password = st.text_input("Password *", type="password", min_chars=6)
+                confirm = st.text_input("Confirm Password *", type="password")
+                phone = st.text_input("Phone Number *")
+                whatsapp = st.text_input("WhatsApp Number")
+                if st.form_submit_button("Next →"):
+                    if not first_name or not last_name or not email or not password or not phone:
+                        st.error("Please fill required fields.")
+                    elif password != confirm:
+                        st.error("Passwords do not match.")
+                    elif len(password) < 6:
+                        st.error("Password must be at least 6 characters.")
                     else:
-                        st.success("Account created! 30 free scans added.")
+                        st.session_state.step1_data = {
+                            "first_name": first_name, "middle_name": middle_name,
+                            "last_name": last_name, "gender": gender,
+                            "date_of_birth": str(date_of_birth) if date_of_birth else None,
+                            "marital_status": marital_status, "email": email,
+                            "password": password, "phone": phone, "whatsapp": whatsapp or phone
+                        }
+                        st.session_state.signup_step = 2
                         st.rerun()
-    with tab3:
-        st.write("Sign in instantly with Google.")
-        google_auth_url = "https://pxvtvuwlpzwlkdoxjrep.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://gaiagpt.streamlit.app"
-        st.markdown(f'<a href="{google_auth_url}" target="_blank"><button style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:5px;">Sign in with Google</button></a>', unsafe_allow_html=True)
+
+        elif step == 2:
+            st.subheader("Step 2 of 3: Farm Information")
+            with st.form("step2_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    country = st.text_input("Country", value="Nigeria")
+                    state = st.selectbox("Residential State", [""] + NIGERIAN_STATES)
+                    lga = st.text_input("LGA")
+                with col2:
+                    city = st.text_input("City/Town")
+                    street = st.text_input("Street Address")
+                    landmark = st.text_input("Landmark")
+                farm_state = st.selectbox("Farm State", [""] + NIGERIAN_STATES)
+                farm_lga = st.text_input("Farm LGA")
+                farm_size = st.number_input("Farm Size (acres)", min_value=0.0, value=1.0)
+                primary_crop = st.selectbox("Primary Crop", [""] + CROPS)
+                farming_type = st.selectbox("Farming Type", ["", "Smallholder (< 1 acre)", "Medium (1-10 acres)", "Commercial (10-50 acres)", "Industrial (50+ acres)"])
+                years_exp = st.number_input("Years of Experience", min_value=0, value=0)
+                gps_lat = st.number_input("GPS Latitude (optional)", value=0.0)
+                gps_lon = st.number_input("GPS Longitude (optional)", value=0.0)
+                if st.form_submit_button("Next →"):
+                    st.session_state.step2_data = {
+                        "country": country, "state": state, "lga": lga,
+                        "city": city, "street": street, "landmark": landmark,
+                        "farm_state": farm_state, "farm_lga": farm_lga,
+                        "farm_size": farm_size, "primary_crop": primary_crop,
+                        "farming_type": farming_type, "years_exp": years_exp,
+                        "gps_lat": gps_lat if gps_lat != 0 else None,
+                        "gps_lon": gps_lon if gps_lon != 0 else None
+                    }
+                    st.session_state.signup_step = 3
+                    st.rerun()
+
+        elif step == 3:
+            st.subheader("Step 3 of 3: KYC & Bank (Optional)")
+            with st.form("step3_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    bvn = st.text_input("BVN (11 digits)", max_chars=11)
+                    nin = st.text_input("NIN (11 digits)", max_chars=11)
+                    govt_id_type = st.selectbox("Government ID Type", ["", "National ID Card", "Driver's License", "International Passport", "Voter's Card (PVC)", "NIN Slip"])
+                with col2:
+                    govt_id_number = st.text_input("ID Number")
+                    account_name = st.text_input("Account Name")
+                    bank_name = st.selectbox("Bank", [""] + BANKS)
+                    account_number = st.text_input("Account Number", max_chars=10)
+                emergency_name = st.text_input("Emergency Contact Name")
+                emergency_phone = st.text_input("Emergency Contact Phone")
+                emergency_rel = st.text_input("Relationship")
+                notify_sms = st.checkbox("SMS Notifications", value=True)
+                notify_whatsapp = st.checkbox("WhatsApp Notifications", value=True)
+                notify_weather = st.checkbox("Weather Alerts", value=True)
+                notify_disease = st.checkbox("Disease Alerts", value=True)
+                notify_payment = st.checkbox("Payment Alerts", value=True)
+                language = st.selectbox("Preferred Language", ["English", "Hausa", "Yoruba", "Igbo", "Pidgin English"])
+                if st.form_submit_button("Create Account 🚀"):
+                    final_data = {**st.session_state.step1_data, **st.session_state.step2_data, **{
+                        "bvn": bvn, "nin": nin, "id_type": govt_id_type,
+                        "id_number": govt_id_number, "account_name": account_name,
+                        "bank_name": bank_name, "account_number": account_number,
+                        "emergency_name": emergency_name,
+                        "emergency_phone": emergency_phone,
+                        "emergency_rel": emergency_rel,
+                        "notify_sms": notify_sms,
+                        "notify_whatsapp": notify_whatsapp,
+                        "notify_weather": notify_weather,
+                        "notify_disease": notify_disease,
+                        "notify_payment": notify_payment,
+                        "language": language
+                    }}
+                    user, err = sign_up_comprehensive(final_data)
+                    if err:
+                        st.error(f"Signup failed: {err}")
+                    else:
+                        st.session_state.user = user
+                        st.success("Account created successfully! 30 free scans added.")
+                        st.rerun()
+
     st.stop()
 
-user = st.session_state.user
-user_id = user.id
+# ---------- Logged-in area ----------
+user_id = st.session_state.user.id
 user_data = get_user_scans(user_id)
 scans_left = user_data["scans_remaining"]
 plan_name = user_data["plan"]
 
-st.sidebar.write(f"👤 {user.email}")
+st.sidebar.write(f"👤 {st.session_state.user.email}")
 st.sidebar.metric("Scans Remaining", scans_left)
 st.sidebar.write(f"Plan: {plan_name}")
 
 if scans_left <= 0:
-    st.warning("No scans left. Choose a plan.")
+    st.warning("You have no scans left. Choose a plan to continue.")
     st.markdown("### Choose a Plan")
     cols = st.columns(len(PAYSTACK_PLANS))
-    for i, (key, p) in enumerate(PAYSTACK_PLANS.items()):
+    for i, (plan_key, scans) in enumerate(PAYSTACK_PLANS.items()):
         with cols[i]:
-            scans_txt = "Unlimited" if key == "unlimited" else f"{p['scans']} scans"
-            st.markdown(f"**{scans_txt}**")
-            st.markdown(f'<a href="{p["url"]}" target="_blank"><button style="width:100%;padding:10px;background:#0d6efd;color:#fff;border:none;border-radius:5px;">Select</button></a>', unsafe_allow_html=True)
+            st.markdown(f"**{scans} scans**")
+            st.markdown(f'<a href="https://paystack.com/pay/gaia_{plan_key}" target="_blank"><button style="width:100%;padding:10px;background:#0d6efd;color:white;border:none;border-radius:5px;">Select</button></a>', unsafe_allow_html=True)
     st.stop()
 
 if st.sidebar.button("Logout"):
     sign_out()
     st.rerun()
 
+# ---------- Main navigation ----------
 dashboard_page = st.Page("pages/1_Dashboard.py", title="Dashboard", icon="🏠")
 crops_page = st.Page("pages/2_Crops.py", title="Crop Disease", icon="🌿")
 pests_page = st.Page("pages/3_Pests.py", title="Pest Detection", icon="🐛")
@@ -306,7 +413,6 @@ livestock_page = st.Page("pages/5_Livestock.py", title="Livestock Health", icon=
 video_page = st.Page("pages/17_Video_Scan.py", title="Video Scanner", icon="🎥")
 satellite_page = st.Page("pages/19_Satellite.py", title="Satellite Monitor", icon="🛰️")
 voice_page = st.Page("pages/18_Voice_Agronomist.py", title="Voice Agronomist", icon="🎙️")
-early_warning_page = st.Page("pages/10_Early_Warning.py", title="Early Warning", icon="🛰️")
 buy_scans_page = st.Page("pages/9_Buy_Scans.py", title="Buy Scans", icon="💳")
 payment_history_page = st.Page("pages/6_Payment_History.py", title="Payment History", icon="💳")
 admin_page = st.Page("pages/7_Admin.py", title="Admin Dashboard", icon="🔐")
@@ -319,23 +425,18 @@ verify_history_page = st.Page("pages/12_Verification_History.py", title="Verific
 wallet_page = st.Page("pages/14_Wallet.py", title="Digital Wallet", icon="💰")
 badges_page = st.Page("pages/15_Badges.py", title="Badges", icon="🏅")
 insurance_page = st.Page("pages/21_Crop_Insurance.py", title="Crop Insurance", icon="🏦")
-university_page = st.Page("pages/22_University.py", title="University", icon="🎓")
-farming_calendar_page = st.Page("pages/23_Farming_Calendar.py", title="Farming Calendar", icon="📅")
-
+university_page = st.Page("pages/22_University.py", title="GAIA University", icon="🎓")
+calendar_page = st.Page("pages/23_Farming_Calendar.py", title="Farming Calendar", icon="📅")
 farmer_db_page = st.Page("pages/25_Farmer_Database.py", title="Farmer Database", icon="🌍")
 loan_page = st.Page("pages/26_Loan_Management.py", title="Loan Management", icon="🏦")
-extension_page = st.Page("pages/27_Extension_Dashboard.py", title="Extension", icon="🧑‍🌾")
-
-gaia_meet_page = st.Page("pages/23_GAIA_Meet.py", title="GAIA Meet", icon="🎥")
+extension_page = st.Page("pages/27_Extension_Dashboard.py", title="Extension Dashboard", icon="🧑‍🌾")
 
 pg = st.navigation({
-    "GAIA": [dashboard_page, farming_calendar_page, gaia_meet_page],
+    "GAIA": [dashboard_page],
     "Diagnose": [crops_page, pests_page, soil_page, livestock_page, video_page, satellite_page, voice_page],
-    "Account": [profile_page, buy_scans_page, payment_history_page, badges_page, wallet_page],
-    "Community": [chat_page, marketplace_page],
-    "Protection": [insurance_page, early_warning_page],
-    "Support": [help_page, verify_farmer_page, verify_history_page],
-    "Admin": [admin_page, farmer_db_page, loan_page, extension_page],
-    "Education": [university_page],
+    "Services": [buy_scans_page, wallet_page, badges_page, insurance_page, loan_page, university_page, calendar_page],
+    "Community": [chat_page, marketplace_page, farmer_db_page],
+    "Account": [profile_page, payment_history_page, verify_farmer_page, verify_history_page, help_page],
+    "Admin": [admin_page, extension_page],
 })
 pg.run()

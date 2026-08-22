@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: gaia-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SERVICE_KEY
+        sync: false
+      - key: PAYSTACK_SECRET
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SENTINEL_CLIENT_ID
+        sync: false
+      - key: SENTINEL_CLIENT_SECRET
+        sync: false
+      - key: TERMII_API_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+    healthCheckPath: /health

@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SERVICE_KEY=${SERVICE_KEY}
+      - PAYSTACK_SECRET=${PAYSTACK_SECRET}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - SENTINEL_CLIENT_ID=${SENTINEL_CLIENT_ID}
+      - SENTINEL_CLIENT_SECRET=${SENTINEL_CLIENT_SECRET}
+      - TERMII_API_KEY=${TERMII_API_KEY}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: celery -A services.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SERVICE_KEY=${SERVICE_KEY}
+      - PAYSTACK_SECRET=${PAYSTACK_SECRET}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - SENTINEL_CLIENT_ID=${SENTINEL_CLIENT_ID}
+      - SENTINEL_CLIENT_SECRET=${SENTINEL_CLIENT_SECRET}
+      - TERMII_API_KEY=${TERMII_API_KEY}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      - redis
+      - backend
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

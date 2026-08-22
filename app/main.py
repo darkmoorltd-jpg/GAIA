@@ -153,6 +153,8 @@ def check_identifier_conflicts(data: dict):
 def sign_up_comprehensive(data: dict):
     supabase = init_supabase()
     service = init_service()
+    # Ensure service role is used for all inserts
+    supabase = service
 
     # Pre-check uniqueness
     conflict = check_identifier_conflicts(data)

@@ -638,6 +638,7 @@ with tab6:
                     '')}".strip() or user_email
 
             with st.expander(f"{status_emoji} {ticket.get('subject', '')} — {user_email}"):
+                pass
     pass
                 # User details
                 st.markdown("#### 👤 User Information")

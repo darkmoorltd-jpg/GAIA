@@ -3,6 +3,7 @@ import streamlit as st
 from supabase import create_client, Client
 import requests
 import time
+import datetime
 import uuid
 
 # ---------- Secrets ----------
@@ -275,7 +276,12 @@ if st.session_state.user is None:
                     gender = st.selectbox("Gender", ["", "Male", "Female", "Other"])
                 with col2:
                     last_name = st.text_input("Last Name *")
-                    date_of_birth = st.date_input("Date of Birth", value=None)
+                    date_of_birth = st.date_input(
+        "Date of Birth",
+        value=datetime.date.today() - datetime.timedelta(days=70*365),
+        min_value=datetime.date.today() - datetime.timedelta(days=100*365),
+        max_value=datetime.date.today() - datetime.timedelta(days=10*365)
+    )
                     marital_status = st.selectbox("Marital Status", ["", "Single", "Married", "Divorced", "Widowed"])
                 email = st.text_input("Email *")
                 password = st.text_input("Password *", type="password")

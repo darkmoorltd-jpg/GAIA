@@ -1,4 +1,3 @@
-
 from PIL import Image, ImageDraw
 from supabase import create_client, Client
 import streamlit as st
@@ -12,7 +11,7 @@ import calendar as calendar_lib
 from geopy.geocoders import Nominatim
 import pandas as pd
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 
 
 # ---------- Config ----------
@@ -51,7 +50,7 @@ def fetch_climate_data(lat, lon, start_date, end_date):
         "end_date": end_date,
         "daily": ["temperature_2m_mean", "precipitation_sum"],
         "models": "EC_Earth3P_HR",
-        "timezone": "auto"
+        "timezone": "auto",
     }
     try:
         r = requests.get(url, params=params, timeout=30)
@@ -61,11 +60,7 @@ def fetch_climate_data(lat, lon, start_date, end_date):
             dates = daily.get("time", [])
             temps = daily.get("temperature_2m_mean", [])
             precips = daily.get("precipitation_sum", [])
-            return {
-                "dates": dates,
-                "temps": temps,
-                "precips": precips
-            }
+            return {"dates": dates, "temps": temps, "precips": precips}
     except BaseException:
         pass
     return None
@@ -92,8 +87,7 @@ def build_climate_summary(climate_data):
     for month, values in monthly.items():
         avg_temp = sum(values["temps"]) / len(values["temps"])
         total_precip = sum(values["precips"])
-        summary.append(
-            f"{month}: avg {
+        summary.append(f"{month}: avg {
                 avg_temp:.1f}°C, {
                 total_precip:.1f} mm rain")
     return "\n".join(summary)
@@ -112,24 +106,28 @@ CROP_GROUPS = {
             "Barley",
             "Oats",
             "Fonio",
-            "Teff"],
-        "color": "#ffb300"},
+            "Teff",
+        ],
+        "color": "#ffb300",
+    },
     "🥬 Vegetables": {
         "icon": "🥬",
-                "crops": [
-                    "Tomato",
-                    "Pepper",
-                    "Cabbage",
-                    "Lettuce",
-                    "Spinach",
-                    "Onion",
-                    "Carrot",
-                    "Cucumber",
-                    "Okra",
-                    "Amaranth",
-                    "Broccoli",
-                    "Cauliflower"],
-        "color": "#4caf50"},
+        "crops": [
+            "Tomato",
+            "Pepper",
+            "Cabbage",
+            "Lettuce",
+            "Spinach",
+            "Onion",
+            "Carrot",
+            "Cucumber",
+            "Okra",
+            "Amaranth",
+            "Broccoli",
+            "Cauliflower",
+        ],
+        "color": "#4caf50",
+    },
     "🍉 Fruits": {
         "icon": "🍉",
         "crops": [
@@ -142,8 +140,10 @@ CROP_GROUPS = {
             "Orange",
             "Grape",
             "Apple",
-            "Avocado"],
-        "color": "#e91e63"},
+            "Avocado",
+        ],
+        "color": "#e91e63",
+    },
     "🫘 Legumes": {
         "icon": "🫘",
         "crops": [
@@ -153,8 +153,10 @@ CROP_GROUPS = {
             "Groundnut",
             "Pigeon Pea",
             "Chickpea",
-            "Lentil"],
-        "color": "#795548"},
+            "Lentil",
+        ],
+        "color": "#795548",
+    },
     "🥔 Roots & Tubers": {
         "icon": "🥔",
         "crops": [
@@ -164,8 +166,10 @@ CROP_GROUPS = {
             "Sweet Potato",
             "Cocoyam",
             "Ginger",
-            "Turmeric"],
-        "color": "#ff9800"},
+            "Turmeric",
+        ],
+        "color": "#ff9800",
+    },
     "🌻 Oil Crops": {
         "icon": "🌻",
         "crops": [
@@ -174,17 +178,15 @@ CROP_GROUPS = {
             "Oil Palm",
             "Coconut",
             "Castor Bean",
-            "Safflower"],
-        "color": "#fdd835"},
+            "Safflower",
+        ],
+        "color": "#fdd835",
+    },
     "🧵 Fiber Crops": {
         "icon": "🧵",
-        "crops": [
-            "Cotton",
-            "Jute",
-            "Kenaf",
-            "Sisal",
-            "Hemp"],
-        "color": "#9e9e9e"},
+        "crops": ["Cotton", "Jute", "Kenaf", "Sisal", "Hemp"],
+        "color": "#9e9e9e",
+    },
     "🌿 Spices & Herbs": {
         "icon": "🌿",
         "crops": [
@@ -194,78 +196,206 @@ CROP_GROUPS = {
             "Rosemary",
             "Coriander",
             "Parsley",
-            "Lemongrass"],
-        "color": "#689f38"},
+            "Lemongrass",
+        ],
+        "color": "#689f38",
+    },
 }
 
 # ---------- Fallback templates ----------
 FALLBACK_TEMPLATES = {
     "Maize": [
+        {"week": 0, "activity": "Land preparation: plough and harrow", "type": "land"},
         {
-            "week": 0, "activity": "Land preparation: plough and harrow", "type": "land"}, {
-                "week": 0, "activity": "Apply basal NPK 15:15:15 at 200 kg/ha", "type": "fertilizer"}, {
-                    "week": 0, "activity": "Plant seeds 25 cm apart, 2 seeds per hole", "type": "planting"}, {
-                        "week": 2, "activity": "First weeding", "type": "weed"}, {
-                            "week": 3, "activity": "Thin to 1 plant per stand", "type": "crop"}, {
-                                "week": 4, "activity": "Apply Urea top-dressing at 100 kg/ha", "type": "fertilizer"}, {
-                                    "week": 5, "activity": "Scout for fall armyworm and stem borers", "type": "pest"}, {
-                                        "week": 6, "activity": "Spray Emamectin benzoate if pest pressure high", "type": "pest"}, {
-                                            "week": 8, "activity": "Second weeding", "type": "weed"}, {
-                                                "week": 9, "activity": "Apply Urea second top-dress at 50 kg/ha", "type": "fertilizer"}, {
-                                                    "week": 12, "activity": "Monitor for Northern Leaf Blight and rust", "type": "disease"}, {
-                                                        "week": 14, "activity": "Harvest when husks dry and kernels hard", "type": "harvest"}, {
-                                                            "week": 14, "activity": "Dry maize to 13% moisture and store", "type": "postharvest"}], "Rice": [
-                                                                {
-                                                                    "week": 0, "activity": "Prepare nursery and sow seeds", "type": "planting"}, {
-                                                                        "week": 2, "activity": "Flood field and puddle", "type": "land"}, {
-                                                                            "week": 3, "activity": "Transplant seedlings 20 cm apart", "type": "planting"}, {
-                                                                                "week": 4, "activity": "Apply NPK 15:15:15 at 200 kg/ha", "type": "fertilizer"}, {
-                                                                                    "week": 6, "activity": "Apply Urea 50 kg/ha", "type": "fertilizer"}, {
-                                                                                        "week": 8, "activity": "Scout for rice blast and brown spot", "type": "disease"}, {
-                                                                                            "week": 9, "activity": "Spray Propiconazole if blast symptoms appear", "type": "disease"}, {
-                                                                                                "week": 12, "activity": "Drain field before harvest", "type": "land"}, {
-                                                                                                    "week": 14, "activity": "Harvest when 80% of grains are golden", "type": "harvest"}, {
-                                                                                                        "week": 14, "activity": "Thresh and dry to 14% moisture", "type": "postharvest"}], "Beans": [
-                                                                                                            {
-                                                                                                                "week": 0, "activity": "Prepare land and make ridges 60 cm apart", "type": "land"}, {
-                                                                                                                    "week": 0, "activity": "Plant seeds 10 cm apart, 2 seeds per hole", "type": "planting"}, {
-                                                                                                                        "week": 2, "activity": "First weeding", "type": "weed"}, {
-                                                                                                                            "week": 3, "activity": "Apply NPK 15:15:15 at 100 kg/ha", "type": "fertilizer"}, {
-                                                                                                                                "week": 4, "activity": "Scout for aphids and leaf spot", "type": "pest"}, {
-                                                                                                                                    "week": 5, "activity": "Spray neem oil if aphids present", "type": "pest"}, {
-                                                                                                                                        "week": 6, "activity": "Second weeding", "type": "weed"}, {
-                                                                                                                                            "week": 8, "activity": "Monitor for angular leaf spot", "type": "disease"}, {
-                                                                                                                                                "week": 10, "activity": "Harvest when pods turn yellow and dry", "type": "harvest"}, {
-                                                                                                                                                    "week": 10, "activity": "Thresh and store in cool, dry place", "type": "postharvest"}], "Tomato": [
-                                                                                                                                                        {
-                                                                                                                                                            "week": 0, "activity": "Prepare nursery and sow tomato seeds", "type": "planting"}, {
-                                                                                                                                                                "week": 3, "activity": "Transplant seedlings to field", "type": "planting"}, {
-                                                                                                                                                                    "week": 4, "activity": "Apply NPK 15:15:15 at 200 kg/ha", "type": "fertilizer"}, {
-                                                                                                                                                                        "week": 5, "activity": "Stake plants", "type": "crop"}, {
-                                                                                                                                                                            "week": 6, "activity": "Scout for early blight and spider mites", "type": "pest"}, {
-                                                                                                                                                                                "week": 7, "activity": "Spray Mancozeb if blight appears", "type": "disease"}, {
-                                                                                                                                                                                    "week": 9, "activity": "Top-dress with Calcium nitrate 100 kg/ha", "type": "fertilizer"}, {
-                                                                                                                                                                                        "week": 12, "activity": "Harvest ripe fruits", "type": "harvest"}, {
-                                                                                                                                                                                            "week": 12, "activity": "Sort and pack for market", "type": "postharvest"}], "Pepper": [
-                                                                                                                                                                                                {
-                                                                                                                                                                                                    "week": 0, "activity": "Prepare nursery and sow pepper seeds", "type": "planting"}, {
-                                                                                                                                                                                                        "week": 4, "activity": "Transplant seedlings", "type": "planting"}, {
-                                                                                                                                                                                                            "week": 5, "activity": "Apply NPK 15:15:15 at 200 kg/ha", "type": "fertilizer"}, {
-                                                                                                                                                                                                                "week": 6, "activity": "Mulch to conserve moisture", "type": "crop"}, {
-                                                                                                                                                                                                                    "week": 8, "activity": "Scout for aphids and bacterial spot", "type": "pest"}, {
-                                                                                                                                                                                                                        "week": 9, "activity": "Spray copper-based fungicide if bacterial spot", "type": "disease"}, {
-                                                                                                                                                                                                                            "week": 14, "activity": "Harvest peppers when firm and colorful", "type": "harvest"}, {
-                                                                                                                                                                                                                                "week": 14, "activity": "Sort and pack", "type": "postharvest"}], "Cabbage": [
-                                                                                                                                                                                                                                    {
-                                                                                                                                                                                                                                        "week": 0, "activity": "Prepare nursery beds and sow seeds", "type": "planting"}, {
-                                                                                                                                                                                                                                            "week": 4, "activity": "Transplant seedlings", "type": "planting"}, {
-                                                                                                                                                                                                                                                "week": 5, "activity": "Apply NPK 15:15:15 at 200 kg/ha", "type": "fertilizer"}, {
-                                                                                                                                                                                                                                                    "week": 6, "activity": "Irrigate regularly", "type": "water"}, {
-                                                                                                                                                                                                                                                        "week": 8, "activity": "Scout for diamondback moth and aphids", "type": "pest"}, {
-                                                                                                                                                                                                                                                            "week": 9, "activity": "Spray Bt or neem oil for pests", "type": "pest"}, {
-                                                                                                                                                                                                                                                                "week": 12, "activity": "Monitor for black rot", "type": "disease"}, {
-                                                                                                                                                                                                                                                                    "week": 16, "activity": "Harvest heads when firm", "type": "harvest"}, {
-                                                                                                                                                                                                                                                                        "week": 16, "activity": "Store in cool place", "type": "postharvest"}], }
+            "week": 0,
+            "activity": "Apply basal NPK 15:15:15 at 200 kg/ha",
+            "type": "fertilizer",
+        },
+        {
+            "week": 0,
+            "activity": "Plant seeds 25 cm apart, 2 seeds per hole",
+            "type": "planting",
+        },
+        {"week": 2, "activity": "First weeding", "type": "weed"},
+        {"week": 3, "activity": "Thin to 1 plant per stand", "type": "crop"},
+        {
+            "week": 4,
+            "activity": "Apply Urea top-dressing at 100 kg/ha",
+            "type": "fertilizer",
+        },
+        {
+            "week": 5,
+            "activity": "Scout for fall armyworm and stem borers",
+            "type": "pest",
+        },
+        {
+            "week": 6,
+            "activity": "Spray Emamectin benzoate if pest pressure high",
+            "type": "pest",
+        },
+        {"week": 8, "activity": "Second weeding", "type": "weed"},
+        {
+            "week": 9,
+            "activity": "Apply Urea second top-dress at 50 kg/ha",
+            "type": "fertilizer",
+        },
+        {
+            "week": 12,
+            "activity": "Monitor for Northern Leaf Blight and rust",
+            "type": "disease",
+        },
+        {
+            "week": 14,
+            "activity": "Harvest when husks dry and kernels hard",
+            "type": "harvest",
+        },
+        {
+            "week": 14,
+            "activity": "Dry maize to 13% moisture and store",
+            "type": "postharvest",
+        },
+    ],
+    "Rice": [
+        {"week": 0, "activity": "Prepare nursery and sow seeds", "type": "planting"},
+        {"week": 2, "activity": "Flood field and puddle", "type": "land"},
+        {"week": 3, "activity": "Transplant seedlings 20 cm apart", "type": "planting"},
+        {
+            "week": 4,
+            "activity": "Apply NPK 15:15:15 at 200 kg/ha",
+            "type": "fertilizer",
+        },
+        {"week": 6, "activity": "Apply Urea 50 kg/ha", "type": "fertilizer"},
+        {
+            "week": 8,
+            "activity": "Scout for rice blast and brown spot",
+            "type": "disease",
+        },
+        {
+            "week": 9,
+            "activity": "Spray Propiconazole if blast symptoms appear",
+            "type": "disease",
+        },
+        {"week": 12, "activity": "Drain field before harvest", "type": "land"},
+        {
+            "week": 14,
+            "activity": "Harvest when 80% of grains are golden",
+            "type": "harvest",
+        },
+        {
+            "week": 14,
+            "activity": "Thresh and dry to 14% moisture",
+            "type": "postharvest",
+        },
+    ],
+    "Beans": [
+        {
+            "week": 0,
+            "activity": "Prepare land and make ridges 60 cm apart",
+            "type": "land",
+        },
+        {
+            "week": 0,
+            "activity": "Plant seeds 10 cm apart, 2 seeds per hole",
+            "type": "planting",
+        },
+        {"week": 2, "activity": "First weeding", "type": "weed"},
+        {
+            "week": 3,
+            "activity": "Apply NPK 15:15:15 at 100 kg/ha",
+            "type": "fertilizer",
+        },
+        {"week": 4, "activity": "Scout for aphids and leaf spot", "type": "pest"},
+        {"week": 5, "activity": "Spray neem oil if aphids present", "type": "pest"},
+        {"week": 6, "activity": "Second weeding", "type": "weed"},
+        {"week": 8, "activity": "Monitor for angular leaf spot", "type": "disease"},
+        {
+            "week": 10,
+            "activity": "Harvest when pods turn yellow and dry",
+            "type": "harvest",
+        },
+        {
+            "week": 10,
+            "activity": "Thresh and store in cool, dry place",
+            "type": "postharvest",
+        },
+    ],
+    "Tomato": [
+        {
+            "week": 0,
+            "activity": "Prepare nursery and sow tomato seeds",
+            "type": "planting",
+        },
+        {"week": 3, "activity": "Transplant seedlings to field", "type": "planting"},
+        {
+            "week": 4,
+            "activity": "Apply NPK 15:15:15 at 200 kg/ha",
+            "type": "fertilizer",
+        },
+        {"week": 5, "activity": "Stake plants", "type": "crop"},
+        {
+            "week": 6,
+            "activity": "Scout for early blight and spider mites",
+            "type": "pest",
+        },
+        {"week": 7, "activity": "Spray Mancozeb if blight appears", "type": "disease"},
+        {
+            "week": 9,
+            "activity": "Top-dress with Calcium nitrate 100 kg/ha",
+            "type": "fertilizer",
+        },
+        {"week": 12, "activity": "Harvest ripe fruits", "type": "harvest"},
+        {"week": 12, "activity": "Sort and pack for market", "type": "postharvest"},
+    ],
+    "Pepper": [
+        {
+            "week": 0,
+            "activity": "Prepare nursery and sow pepper seeds",
+            "type": "planting",
+        },
+        {"week": 4, "activity": "Transplant seedlings", "type": "planting"},
+        {
+            "week": 5,
+            "activity": "Apply NPK 15:15:15 at 200 kg/ha",
+            "type": "fertilizer",
+        },
+        {"week": 6, "activity": "Mulch to conserve moisture", "type": "crop"},
+        {"week": 8, "activity": "Scout for aphids and bacterial spot", "type": "pest"},
+        {
+            "week": 9,
+            "activity": "Spray copper-based fungicide if bacterial spot",
+            "type": "disease",
+        },
+        {
+            "week": 14,
+            "activity": "Harvest peppers when firm and colorful",
+            "type": "harvest",
+        },
+        {"week": 14, "activity": "Sort and pack", "type": "postharvest"},
+    ],
+    "Cabbage": [
+        {
+            "week": 0,
+            "activity": "Prepare nursery beds and sow seeds",
+            "type": "planting",
+        },
+        {"week": 4, "activity": "Transplant seedlings", "type": "planting"},
+        {
+            "week": 5,
+            "activity": "Apply NPK 15:15:15 at 200 kg/ha",
+            "type": "fertilizer",
+        },
+        {"week": 6, "activity": "Irrigate regularly", "type": "water"},
+        {
+            "week": 8,
+            "activity": "Scout for diamondback moth and aphids",
+            "type": "pest",
+        },
+        {"week": 9, "activity": "Spray Bt or neem oil for pests", "type": "pest"},
+        {"week": 12, "activity": "Monitor for black rot", "type": "disease"},
+        {"week": 16, "activity": "Harvest heads when firm", "type": "harvest"},
+        {"week": 16, "activity": "Store in cool place", "type": "postharvest"},
+    ],
+}
 
 GENERIC_ACTIVITIES = [
     {"week": 0, "activity": "Prepare land and plant seeds", "type": "planting"},
@@ -273,9 +403,17 @@ GENERIC_ACTIVITIES = [
     {"week": 4, "activity": "Apply balanced fertilizer", "type": "fertilizer"},
     {"week": 6, "activity": "Monitor for pests and diseases", "type": "pest"},
     {"week": 8, "activity": "Second weeding", "type": "weed"},
-    {"week": 10, "activity": "Apply fertilizer top-dress if needed", "type": "fertilizer"},
+    {
+        "week": 10,
+        "activity": "Apply fertilizer top-dress if needed",
+        "type": "fertilizer",
+    },
     {"week": 14, "activity": "Harvest when mature", "type": "harvest"},
-    {"week": 14, "activity": "Post-harvest handling and storage", "type": "postharvest"},
+    {
+        "week": 14,
+        "activity": "Post-harvest handling and storage",
+        "type": "postharvest",
+    },
 ]
 
 ACTIVITY_META = {
@@ -293,11 +431,7 @@ ACTIVITY_META = {
 }
 
 
-def generate_calendar_with_deepseek(
-        crop,
-        planting_date,
-        location,
-        climate_summary):
+def generate_calendar_with_deepseek(crop, planting_date, location, climate_summary):
     prompt = f"""
 You are an expert agricultural advisor. Generate a detailed farming calendar for {crop} in {location}.
 Planting date: {planting_date}.
@@ -316,28 +450,31 @@ Return ONLY valid JSON array, no extra text.
 """
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"}
-    payload = {"model": "deepseek-chat",
-               "messages": [{"role": "system",
-                             "content": "You are GAIA, an expert Nigerian agricultural assistant."},
-                            {"role": "user",
-                             "content": prompt}],
-               "temperature": 0.6,
-               "max_tokens": 1500}
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are GAIA, an expert Nigerian agricultural assistant.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.6,
+        "max_tokens": 1500,
+    }
     try:
-        resp = requests.post(
-            DEEPSEEK_URL,
-            headers=headers,
-            json=payload,
-            timeout=30)
+        resp = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=30)
         if resp.status_code == 200:
             content = resp.json()["choices"][0]["message"]["content"]
-            match = re.search(r'\[.*\]', content, re.DOTALL)
+            match = re.search(r"\[.*\]", content, re.DOTALL)
             if match:
                 return json.loads(match.group())
     except BaseException:
         pass
     return None
+
 
 # ---------- Calendar Image Generator ----------
 
@@ -362,9 +499,7 @@ def generate_calendar_image(planting_date, activities, theme):
     text_color = (255, 255, 255) if theme == "dark" else (30, 30, 30)
     header_color = (0, 200, 83) if theme == "dark" else (46, 125, 50)
     cell_color = (60, 60, 60) if theme == "dark" else (220, 220, 220)
-    highlight_color = (
-        0, 200, 83, 150) if theme == "dark" else (
-        46, 125, 50, 150)
+    highlight_color = (0, 200, 83, 150) if theme == "dark" else (46, 125, 50, 150)
 
     for year, month in months:
         cal_obj = calendar_lib.Calendar(firstweekday=6)
@@ -375,9 +510,8 @@ def generate_calendar_image(planting_date, activities, theme):
         img = Image.new("RGBA", (img_width, img_height), bg_color + (255,))
         draw = ImageDraw.Draw(img)
 
-        month_name = datetime.date(year, month, 1).strftime('%B %Y')
-        draw.text((img_width // 2, 20), month_name,
-                  fill=header_color, anchor="mm")
+        month_name = datetime.date(year, month, 1).strftime("%B %Y")
+        draw.text((img_width // 2, 20), month_name, fill=header_color, anchor="mm")
 
         days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
         cell_width = img_width // 7
@@ -397,39 +531,49 @@ def generate_calendar_image(planting_date, activities, theme):
                 if day == 0:
                     continue
                 draw.text((x0 + 5, y0 + 2), str(day), fill=text_color)
-                if year == planting_date.year and month == planting_date.month and day == planting_date.day:
+                if (
+                    year == planting_date.year
+                    and month == planting_date.month
+                    and day == planting_date.day
+                ):
                     draw.rectangle([x0, y0, x1, y1], fill=highlight_color)
 
                 y_dot = y0 + cell_height - 12
                 for act in activities:
                     week = act.get("week", 0)
                     act_date = planting_date + datetime.timedelta(weeks=week)
-                    if act_date.year == year and act_date.month == month and act_date.day == day:
+                    if (
+                        act_date.year == year
+                        and act_date.month == month
+                        and act_date.day == day
+                    ):
                         act_type = act.get("type", "crop")
-                        color_hex = ACTIVITY_META.get(
-                            act_type, {"color": "#ccc"})["color"]
+                        color_hex = ACTIVITY_META.get(act_type, {"color": "#ccc"})[
+                            "color"
+                        ]
                         color_rgb = tuple(
-                            int(color_hex[i:i + 2], 16) for i in (1, 3, 5))
-                        draw.ellipse([x0 + 5, y_dot, x0 + 10,
-                                      y_dot + 5], fill=color_rgb)
+                            int(color_hex[i : i + 2], 16) for i in (1, 3, 5)
+                        )
+                        draw.ellipse(
+                            [x0 + 5, y_dot, x0 + 10, y_dot + 5], fill=color_rgb
+                        )
 
         images.append(img)
     return images
 
 
 # ---------- Page Config ----------
-st.set_page_config(
-    page_title="GAIA – Farming Calendar",
-    page_icon="📅",
-    layout="wide")
+st.set_page_config(page_title="GAIA – Farming Calendar", page_icon="📅", layout="wide")
 st.markdown(
     "<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>",
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 dark_mode = st.toggle("", value=False, key="calendar_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
 if theme == "dark":
-    st.markdown("""<style>
+    st.markdown(
+        """<style>
         @keyframes glow {0%,100%{text-shadow:0 0 25px rgba(0,200,83,0.7);}50%{text-shadow:0 0 50px rgba(0,200,83,1),0 0 80px rgba(0,200,83,0.6);}}
         .stApp {background: linear-gradient(rgba(0,0,0,0.65),rgba(0,0,0,0.65)),url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');background-size:cover;background-attachment:fixed;background-position:center;color:#fff;}
         header,footer{visibility:hidden;}
@@ -447,9 +591,12 @@ if theme == "dark":
         .activity-type{font-size:0.75rem;opacity:0.8;text-transform:uppercase;}
         .timeline-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;}
         .stButton button{background:linear-gradient(135deg,#00c853,#4caf50);color:#fff;border:none;border-radius:10px;padding:12px 30px;font-weight:700;}
-    </style>""", unsafe_allow_html=True)
+    </style>""",
+        unsafe_allow_html=True,
+    )
 else:
-    st.markdown("""<style>
+    st.markdown(
+        """<style>
         @keyframes glowLight {0%,100%{text-shadow:0 0 15px rgba(46,125,50,0.5);}50%{text-shadow:0 0 30px rgba(46,125,50,1),0 0 60px rgba(46,125,50,0.7);}}
         .stApp{background:linear-gradient(rgba(255,255,255,0.75),rgba(255,255,255,0.75)),url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');background-size:cover;background-attachment:fixed;background-position:center;color:#1b5e20;}
         header,footer{visibility:hidden;}
@@ -467,14 +614,15 @@ else:
         .activity-type{font-size:0.75rem;opacity:0.8;text-transform:uppercase;}
         .timeline-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;}
         .stButton button{background:linear-gradient(135deg,#2e7d32,#4caf50);color:#fff;border:none;border-radius:10px;padding:12px 30px;font-weight:700;}
-    </style>""", unsafe_allow_html=True)
+    </style>""",
+        unsafe_allow_html=True,
+    )
 
-st.markdown(
-    '<div class="title">📅 AI Farming Calendar</div>',
-    unsafe_allow_html=True)
+st.markdown('<div class="title">📅 AI Farming Calendar</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">Select a crop group, choose your crop, and GAIA will generate a personalized season plan</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 # ---------- Session state ----------
 if "selected_group" not in st.session_state:
@@ -488,8 +636,11 @@ if st.session_state.selected_group is None:
     cols = st.columns(4)
     for i, (group_name, group_data) in enumerate(CROP_GROUPS.items()):
         with cols[i % 4]:
-            if st.button(f"{group_data['icon']}\n\n{group_name}",
-                         key=f"group_{group_name}", use_container_width=True):
+            if st.button(
+                f"{group_data['icon']}\n\n{group_name}",
+                key=f"group_{group_name}",
+                use_container_width=True,
+            ):
                 st.session_state.selected_group = group_name
                 st.rerun()
 
@@ -517,12 +668,9 @@ else:
     st.markdown(f"### {group_data['icon']} {crop}")
     col1, col2 = st.columns(2)
     with col1:
-        planting_date = st.date_input(
-            "📅 Planting Date", value=datetime.date.today())
+        planting_date = st.date_input("📅 Planting Date", value=datetime.date.today())
     with col2:
-        location = st.text_input(
-            "📍 Location *",
-            placeholder="e.g., Kaduna, Nigeria")
+        location = st.text_input("📍 Location *", placeholder="e.g., Kaduna, Nigeria")
 
     if st.button("Generate My Calendar", type="primary"):
         if not location.strip():
@@ -534,27 +682,29 @@ else:
             with st.spinner("🌍 Geocoding location and fetching climate..."):
                 lat, lon = geocode_location(location)
                 if lat is None:
-                    st.error(
-                        "Could not find that location. Please be more specific.")
+                    st.error("Could not find that location. Please be more specific.")
                 else:
                     # Display map
-                    map_df = pd.DataFrame({'lat': [lat], 'lon': [lon]})
+                    map_df = pd.DataFrame({"lat": [lat], "lon": [lon]})
                     st.map(map_df, zoom=8)
 
                     # Fetch climate data for the growing season
-                    max_week = 24  # rough maximum, will refine after activities generated
-                    start_date = planting_date.strftime('%Y-%m-%d')
+                    max_week = (
+                        24  # rough maximum, will refine after activities generated
+                    )
+                    start_date = planting_date.strftime("%Y-%m-%d")
                     end_date = (
-                        planting_date +
-                        datetime.timedelta(
-                            weeks=max_week)).strftime('%Y-%m-%d')
-                    climate_data = fetch_climate_data(
-                        lat, lon, start_date, end_date)
+                        planting_date + datetime.timedelta(weeks=max_week)
+                    ).strftime("%Y-%m-%d")
+                    climate_data = fetch_climate_data(lat, lon, start_date, end_date)
                     climate_summary = build_climate_summary(climate_data)
 
-            with st.spinner("🧠 GAIA is generating your personalized farming calendar..."):
+            with st.spinner(
+                "🧠 GAIA is generating your personalized farming calendar..."
+            ):
                 activities = generate_calendar_with_deepseek(
-                    crop, planting_date.isoformat(), location, climate_summary)
+                    crop, planting_date.isoformat(), location, climate_summary
+                )
                 if activities is None:
                     if crop in FALLBACK_TEMPLATES:
                         activities = FALLBACK_TEMPLATES[crop].copy()
@@ -563,54 +713,66 @@ else:
                     final_activities = []
                     for item in activities:
                         week = item["week"]
-                        activity_date = planting_date + \
-                            datetime.timedelta(weeks=week)
-                        final_activities.append({"week": week, "date": activity_date.isoformat(
-                        ), "activity": item["activity"], "type": item["type"]})
+                        activity_date = planting_date + datetime.timedelta(weeks=week)
+                        final_activities.append(
+                            {
+                                "week": week,
+                                "date": activity_date.isoformat(),
+                                "activity": item["activity"],
+                                "type": item["type"],
+                            }
+                        )
                     activities = final_activities
                 else:
                     for act in activities:
                         week = int(act.get("week", 0))
                         act["date"] = (
-                            planting_date +
-                            datetime.timedelta(
-                                weeks=week)).isoformat()
+                            planting_date + datetime.timedelta(weeks=week)
+                        ).isoformat()
 
                 supabase = get_service()
-                supabase.table("farming_calendar").insert({
-                    "user_id": user_id,
-                    "crop": crop,
-                    "planting_date": planting_date.isoformat(),
-                    "location": location,
-                    "activities": json.dumps(activities)
-                }).execute()
+                supabase.table("farming_calendar").insert(
+                    {
+                        "user_id": user_id,
+                        "crop": crop,
+                        "planting_date": planting_date.isoformat(),
+                        "location": location,
+                        "activities": json.dumps(activities),
+                    }
+                ).execute()
                 st.success("✅ Calendar saved!")
                 # Display real calendar images
                 for cal_img in generate_calendar_image(
-                        planting_date, activities, theme):
+                    planting_date, activities, theme
+                ):
                     st.image(cal_img, use_container_width=True)
                 st.markdown(f"### Your {crop} Farming Calendar")
                 st.markdown(
-                    f"**Planting Date:** {planting_date.strftime('%d %b %Y')} | **Location:** {location}")
+                    f"**Planting Date:** {planting_date.strftime('%d %b %Y')} | **Location:** {location}"
+                )
                 for act in activities:
                     week = act.get("week", 0)
                     date_str = act.get("date", "")
                     if date_str:
                         date_obj = datetime.date.fromisoformat(date_str)
-                        date_str = date_obj.strftime('%d %b %Y')
+                        date_str = date_obj.strftime("%d %b %Y")
                     act_type = act.get("type", "crop")
                     act_text = act.get("activity", "")
                     meta = ACTIVITY_META.get(
-                        act_type, {"icon": "🌱", "color": "#00c853"})
+                        act_type, {"icon": "🌱", "color": "#00c853"}
+                    )
                     icon = meta["icon"]
                     color = meta["color"]
-                    st.markdown(f"""
+                    st.markdown(
+                        f"""
                     <div class="activity-card" style="--accent:{color};">
                         <div class="week-label"><span class="timeline-dot" style="background:{color};"></span>{icon} Week {week} — {date_str}</div>
                         <div class="activity-type" style="color:{color};">{act_type.upper()}</div>
                         <p style="margin:0.3rem 0 0 0;">{act_text}</p>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """,
+                        unsafe_allow_html=True,
+                    )
 
     if st.button("← Change Crop"):
         st.session_state.selected_crop = None
@@ -621,22 +783,25 @@ st.markdown("---")
 st.subheader("📂 My Saved Calendars")
 if "user" in st.session_state and st.session_state.user:
     supabase = get_service()
-    res = supabase.table("farming_calendar").select(
-        "*").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
+    res = (
+        supabase.table("farming_calendar")
+        .select("*")
+        .eq("user_id", st.session_state.user.id)
+        .order("created_at", desc=True)
+        .execute()
+    )
     if res.data:
         for cal_entry in res.data:
-            crop = cal_entry['crop']
+            crop = cal_entry["crop"]
             group_color = "#00c853"
             for gname, gdata in CROP_GROUPS.items():
                 if crop in gdata["crops"]:
                     group_color = gdata["color"]
                     break
             with st.expander(f"🌾 {crop} — planted {cal_entry['planting_date']}"):
-                cal_date = datetime.date.fromisoformat(
-                    cal_entry['planting_date'])
+                cal_date = datetime.date.fromisoformat(cal_entry["planting_date"])
                 saved_acts = json.loads(cal_entry.get("activities", "[]"))
-                for cal_img in generate_calendar_image(
-                        cal_date, saved_acts, theme):
+                for cal_img in generate_calendar_image(cal_date, saved_acts, theme):
                     st.image(cal_img, use_container_width=True)
                 for act in saved_acts:
                     week = act.get("week", 0)
@@ -645,26 +810,29 @@ if "user" in st.session_state and st.session_state.user:
                     date_str = act.get("date", "")
                     if date_str:
                         date_obj = datetime.date.fromisoformat(date_str)
-                        date_str = date_obj.strftime('%d %b')
+                        date_str = date_obj.strftime("%d %b")
                     meta = ACTIVITY_META.get(
-                        act_type, {"icon": "🌱", "color": "#00c853"})
+                        act_type, {"icon": "🌱", "color": "#00c853"}
+                    )
                     icon = meta["icon"]
                     color = meta["color"]
-                    st.markdown(f"""
+                    st.markdown(
+                        f"""
                     <div class="activity-card" style="--accent:{color};">
                         <div class="week-label"><span class="timeline-dot" style="background:{color};"></span>{icon} Week {week} ({date_str})</div>
                         <div class="activity-type" style="color:{color};">{act_type.upper()}</div>
                         <p style="margin:0.3rem 0 0 0;">{act_text}</p>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """,
+                        unsafe_allow_html=True,
+                    )
                 if cal_entry.get("location"):
                     st.write(f"📍 {cal_entry['location']}")
-                if st.button(
-                    "🗑️ Delete Calendar",
-                    key=f"delete_{
+                if st.button("🗑️ Delete Calendar", key=f"delete_{
                         cal_entry['id']}"):
                     supabase.table("farming_calendar").delete().eq(
-                        "id", cal_entry["id"]).execute()
+                        "id", cal_entry["id"]
+                    ).execute()
                     st.success("Calendar deleted.")
                     st.rerun()
     else:

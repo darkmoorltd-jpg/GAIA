@@ -11,10 +11,7 @@ def init_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-st.set_page_config(
-    page_title="GAIA – Payment History",
-    page_icon="💳",
-    layout="wide")
+st.set_page_config(page_title="GAIA – Payment History", page_icon="💳", layout="wide")
 
 if "user" not in st.session_state or st.session_state.user is None:
     st.warning("Please log in first.")
@@ -26,11 +23,13 @@ supabase = init_supabase()
 st.title("💳 Payment History")
 
 try:
-    res = supabase.table("payment_history") \
-        .select("amount, scans_added, plan, reference, paid_at") \
-        .eq("user_id", user_id) \
-        .order("paid_at", desc=True) \
+    res = (
+        supabase.table("payment_history")
+        .select("amount, scans_added, plan, reference, paid_at")
+        .eq("user_id", user_id)
+        .order("paid_at", desc=True)
         .execute()
+    )
     payments = res.data
 except Exception as e:
     payments = []
@@ -42,8 +41,7 @@ else:
     df = pd.DataFrame(payments)
     df.columns = ["Amount", "Scans Added", "Plan", "Reference", "Paid At"]
     df["Amount"] = df["Amount"].apply(lambda x: f"${x:.2f}")
-    df["Paid At"] = pd.to_datetime(
-        df["Paid At"]).dt.strftime("%d %b %Y, %H:%M")
+    df["Paid At"] = pd.to_datetime(df["Paid At"]).dt.strftime("%d %b %Y, %H:%M")
     st.dataframe(df, use_container_width=True)
 
 st.markdown("---")

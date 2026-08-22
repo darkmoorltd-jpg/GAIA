@@ -21,28 +21,23 @@ PROCESS_URL = "https://services.sentinel-hub.com/api/v1/process"
 @st.cache_data(ttl=3500)
 def get_access_token():
     import base64
-    credentials = base64.b64encode(
-        f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
-    headers = {"Authorization": f"Basic {credentials}",
-               "Content-Type": "application/x-www-form-urlencoded"}
+
+    credentials = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+    headers = {
+        "Authorization": f"Basic {credentials}",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
     resp = requests.post(
-        TOKEN_URL,
-        data={
-            "grant_type": "client_credentials"},
-        headers=headers)
+        TOKEN_URL, data={"grant_type": "client_credentials"}, headers=headers
+    )
     if resp.status_code == 200:
         return resp.json().get("access_token")
     return None
 
 
 def fetch_satellite_image(
-        lat,
-        lon,
-        width=512,
-        height=512,
-        layers="TRUE_COLOR",
-        date_from=None,
-        date_to=None):
+    lat, lon, width=512, height=512, layers="TRUE_COLOR", date_from=None, date_to=None
+):
     token = get_access_token()
     if not token:
         return None, "Failed to authenticate with Sentinel Hub"
@@ -111,37 +106,34 @@ def fetch_satellite_image(
         "input": {
             "bounds": {
                 "bbox": bbox,
-                "properties": {
-                    "crs": "http://www.opengis.net/def/crs/EPSG/0/4326"}},
+                "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"},
+            },
             "data": [
                 {
                     "type": "sentinel-2-l1c",
                     "dataFilter": {
-                            "timeRange": {
-                                "from": f"{date_from}T00:00:00Z",
-                                "to": f"{date_to}T23:59:59Z"},
-                            "maxCloudCoverage": 50,
-                            "mosaickingOrder": "leastCC"}}]},
+                        "timeRange": {
+                            "from": f"{date_from}T00:00:00Z",
+                            "to": f"{date_to}T23:59:59Z",
+                        },
+                        "maxCloudCoverage": 50,
+                        "mosaickingOrder": "leastCC",
+                    },
+                }
+            ],
+        },
         "output": {
             "width": width,
             "height": height,
-            "responses": [
-                {
-                    "identifier": "default",
-                    "format": {
-                        "type": "image/png"}}]},
-        "evalscript": evalscript}
+            "responses": [{"identifier": "default", "format": {"type": "image/png"}}],
+        },
+        "evalscript": evalscript,
+    }
 
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     try:
-        resp = requests.post(
-            PROCESS_URL,
-            headers=headers,
-            json=payload,
-            timeout=30)
+        resp = requests.post(PROCESS_URL, headers=headers, json=payload, timeout=30)
         if resp.status_code == 200:
             img = Image.open(BytesIO(resp.content))
             return img, None
@@ -159,39 +151,44 @@ def calculate_vegetation_health(ndvi_img):
     stressed = ((arr > 0) & (arr <= 0.2)).mean() * 100
     barren = (arr <= 0).mean() * 100
     avg_ndvi = arr.mean()
-    health_status = "Excellent" if avg_ndvi > 0.6 else (
-        "Good" if avg_ndvi > 0.4 else (
-            "Moderate" if avg_ndvi > 0.2 else "Poor"))
+    health_status = (
+        "Excellent"
+        if avg_ndvi > 0.6
+        else ("Good" if avg_ndvi > 0.4 else ("Moderate" if avg_ndvi > 0.2 else "Poor"))
+    )
     return {
         "healthy_pct": healthy,
         "moderate_pct": moderate,
         "stressed_pct": stressed,
         "barren_pct": barren,
         "avg_ndvi": avg_ndvi,
-        "health_status": health_status
+        "health_status": health_status,
     }
 
 
 # ===== PAGE CONFIG =====
 st.set_page_config(
-    page_title="GAIA – Satellite Monitoring",
-    page_icon="🛰️",
-    layout="wide")
+    page_title="GAIA – Satellite Monitoring", page_icon="🛰️", layout="wide"
+)
 
 # Theme toggle
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stToggle > label { display: none !important; }
     .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
     .stToggle > div { transform: scale(1.3); }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 dark_mode = st.toggle("", value=False, key="satellite_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
 if theme == "dark":
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         .stApp { background: linear-gradient(135deg, #0a0e1a 0%, #111827 50%, #0a0e1a 100%); color: #e2e8f0; }
         header, footer { visibility: hidden; }
@@ -202,9 +199,12 @@ if theme == "dark":
         .stat-label { font-size: 0.85rem; color: #94a3b8; }
         .satellite-card { background: rgba(255,255,255,0.03); border-radius: 20px; padding: 1.5rem; margin: 1rem 0; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 else:
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         .stApp { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); color: #1e1b4b; }
         header, footer { visibility: hidden; }
@@ -215,15 +215,16 @@ else:
         .stat-label { font-size: 0.85rem; color: #64748b; }
         .satellite-card { background: #fff; border-radius: 20px; padding: 1.5rem; margin: 1rem 0; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 # ===== HEADER =====
-st.markdown(
-    '<div class="title">🛰️ Satellite Monitor</div>',
-    unsafe_allow_html=True)
+st.markdown('<div class="title">🛰️ Satellite Monitor</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">Monitor your farm health from space</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 # ===== LOCATION INPUT =====
 st.markdown("### 📍 Enter Your Farm Location")
@@ -237,22 +238,16 @@ with col2:
 st.markdown("### 🎨 Select Analysis Type")
 layer = st.selectbox("Layer", ["TRUE_COLOR", "NDVI", "MOISTURE"])
 
-if st.button(
-    "🛰️ Fetch Satellite Image",
-    type="primary",
-        use_container_width=True):
+if st.button("🛰️ Fetch Satellite Image", type="primary", use_container_width=True):
     with st.spinner("📡 Fetching satellite imagery..."):
         img, err = fetch_satellite_image(lat, lon, layers=layer)
 
     if err:
         st.error(f"Failed to fetch image: {err}")
     else:
-        st.image(
-            img,
-            caption=f"{layer} — {
+        st.image(img, caption=f"{layer} — {
                 lat:.4f}, {
-                lon:.4f}",
-            use_container_width=True)
+                lon:.4f}", use_container_width=True)
 
         if layer == "NDVI":
             health = calculate_vegetation_health(img)
@@ -265,25 +260,30 @@ if st.button(
                 st.markdown(
                     f'<div class="stat-box"><div class="stat-number">{
                         health["healthy_pct"]:.1f}%</div><div class="stat-label">Healthy</div></div>',
-                    unsafe_allow_html=True)
+                    unsafe_allow_html=True,
+                )
             with col2:
                 st.markdown(
                     f'<div class="stat-box"><div class="stat-number">{
                         health["moderate_pct"]:.1f}%</div><div class="stat-label">Moderate</div></div>',
-                    unsafe_allow_html=True)
+                    unsafe_allow_html=True,
+                )
             with col3:
                 st.markdown(
                     f'<div class="stat-box"><div class="stat-number">{
                         health["stressed_pct"]:.1f}%</div><div class="stat-label">Stressed</div></div>',
-                    unsafe_allow_html=True)
+                    unsafe_allow_html=True,
+                )
             with col4:
                 st.markdown(
                     f'<div class="stat-box"><div class="stat-number">{
                         health["health_status"]}</div><div class="stat-label">Status</div></div>',
-                    unsafe_allow_html=True)
+                    unsafe_allow_html=True,
+                )
 
         if "user" in st.session_state and st.session_state.user is not None:
             from app.utils.scan_util import deduct_scans
+
             deduct_scans(st.session_state.user.id, 2, "Satellite Monitor")
 
 st.markdown("---")

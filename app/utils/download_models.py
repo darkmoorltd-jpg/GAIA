@@ -1,4 +1,3 @@
-
 import os
 import requests
 import streamlit as st
@@ -61,10 +60,8 @@ def ensure_model(model_key):
         with st.spinner(f"Downloading {model_key} model (one‑time) …"):
             try:
                 r = requests.get(
-                    expected_url,
-                    stream=True,
-                    timeout=300,
-                    allow_redirects=True)
+                    expected_url, stream=True, timeout=300, allow_redirects=True
+                )
                 r.raise_for_status()
                 total_size = 0
                 with open(checkpoint_path, "wb") as f:
@@ -75,8 +72,7 @@ def ensure_model(model_key):
                 size_mb = total_size / (1024 * 1024)
                 if total_size < 10000:
                     os.remove(checkpoint_path)
-                    st.error(
-                        f"Download failed — file too small ({total_size} bytes).")
+                    st.error(f"Download failed — file too small ({total_size} bytes).")
                     return None
                 # Save the URL we just downloaded
                 _write_cached_url(model_key, expected_url)

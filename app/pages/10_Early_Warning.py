@@ -8,6 +8,7 @@ import os
 try:
     from streamlit_folium import st_folium
     import folium
+
     FOLIUM_AVAILABLE = True
 except BaseException:
     FOLIUM_AVAILABLE = False
@@ -16,9 +17,11 @@ st.set_page_config(
     page_title="GAIA – Early Warning",
     page_icon="🛰️",
     layout="wide",
-    initial_sidebar_state="expanded")
+    initial_sidebar_state="expanded",
+)
 
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stApp { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); color: #1b5e20; }
     header, footer { visibility: hidden; }
@@ -33,7 +36,9 @@ st.markdown("""
     .risk-label.moderate { color: #ff9800; }
     .risk-label.high { color: #f44336; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 NIGERIA_DATA = {
     "Lagos": ["Agege", "Alimosho", "Ikeja", "Surulere", "Eti Osa"],
@@ -50,7 +55,12 @@ STATES = list(NIGERIA_DATA.keys())
 
 CROP_DISEASE_MAP = {
     "maize": [
-        {"name": "Northern Leaf Blight", "temp_min": 18, "temp_max": 27, "humidity_min": 80},
+        {
+            "name": "Northern Leaf Blight",
+            "temp_min": 18,
+            "temp_max": 27,
+            "humidity_min": 80,
+        },
         {"name": "Common Rust", "temp_min": 15, "temp_max": 25, "humidity_min": 90},
     ],
     "rice": [
@@ -61,14 +71,24 @@ CROP_DISEASE_MAP = {
         {"name": "Yellow Rust", "temp_min": 10, "temp_max": 20, "humidity_min": 80},
     ],
     "beans": [
-        {"name": "Angular Leaf Spot", "temp_min": 20, "temp_max": 28, "humidity_min": 85},
+        {
+            "name": "Angular Leaf Spot",
+            "temp_min": 20,
+            "temp_max": 28,
+            "humidity_min": 85,
+        },
     ],
     "tomato": [
         {"name": "Late Blight", "temp_min": 10, "temp_max": 24, "humidity_min": 90},
         {"name": "Early Blight", "temp_min": 20, "temp_max": 30, "humidity_min": 70},
     ],
     "cassava": [
-        {"name": "Cassava Mosaic Disease", "temp_min": 25, "temp_max": 35, "humidity_min": 60},
+        {
+            "name": "Cassava Mosaic Disease",
+            "temp_min": 25,
+            "temp_max": 35,
+            "humidity_min": 60,
+        },
     ],
 }
 
@@ -82,9 +102,11 @@ def fetch_weather(lat, lon):
             "temperature_2m_max",
             "temperature_2m_min",
             "relative_humidity_2m_max",
-            "precipitation_sum"],
+            "precipitation_sum",
+        ],
         "forecast_days": 14,
-        "timezone": "auto"}
+        "timezone": "auto",
+    }
     try:
         r = requests.get(url, params=params, timeout=15)
         if r.status_code == 200:
@@ -114,23 +136,23 @@ def calculate_risk(weather_data, crop):
                 score += 40
             if daily["precipitation_sum"][day_idx] > 0:
                 score += 20
-            risk_level = "low" if score < 50 else (
-                "moderate" if score < 75 else "high")
-            risks.append({
-                "disease": disease["name"],
-                "score": score,
-                "level": risk_level,
-                "date": daily["time"][day_idx]
-            })
+            risk_level = "low" if score < 50 else ("moderate" if score < 75 else "high")
+            risks.append(
+                {
+                    "disease": disease["name"],
+                    "score": score,
+                    "level": risk_level,
+                    "date": daily["time"][day_idx],
+                }
+            )
     return risks
 
 
-st.markdown(
-    '<div class="title">🛰️ Early Warning System</div>',
-    unsafe_allow_html=True)
+st.markdown('<div class="title">🛰️ Early Warning System</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">Weather-based disease risk alerts for your farm</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 st.markdown("### 📍 Your Farm Location")
 col1, col2 = st.columns(2)
@@ -144,10 +166,8 @@ crop = st.selectbox("Crop", list(CROP_DISEASE_MAP.keys()))
 
 st.markdown("### 📅 Planting Date")
 planting_date = st.date_input(
-    "When did you plant?",
-    value=date.today() -
-    timedelta(
-        days=30))
+    "When did you plant?", value=date.today() - timedelta(days=30)
+)
 
 if st.button("🔍 Check Disease Risk", type="primary", use_container_width=True):
     state_coords = {
@@ -177,38 +197,40 @@ if st.button("🔍 Check Disease Risk", type="primary", use_container_width=True
         else:
             for risk in risks[:10]:
                 level = risk["level"]
-                level_emoji = {
-                    "low": "🟢",
-                    "moderate": "🟡",
-                    "high": "🔴"}.get(
-                    level,
-                    "⚪")
+                level_emoji = {"low": "🟢", "moderate": "🟡", "high": "🔴"}.get(
+                    level, "⚪"
+                )
                 card_class = "risk-card risk-" + level
                 risk_label_class = "risk-label " + level
 
+                st.markdown('<div class="' + card_class + '">', unsafe_allow_html=True)
                 st.markdown(
-                    '<div class="' + card_class + '">',
-                    unsafe_allow_html=True)
+                    '<span class="'
+                    + risk_label_class
+                    + '">'
+                    + level_emoji
+                    + " "
+                    + risk["disease"]
+                    + "</span>",
+                    unsafe_allow_html=True,
+                )
                 st.markdown(
-                    '<span class="' +
-                    risk_label_class +
-                    '">' +
-                    level_emoji +
-                    ' ' +
-                    risk["disease"] +
-                    '</span>',
-                    unsafe_allow_html=True)
+                    '<span style="float: right; color: #888;">'
+                    + risk["date"]
+                    + "</span>",
+                    unsafe_allow_html=True,
+                )
                 st.markdown(
-                    '<span style="float: right; color: #888;">' +
-                    risk["date"] +
-                    '</span>',
-                    unsafe_allow_html=True)
-                st.markdown('<p style="margin-top: 8px;">Risk Score: ' +
-                            str(risk["score"]) + '%</p>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                    '<p style="margin-top: 8px;">Risk Score: '
+                    + str(risk["score"])
+                    + "%</p>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown("</div>", unsafe_allow_html=True)
 
         if "user" in st.session_state and st.session_state.user is not None:
             from app.utils.scan_util import deduct_scans
+
             deduct_scans(st.session_state.user.id, 1, "Early Warning")
 
 st.markdown("---")

@@ -1,4 +1,3 @@
-
 import streamlit as st
 import json
 import re
@@ -8,20 +7,24 @@ from datetime import datetime
 st.set_page_config(page_title="GAIA University", page_icon="🎓", layout="wide")
 
 # Theme toggle
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stToggle > label { display: none !important; }
     .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
     .stToggle > div { transform: scale(1.3); }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 dark_mode = st.toggle("", value=False, key="university_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
 # Theme CSS
 if theme == "dark":
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         @keyframes gradShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
         .stApp { background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); background-size: 400% 400%; animation: gradShift 15s ease infinite; color: #fff; }
@@ -33,9 +36,12 @@ if theme == "dark":
         .badge-card { background: rgba(255,215,0,0.1); border: 2px solid #ffd700; border-radius: 20px; padding: 2rem; text-align: center; }
         .stButton button { background: linear-gradient(135deg, #00c853, #4caf50); color: #fff; border: none; border-radius: 10px; padding: 12px 30px; font-weight: 700; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 else:
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         @keyframes gradShiftLight { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
         .stApp { background: linear-gradient(135deg, #e8f5e9, #f1f8e9, #fffde7); background-size: 400% 400%; animation: gradShiftLight 15s ease infinite; color: #1b5e20; }
@@ -47,14 +53,15 @@ else:
         .badge-card { background: rgba(255,215,0,0.15); border: 2px solid #ffd700; border-radius: 20px; padding: 2rem; text-align: center; }
         .stButton button { background: linear-gradient(135deg, #2e7d32, #4caf50); color: #fff; border: none; border-radius: 10px; padding: 12px 30px; font-weight: 700; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
-st.markdown(
-    '<div class="title">🎓 GAIA University</div>',
-    unsafe_allow_html=True)
+st.markdown('<div class="title">🎓 GAIA University</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">Maize Agronomist Course — University-Level Field Manual</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 # Complete course data with full lesson content
 COURSE = {
@@ -67,8 +74,8 @@ COURSE = {
             "Stem, Nodes, Leaves and Brace Roots": "A normal maize stem is about 2–3 m high with roughly 14 internodes. Leaves average 12–18. Brace roots arise from above-ground nodes for stability. Field task: measure plant height for 10 plants and calculate mean. Example mean height calculation: (105+110+108+112+107+111+109+106+113+109) ÷ 10 = 109 cm.",
             "Leaves Are the Crop's Production Engine": "Leaves produce carbohydrates for growth and grain. Describe symptoms before naming them: which leaf, where on leaf, colour, shape, dead tissue, expanding or not, distribution pattern. Field task: assess 20 plants and calculate incidence: affected ÷ total × 100. Example: 7/20 × 100 = 35%.",
             "Tassels, Silks, Ears and Pollination": "Maize has separate male and female inflorescences on the same plant. Tassel is the terminal male inflorescence, ear is female. Each silk is associated with a potential kernel. Field task: inspect 20 plants at flowering and record tassel visible, pollen shed, silks visible, silk length, silk condition, insect feeding.",
-            "Kernels, Ear Rows and Yield Components": "Grain yield ≈ plants/ha × ears/plant × kernels/ear × kernel weight. Example: 50,000 plants/ha × 1.0 ear × 450 kernels = 22,500,000 kernels. At 0.30 g/kernel, yield = 6,750 kg/ha. Field task: count rows on 10 ears and kernels in measured sections."
-        }
+            "Kernels, Ear Rows and Yield Components": "Grain yield ≈ plants/ha × ears/plant × kernels/ear × kernel weight. Example: 50,000 plants/ha × 1.0 ear × 450 kernels = 22,500,000 kernels. At 0.30 g/kernel, yield = 6,750 kg/ha. Field task: count rows on 10 ears and kernels in measured sections.",
+        },
     },
     2: {
         "title": "Environment, Soil and Field Assessment",
@@ -77,8 +84,8 @@ COURSE = {
             "Variety Selection: A Decision Matrix": "Build a matrix with criteria: adaptation, maturity, yield potential, disease resistance, pest tolerance, market, seed availability, seed cost, postharvest requirements. Score each variety 1–5, weight criteria 1–5, multiply and sum. This makes selection transparent.",
             "Seed Quality and Germination Testing": "Germination % = germinated seeds ÷ seeds tested × 100. Example: 94/100 = 94%. Field task: perform germination test and document daily emergence. Record seed lot, date, conditions, number tested, germinated, abnormal seedlings.",
             "Seed Treatment and Safety": "Seed treatment protects seed and young seedlings. Always read label, confirm crop registration, calculate rate, wear PPE, prevent treated seed entering food channels, clean equipment, record product details. Field task: conduct seed-treatment safety audit without applying chemicals.",
-            "Environment: Rainfall and Planting Window": "Most Nigerian maize is rain-fed. Planting should begin at onset of reliable rainfall. Forest zone ~15 March–1 April, Derived Savannah ~1–30 April, Southern Guinea Savannah May–June depending on rainfall. Field task: create planting decision record with date, rainfall, soil moisture, forecast, variety maturity, field readiness."
-        }
+            "Environment: Rainfall and Planting Window": "Most Nigerian maize is rain-fed. Planting should begin at onset of reliable rainfall. Forest zone ~15 March–1 April, Derived Savannah ~1–30 April, Southern Guinea Savannah May–June depending on rainfall. Field task: create planting decision record with date, rainfall, soil moisture, forecast, variety maturity, field readiness.",
+        },
     },
     3: {
         "title": "Varieties, Seed Quality and Crop Establishment",
@@ -87,8 +94,8 @@ COURSE = {
             "Soil Sampling for an Agronomist": "Soil test quality depends on sampling. Divide field into uniform units, avoid fertilizer bands and manure piles, collect multiple cores, mix representative subsamples, label with field, depth, date, history. Field task: design a soil sampling protocol for one field.",
             "Soil Organic Matter and Residues": "Crop residues are important organic matter sources. Retaining residues can protect soil and recycle nutrients. Field task: estimate residue mass using 1 m² quadrat. Example: 0.8 kg/m² × 10,000 = 8,000 kg/ha = 8 t/ha.",
             "Nutrient Requirement: The Numbers": "Approximate requirement per 100 kg grain: 2.43 kg N, 0.53 kg P, 1.8 kg K. For 5,000 kg/ha: N = 121.5 kg, P = 26.5 kg, K = 90 kg. This is crop uptake, not automatic fertilizer recommendation.",
-            "Nitrogen: Function, Demand and Loss": "Nitrogen is central to maize growth. Losses occur through leaching, denitrification, and volatilization. Field task: ask farmer when and how nitrogen was applied. Product calculation: 92 kg N ÷ 0.46 = 200 kg urea/ha."
-        }
+            "Nitrogen: Function, Demand and Loss": "Nitrogen is central to maize growth. Losses occur through leaching, denitrification, and volatilization. Field task: ask farmer when and how nitrogen was applied. Product calculation: 92 kg N ÷ 0.46 = 200 kg urea/ha.",
+        },
     },
     4: {
         "title": "Plant Population, Planting Operations and Fertilizer Management",
@@ -98,8 +105,8 @@ COURSE = {
             "Secondary and Micronutrients": "Sulphur, magnesium, calcium, and micronutrients like zinc can be deficient. Blindly applying micronutrients wastes money. Field task: create deficiency diagnostic card for N, P, K, S, and Zn with symptom location and look-alikes.",
             "Fertilizer Placement and Seedling Injury": "Fertilizer injury is usually right fertilizer placed too close to seed. Nitrogen and potassium salts are major contributors. Field task: measure seed depth, fertilizer depth, horizontal separation, product identity, rate per stand, seedling damage.",
             "Fertilizer Rate Conversion": "Product rate = required nutrient ÷ nutrient fraction. Example: 60 kg N ÷ 0.20 = 300 kg fertilizer/ha. 15-15-15 product at 200 kg/ha supplies 30 kg N, 30 kg P₂O₅, 30 kg K₂O. Field task: calculate product needed for 30, 60, 90 kg of labelled nutrient.",
-            "Weed Competition": "Weeds compete for light, water, nutrients, space. Field task: count weeds in 0.25 m² quadrat. Example: 18 weeds ÷ 0.25 = 72 weeds/m² = 720,000 weeds/ha. Record species, growth stage, density, distribution, crop stage."
-        }
+            "Weed Competition": "Weeds compete for light, water, nutrients, space. Field task: count weeds in 0.25 m² quadrat. Example: 18 weeds ÷ 0.25 = 72 weeds/m² = 720,000 weeds/ha. Record species, growth stage, density, distribution, crop stage.",
+        },
     },
     5: {
         "title": "Crop Growth, Water, Weeds and Crop Management",
@@ -110,8 +117,8 @@ COURSE = {
             "VT, Silking and Pollination": "Tassel produces pollen, silks provide receptive surfaces. Assess synchrony. Field task: record 20 plants for tassel shed, visible silks, both. Silking incidence = silking ÷ total × 100. Water stress around flowering is critical.",
             "Grain Filling and Maturity": "Physiological maturity = maximum dry-matter accumulation, ~30% moisture. Field task: inspect kernel development, collect ears, check kernel consistency, measure moisture, assess lodging and insect damage.",
             "Water Management and Drought Diagnosis": "Maize is sensitive to water availability at establishment and reproduction. Field task: diagnose water stress by checking leaf rolling, soil moisture at root depth, symptoms on ridges vs low areas, recent rainfall, root inspection.",
-            "Intercropping and Rotation": "Intercropping changes competition. Rotation prevents nutrient depletion and pest/disease buildup. Field task: map intercropped field and record previous two crops."
-        }
+            "Intercropping and Rotation": "Intercropping changes competition. Rotation prevents nutrient depletion and pest/disease buildup. Field task: map intercropped field and record previous two crops.",
+        },
     },
     6: {
         "title": "Pests, Diseases and Integrated Crop Protection",
@@ -120,8 +127,8 @@ COURSE = {
             "Stand Count and Establishment Loss": "Target vs actual population. Example: target 50,000, actual 44,000 = 12% loss. Field task: count 10 row sections, calculate mean and range, mark unusual sections, identify cause of missing plants.",
             "Hand Planting and Thinning": "Plant three seeds per hole, thin to two 1–2 weeks after germination. Field task: select 20 stations, count seedlings, mark singles/doubles/triples/empty, calculate thinning requirement, repeat after thinning.",
             "Mechanical Planting and Calibration": "Calibrate planter each season. Example: 100 m test row at 20 cm spacing = 500 positions. If 460 seeds delivered = 8% deficit. Field task: conduct calibration test and record skips and doubles.",
-            "Pest Scouting: From Walking to Data": "Scout using W pattern. Record crop stage, pest present/absent, pest stage, plant part affected, severity, natural enemies. Incidence = affected ÷ total × 100. Example: 12/40 = 30%. Field task: scout 50 plants in three zones and compare incidence."
-        }
+            "Pest Scouting: From Walking to Data": "Scout using W pattern. Record crop stage, pest present/absent, pest stage, plant part affected, severity, natural enemies. Incidence = affected ÷ total × 100. Example: 12/40 = 30%. Field task: scout 50 plants in three zones and compare incidence.",
+        },
     },
     7: {
         "title": "Aflatoxin, Harvest, Drying and Grain Quality",
@@ -130,8 +137,8 @@ COURSE = {
             "Fall Armyworm and Image-Based Diagnosis": "Fall armyworm attacks from seedling stage onward. Damage includes windowing, ragged feeding, frass in whorl. Field task: photograph whole plant, affected leaf, close detail. Submit to GAIA and compare with field evidence.",
             "Disease Diagnosis: Symptom ≠ Cause": "Leaf spots, blights, wilting, discoloration can arise from pathogens, nutrients, environment, or chemical injury. Field task: compare affected and unaffected plants, list three possible causes, identify evidence for each.",
             "Integrated Pest Management": "Combine prevention, monitoring, identification, severity assessment, justified intervention, safe application, follow-up. Field task: create IPM plan with Prevent/Detect/Respond columns for one major pest.",
-            "Aflatoxin: Why Agronomy Continues After Flowering": "Aflatoxins are poisonous compounds produced by fungi. Contamination can occur without visible mould. Risk increases with drought, insect damage, high temperature, delayed drying. Field task: conduct aflatoxin-risk walk and identify moisture entry points."
-        }
+            "Aflatoxin: Why Agronomy Continues After Flowering": "Aflatoxins are poisonous compounds produced by fungi. Contamination can occur without visible mould. Risk increases with drought, insect damage, high temperature, delayed drying. Field task: conduct aflatoxin-risk walk and identify moisture entry points.",
+        },
     },
     8: {
         "title": "Yield Forecasting, Farm Economics and GAIA Field Practice",
@@ -142,9 +149,9 @@ COURSE = {
             "Shelling, Cleaning, Storage and Transport": "Shelling methods: hand, ribbed tubes, hand-operated discs, engine-operated threshers. Field task: follow one bag from field to storage, record every handling step and quality risk.",
             "Yield Forecasting": "Sample-area method: yield = sample weight ÷ sample area × 10,000. Example: 400 kg from 1,000 m² = 4,000 kg/ha. Field task: sample multiple zones, measure moisture, calculate standardized yield.",
             "Farm Records and Economics": "Gross revenue = saleable quantity × selling price. Gross margin = gross revenue − variable costs. Example: 4,000 kg × ₦500 = ₦2,000,000. If costs = ₦1,250,000, margin = ₦750,000. Field task: calculate cost/ha for fertilizer products.",
-            "The GAIA Agronomist Field Workflow": "8 steps: Establish context, Observe, Sample, Analyse (GAIA), Verify, Decide, Monitor, Document. GAIA is decision support, not magic. Field task: complete one GAIA case and write professional report with Observation, Evidence, Model Output, Verification, Diagnosis, Recommendation, Follow-up."
-        }
-    }
+            "The GAIA Agronomist Field Workflow": "8 steps: Establish context, Observe, Sample, Analyse (GAIA), Verify, Decide, Monitor, Document. GAIA is decision support, not magic. Field task: complete one GAIA case and write professional report with Observation, Evidence, Model Output, Verification, Diagnosis, Recommendation, Follow-up.",
+        },
+    },
 }
 
 # Session state
@@ -161,27 +168,25 @@ if "quiz_score" not in st.session_state:
 if st.session_state.selected_module_id is None:
     st.markdown("## 📚 Course Modules")
     for module_id, module in COURSE.items():
-        st.markdown(
-            f'<div class="module-card"><h3>Module {module_id}: {
+        st.markdown(f'<div class="module-card"><h3>Module {module_id}: {
                 module["title"]}</h3><p>{
                 len(
-                    module["lessons"])} lessons</p></div>',
-            unsafe_allow_html=True)
+                    module["lessons"])} lessons</p></div>', unsafe_allow_html=True)
         if st.button(f"Open Module {module_id}", key=f"mod_{module_id}"):
             st.session_state.selected_module_id = module_id
             st.rerun()
 elif st.session_state.selected_lesson is None:
     module = COURSE[st.session_state.selected_module_id]
-    st.markdown(
-        f"## Module {
+    st.markdown(f"## Module {
             st.session_state.selected_module_id}: {
             module['title']}")
     for lesson_title in module["lessons"].keys():
         if st.button(
-                lesson_title,
-                key=f"les_{
+            lesson_title,
+            key=f"les_{
                     st.session_state.selected_module_id}_{lesson_title}",
-                use_container_width=True):
+            use_container_width=True,
+        ):
             st.session_state.selected_lesson = lesson_title
             st.rerun()
     if st.button("← Back to Modules"):
@@ -193,14 +198,14 @@ else:
     lesson_content = module["lessons"][lesson_title]
 
     st.markdown(f"## {lesson_title}")
-    st.markdown(
-        f"*Module {st.session_state.selected_module_id}: {module['title']}*")
+    st.markdown(f"*Module {st.session_state.selected_module_id}: {module['title']}*")
     st.markdown(lesson_content)
 
     # Voice narration
     if st.button("🔊 Listen to this lesson"):
         try:
             from app.utils.deepseek_explainer import text_to_speech
+
             audio_bytes, err = text_to_speech(lesson_content)
             if audio_bytes:
                 st.audio(audio_bytes, format="audio/mp3")

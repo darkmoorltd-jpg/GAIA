@@ -1,4 +1,3 @@
-
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 import streamlit as st
 from PIL import Image
@@ -12,15 +11,13 @@ import hashlib
 from collections import Counter
 import requests
 import json
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-st.set_page_config(
-    page_title="GAIA – Pest Detection",
-    page_icon="🐛",
-    layout="wide")
+st.set_page_config(page_title="GAIA – Pest Detection", page_icon="🐛", layout="wide")
 
 # THEME (light default)
 if "theme" not in st.session_state:
@@ -28,114 +25,116 @@ if "theme" not in st.session_state:
 
 st.markdown(
     "<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>",
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 dark = st.toggle("", value=st.session_state.theme == "dark", key="pest_theme")
 st.session_state.theme = "dark" if dark else "light"
 theme = st.session_state.theme
 
 PEST_CLASSES = [
-    'rice leaf roller',
-    'rice leaf caterpillar',
-    'paddy stem maggot',
-    'asiatic rice borer',
-    'yellow rice borer',
-    'rice gall midge',
-    'Rice Stemfly',
-    'brown plant hopper',
-    'white backed plant hopper',
-    'small brown plant hopper',
-    'rice water weevil',
-    'rice leafhopper',
-    'grain spreader thrips',
-    'rice shell pest',
-    'grub',
-    'mole cricket',
-    'wireworm',
-    'white margined moth',
-    'black cutworm',
-    'large cutworm',
-    'yellow cutworm',
-    'red spider',
-    'corn borer',
-    'army worm',
-    'aphids',
-    'Potosiabre vitarsis',
-    'peach borer',
-    'english grain aphid',
-    'green bug',
-    'bird cherry-oataphid',
-    'wheat blossom midge',
-    'penthaleus major',
-    'longlegged spider mite',
-    'wheat phloeothrips',
-    'wheat sawfly',
-    'cerodonta denticornis',
-    'beet fly',
-    'flea beetle',
-    'cabbage army worm',
-    'beet army worm',
-    'Beet spot flies',
-    'meadow moth',
-    'beet weevil',
-    'sericaorient alismots chulsky',
-    'alfalfa weevil',
-    'flax budworm',
-    'alfalfa plant bug',
-    'tarnished plant bug',
-    'Locustoidea',
-    'lytta polita',
-    'legume blister beetle',
-    'blister beetle',
-    'therioaphis maculata Buckton',
-    'odontothrips loti',
-    'Thrips',
-    'alfalfa seed chalcid',
-    'Pieris canidia',
-    'Apolygus lucorum',
-    'Limacodidae',
-    'Viteus vitifoliae',
-    'Colomerus vitis',
-    'Brevipoalpus lewisi McGregor',
-    'oides decempunctata',
-    'Polyphagotars onemus latus',
-    'Pseudococcus comstocki Kuwana',
-    'parathrene regalis',
-    'Ampelophaga',
-    'Lycorma delicatula',
-    'Xylotrechus',
-    'Cicadella viridis',
-    'Miridae',
-    'Trialeurodes vaporariorum',
-    'Erythroneura apicalis',
-    'Papilio xuthus',
-    'Panonchus citri McGregor',
-    'Phyllocoptes oleiverus ashmead',
-    'Icerya purchasi Maskell',
-    'Unaspis yanonensis',
-    'Ceroplastes rubens',
-    'Chrysomphalus aonidum',
-    'Parlatoria zizyphus Lucus',
-    'Nipaecoccus vastalor',
-    'Aleurocanthus spiniferus',
-    'Tetradacus c Bactrocera minax ',
-    'Dacus dorsalis(Hendel)',
-    'Bactrocera tsuneonis',
-    'Prodenia litura',
-    'Adristyrannus',
-    'Phyllocnistis citrella Stainton',
-    'Toxoptera citricidus',
-    'Toxoptera aurantii',
-    'Aphis citricola Vander Goot',
-    'Scirtothrips dorsalis Hood',
-    'Dasineura sp',
-    'Lawana imitata Melichar',
-    'Salurnis marginella Guerr',
-    'Deporaus marginatus Pascoe',
-    'Chlumetia transversa',
-    'Mango flat beak leafhopper',
-    'Rhytidodera bowrinii white',
-    'Sternochetus frigidus',
-    'Cicadellidae']
+    "rice leaf roller",
+    "rice leaf caterpillar",
+    "paddy stem maggot",
+    "asiatic rice borer",
+    "yellow rice borer",
+    "rice gall midge",
+    "Rice Stemfly",
+    "brown plant hopper",
+    "white backed plant hopper",
+    "small brown plant hopper",
+    "rice water weevil",
+    "rice leafhopper",
+    "grain spreader thrips",
+    "rice shell pest",
+    "grub",
+    "mole cricket",
+    "wireworm",
+    "white margined moth",
+    "black cutworm",
+    "large cutworm",
+    "yellow cutworm",
+    "red spider",
+    "corn borer",
+    "army worm",
+    "aphids",
+    "Potosiabre vitarsis",
+    "peach borer",
+    "english grain aphid",
+    "green bug",
+    "bird cherry-oataphid",
+    "wheat blossom midge",
+    "penthaleus major",
+    "longlegged spider mite",
+    "wheat phloeothrips",
+    "wheat sawfly",
+    "cerodonta denticornis",
+    "beet fly",
+    "flea beetle",
+    "cabbage army worm",
+    "beet army worm",
+    "Beet spot flies",
+    "meadow moth",
+    "beet weevil",
+    "sericaorient alismots chulsky",
+    "alfalfa weevil",
+    "flax budworm",
+    "alfalfa plant bug",
+    "tarnished plant bug",
+    "Locustoidea",
+    "lytta polita",
+    "legume blister beetle",
+    "blister beetle",
+    "therioaphis maculata Buckton",
+    "odontothrips loti",
+    "Thrips",
+    "alfalfa seed chalcid",
+    "Pieris canidia",
+    "Apolygus lucorum",
+    "Limacodidae",
+    "Viteus vitifoliae",
+    "Colomerus vitis",
+    "Brevipoalpus lewisi McGregor",
+    "oides decempunctata",
+    "Polyphagotars onemus latus",
+    "Pseudococcus comstocki Kuwana",
+    "parathrene regalis",
+    "Ampelophaga",
+    "Lycorma delicatula",
+    "Xylotrechus",
+    "Cicadella viridis",
+    "Miridae",
+    "Trialeurodes vaporariorum",
+    "Erythroneura apicalis",
+    "Papilio xuthus",
+    "Panonchus citri McGregor",
+    "Phyllocoptes oleiverus ashmead",
+    "Icerya purchasi Maskell",
+    "Unaspis yanonensis",
+    "Ceroplastes rubens",
+    "Chrysomphalus aonidum",
+    "Parlatoria zizyphus Lucus",
+    "Nipaecoccus vastalor",
+    "Aleurocanthus spiniferus",
+    "Tetradacus c Bactrocera minax ",
+    "Dacus dorsalis(Hendel)",
+    "Bactrocera tsuneonis",
+    "Prodenia litura",
+    "Adristyrannus",
+    "Phyllocnistis citrella Stainton",
+    "Toxoptera citricidus",
+    "Toxoptera aurantii",
+    "Aphis citricola Vander Goot",
+    "Scirtothrips dorsalis Hood",
+    "Dasineura sp",
+    "Lawana imitata Melichar",
+    "Salurnis marginella Guerr",
+    "Deporaus marginatus Pascoe",
+    "Chlumetia transversa",
+    "Mango flat beak leafhopper",
+    "Rhytidodera bowrinii white",
+    "Sternochetus frigidus",
+    "Cicadellidae",
+]
 N = len(PEST_CLASSES)
 
 # BACKGROUND IMAGE
@@ -146,11 +145,11 @@ language_options = {
     "Hausa": "ha",
     "Yoruba": "yo",
     "Igbo": "ig",
-    "Pidgin": "pcm"
+    "Pidgin": "pcm",
 }
 selected_lang_label = st.selectbox(
-    "🔊 Voice language for pest guide", list(
-        language_options.keys()), index=0)
+    "🔊 Voice language for pest guide", list(language_options.keys()), index=0
+)
 voice_lang = language_options[selected_lang_label]
 
 
@@ -158,9 +157,10 @@ def save_feedback(image_name, predicted_class, helpful):
     if "user" not in st.session_state or st.session_state.user is None:
         return
     from supabase import create_client
+
     supabase = create_client(
-        st.secrets["supabase"]["url"],
-        st.secrets["supabase"]["key"])
+        st.secrets["supabase"]["url"], st.secrets["supabase"]["key"]
+    )
     try:
         supabase.table("user_feedback").insert(
             {
@@ -168,7 +168,9 @@ def save_feedback(image_name, predicted_class, helpful):
                 "image_name": image_name,
                 "predicted_class": predicted_class,
                 "helpful": helpful,
-                "created_at": datetime.datetime.now().isoformat()}).execute()
+                "created_at": datetime.datetime.now().isoformat(),
+            }
+        ).execute()
     except BaseException:
         pass
 
@@ -177,25 +179,31 @@ def deduct_one_scan():
     if "user" not in st.session_state or st.session_state.user is None:
         return
     from supabase import create_client
+
     supabase = create_client(
-        st.secrets["supabase"]["url"],
-        st.secrets["supabase"]["key"])
+        st.secrets["supabase"]["url"], st.secrets["supabase"]["key"]
+    )
     uid = st.session_state.user.id
     try:
         supabase.table("user_scans").insert(
-            {"user_id": uid, "scans_remaining": 30, "plan": "free"}).execute()
+            {"user_id": uid, "scans_remaining": 30, "plan": "free"}
+        ).execute()
     except BaseException:
         pass
     try:
-        supabase.table("user_scans").update({"scans_remaining": supabase.raw(
-            "scans_remaining - 1")}).eq("user_id", uid).execute()
+        supabase.table("user_scans").update(
+            {"scans_remaining": supabase.raw("scans_remaining - 1")}
+        ).eq("user_id", uid).execute()
     except BaseException:
         supabase.rpc("decrement_scan", {"uid": uid}).execute()
-    res = supabase.table("user_scans").select(
-        "scans_remaining").eq("user_id", uid).execute()
+    res = (
+        supabase.table("user_scans")
+        .select("scans_remaining")
+        .eq("user_id", uid)
+        .execute()
+    )
     if res.data:
-        st.success(
-            f"Scan deducted. Remaining scans: {
+        st.success(f"Scan deducted. Remaining scans: {
                 res.data[0]['scans_remaining']}")
 
 
@@ -216,32 +224,35 @@ Please provide a comprehensive pest management guide covering:
 Be practical, specific, and use Nigerian/local context."""
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"}
+        "Content-Type": "application/json",
+    }
     payload = {
         "model": "deepseek-chat",
         "messages": [
-            {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA.",
+            },
+            {"role": "user", "content": prompt},
         ],
-        "temperature": 0.7, "max_tokens": 4000, "stream": True
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "stream": True,
     }
     r = requests.post(
-        DEEPSEEK_URL,
-        headers=headers,
-        json=payload,
-        stream=True,
-        timeout=60)
+        DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60
+    )
     for line in r.iter_lines():
         if not line:
             continue
-        line = line.decode('utf-8')
-        if line.startswith('data: '):
+        line = line.decode("utf-8")
+        if line.startswith("data: "):
             data = line[6:]
             if data.strip() == "[DONE]":
                 break
             try:
                 chunk = json.loads(data)
-                delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                delta = chunk["choices"][0].get("delta", {}).get("content", "")
                 if delta:
                     yield delta
             except BaseException:
@@ -251,12 +262,14 @@ Be practical, specific, and use Nigerian/local context."""
 @st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
     from app.utils.deepseek_explainer import text_to_speech
+
     audio_bytes, err = text_to_speech(explanation[:2000], lang)
     return audio_bytes, err
 
 
 if theme == "dark":
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <style>
         .stApp {{
             background: linear-gradient(135deg, rgba(26,15,0,0.68), rgba(46,28,0,0.58), rgba(62,42,0,0.68)),
@@ -271,9 +284,12 @@ if theme == "dark":
         .result-card.top-result{{border:1px solid #ff9800;box-shadow:0 0 30px rgba(255,152,0,.3)}}
         .stProgress>div>div>div>div{{background:linear-gradient(90deg,#ff9800,#ffcc80)}}
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 else:
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <style>
         .stApp {{
             background: linear-gradient(135deg, rgba(255,243,224,0.55), rgba(255,224,178,0.45)),
@@ -288,28 +304,28 @@ else:
         .result-card.top-result{{border:1px solid #e65100;box-shadow:0 0 20px rgba(230,81,0,.2)}}
         .stProgress>div>div>div>div{{background:linear-gradient(90deg,#ff9800,#ffcc80)}}
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 st.markdown(
-    '<div class="title">🐛 Pest Detection & Management</div>',
-    unsafe_allow_html=True)
+    '<div class="title">🐛 Pest Detection & Management</div>', unsafe_allow_html=True
+)
 st.markdown(
     '<div class="subtitle">Snap a photo — get identification and an AI-generated pest management guide</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 files = st.file_uploader(
-    "📤 Upload insect photos",
-    type=[
-        "jpg",
-        "jpeg",
-        "png"],
-    accept_multiple_files=True)
+    "📤 Upload insect photos", type=["jpg", "jpeg", "png"], accept_multiple_files=True
+)
 
 if files:
     model = None
     try:
         from app.utils.model_loader import create_model_from_checkpoint
         from app.utils.download_models import ensure_model
+
         cp_path = os.path.join("checkpoints", "pests_102class", "model.pt")
         if os.path.exists(cp_path):
             os.remove(cp_path)
@@ -326,11 +342,20 @@ if files:
             c1, c2 = st.columns([1, 2])
             c1.image(img, caption=f.name, width=200)
             if model:
-                t = Compose([Resize((224, 224)), ToTensor(), Normalize(
-                    [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+                t = Compose(
+                    [
+                        Resize((224, 224)),
+                        ToTensor(),
+                        Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+                    ]
+                )
                 with torch.no_grad():
-                    probs = F.softmax(model(t(img).unsqueeze(0)), dim=1)[
-                        0].detach().cpu().numpy()
+                    probs = (
+                        F.softmax(model(t(img).unsqueeze(0)), dim=1)[0]
+                        .detach()
+                        .cpu()
+                        .numpy()
+                    )
             else:
                 seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8], 16)
                 np.random.seed(seed)
@@ -343,27 +368,34 @@ if files:
             c2.markdown(
                 f'<div class="result-card top-result" style="border-left:5px solid #ff9800;"><h2 style="margin:0">{
                     pest_name.title()} <span style="font-size:1.5rem;color:#ff9800">{
-                    confidence:.1f}%</span></h2></div>', unsafe_allow_html=True)
+                    confidence:.1f}%</span></h2></div>',
+                unsafe_allow_html=True,
+            )
             for i in np.argsort(probs)[::-1][1:5]:
-                c2.write(
-                    f"**{PEST_CLASSES[i].title()}**: {probs[i] * 100:.1f}%")
+                c2.write(f"**{PEST_CLASSES[i].title()}**: {probs[i] * 100:.1f}%")
                 c2.progress(float(probs[i]))
             deduct_one_scan()
             if model is not None:
                 with st.spinner("🧠 GAIA is preparing your pest management guide..."):
-                    with st.expander("📋 Complete Pest Management Guide (AI-Generated)", expanded=True):
+                    with st.expander(
+                        "📋 Complete Pest Management Guide (AI-Generated)",
+                        expanded=True,
+                    ):
                         full_guide = []
 
                         def local_generator():
                             for chunk in stream_deepseek_pest_guide(
-                                    pest_name, confidence):
+                                pest_name, confidence
+                            ):
                                 full_guide.append(chunk)
                                 yield chunk
+
                         st.write_stream(local_generator)
-                        guide_text = ''.join(full_guide)
+                        guide_text = "".join(full_guide)
                         if guide_text:
                             audio_bytes, tts_err = get_voice_guide(
-                                guide_text, voice_lang)
+                                guide_text, voice_lang
+                            )
                             if audio_bytes:
                                 st.audio(audio_bytes, format="audio/mp3")
                             else:
@@ -380,7 +412,8 @@ if files:
         vote = Counter(predictions).most_common(1)[0]
         if vote[1] > len(predictions) // 2:
             st.success(
-                f"🗳️ Majority vote: **{vote[0].title()}** ({vote[1]}/{len(predictions)} photos)")
+                f"🗳️ Majority vote: **{vote[0].title()}** ({vote[1]}/{len(predictions)} photos)"
+            )
         else:
             st.info("🗳️ No clear consensus. Consider retaking.")
 

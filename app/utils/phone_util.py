@@ -1,4 +1,3 @@
-
 def normalize_phone(phone):
     """Convert Nigerian phone to international format for Paystack SMS."""
     if not phone:

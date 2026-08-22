@@ -1,4 +1,3 @@
-
 import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
@@ -21,9 +20,9 @@ def get_service():
 def verify_payment(ref):
     r = requests.get(
         f"https://api.paystack.co/transaction/verify/{ref}",
-        headers={
-            "Authorization": f"Bearer {PAYSTACK_SECRET}"},
-        timeout=10)
+        headers={"Authorization": f"Bearer {PAYSTACK_SECRET}"},
+        timeout=10,
+    )
     if r.status_code == 200:
         d = r.json()
         if d.get("status") and d["data"]["status"] == "success":
@@ -41,23 +40,21 @@ BADGES = {
         "loans": "Up to ₦50,000",
         "color": "#cd7f32",
         "gradient": "linear-gradient(135deg, #cd7f32, #e6a869)",
-        "benefits": [
-            "Basic loan access",
-            "Marketplace listing",
-            "Community chat"],
+        "benefits": ["Basic loan access", "Marketplace listing", "Community chat"],
     },
     "silver": {
         "name": "Silver",
-                "emoji": "🥈",
-                "price_monthly": "₦1,500",
-                "kobo": 150000,
-                "loans": "Up to ₦200,000",
-                "color": "#c0c0c0",
-                "gradient": "linear-gradient(135deg, #c0c0c0, #e8e8e8)",
-                "benefits": [
-                    "Higher loan limit",
-                    "Priority support",
-                    "Featured marketplace listing"],
+        "emoji": "🥈",
+        "price_monthly": "₦1,500",
+        "kobo": 150000,
+        "loans": "Up to ₦200,000",
+        "color": "#c0c0c0",
+        "gradient": "linear-gradient(135deg, #c0c0c0, #e8e8e8)",
+        "benefits": [
+            "Higher loan limit",
+            "Priority support",
+            "Featured marketplace listing",
+        ],
     },
     "gold": {
         "name": "Gold",
@@ -70,7 +67,8 @@ BADGES = {
         "benefits": [
             "Premium loan access",
             "Free insurance consultation",
-            "Exclusive badges"],
+            "Exclusive badges",
+        ],
     },
     "platinum": {
         "name": "Platinum",
@@ -83,7 +81,8 @@ BADGES = {
         "benefits": [
             "Highest loan limit",
             "Dedicated account manager",
-            "All premium features"],
+            "All premium features",
+        ],
     },
 }
 
@@ -97,10 +96,12 @@ user = st.session_state.user
 db = get_service()
 
 # Check verification
-verify = db.table("farmer_verifications").select(
-    "status").eq("user_id", user.id).execute()
-is_verified = verify.data and len(
-    verify.data) > 0 and verify.data[0].get("status") == "approved"
+verify = (
+    db.table("farmer_verifications").select("status").eq("user_id", user.id).execute()
+)
+is_verified = (
+    verify.data and len(verify.data) > 0 and verify.data[0].get("status") == "approved"
+)
 
 if not is_verified:
     st.warning("⚠️ You need to verify your identity first.")
@@ -108,14 +109,14 @@ if not is_verified:
     st.stop()
 
 # Get current badge
-badge_res = db.table("badge_subscriptions").select(
-    "*").eq("user_id", user.id).execute()
+badge_res = db.table("badge_subscriptions").select("*").eq("user_id", user.id).execute()
 current_badge = badge_res.data[0] if badge_res.data else None
 
 # ============================================
 # CUSTOM CSS (Facebook‑inspired)
 # ============================================
-st.markdown("""
+st.markdown(
+    """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
     * { font-family: 'Inter', sans-serif; }
@@ -162,17 +163,18 @@ st.markdown("""
         margin-top: 0.5rem; padding-left: 1.2rem;
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # ============================================
 # PAGE CONTENT
 # ============================================
-st.markdown(
-    '<div class="page-title">🏅 GAIA Badges</div>',
-    unsafe_allow_html=True)
+st.markdown('<div class="page-title">🏅 GAIA Badges</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">Subscribe to a monthly badge and unlock premium features</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 # Show current badge if active and not expired
 if current_badge:
@@ -187,7 +189,8 @@ if current_badge:
                 expiry_date = None
         if expiry_date and expiry_date > datetime.now():
             badge = BADGES[plan]
-            st.markdown(f"""
+            st.markdown(
+                f"""
                 <div class="current-badge">
                     <div class="badge-icon" style="background:{badge['gradient']};">
                         {badge['emoji']}
@@ -196,7 +199,9 @@ if current_badge:
                     <div class="badge-loans">Expires: {expiry_date.strftime('%d %b %Y')}</div>
                     <div class="badge-price">{badge['price_monthly']}/month</div>
                 </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
             st.success("✅ Your badge is active! Enjoy your benefits.")
         else:
             st.info("Your badge has expired. Renew below.")
@@ -210,7 +215,8 @@ st.markdown("### Choose Your Monthly Badge")
 badge_cols = st.columns(len(BADGES))
 for i, (key, badge) in enumerate(BADGES.items()):
     with badge_cols[i]:
-        st.markdown(f"""
+        st.markdown(
+            f"""
             <div class="badge-card">
                 <div class="badge-icon" style="background:{badge['gradient']};">
                     {badge['emoji']}
@@ -222,27 +228,30 @@ for i, (key, badge) in enumerate(BADGES.items()):
                     {'<br>'.join(['• ' + b for b in badge['benefits']])}
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         # Payment button
-        if st.button(
-                f"Subscribe {
-                    badge['name']}",
-                key=f"badge_btn_{key}",
-                use_container_width=True):
+        if st.button(f"Subscribe {
+                    badge['name']}", key=f"badge_btn_{key}", use_container_width=True):
             ref = f"GAIA_BADGE_{user.id[:8]}_{key}_{uuid.uuid4().hex[:6]}"
             phone_for_sms = ""
             try:
-                profile = db.table("user_profiles").select(
-                    "phone").eq("user_id", user.id).execute()
+                profile = (
+                    db.table("user_profiles")
+                    .select("phone")
+                    .eq("user_id", user.id)
+                    .execute()
+                )
                 if profile.data and len(profile.data) > 0:
-                    phone_for_sms = normalize_phone(
-                        profile.data[0].get("phone", ""))
+                    phone_for_sms = normalize_phone(profile.data[0].get("phone", ""))
             except BaseException:
                 pass
             phone_for_sms = phone_for_sms or "08000000000"
 
-            components.html(f"""
+            components.html(
+                f"""
             <!DOCTYPE html>
             <html>
             <head>
@@ -269,7 +278,9 @@ for i, (key, badge) in enumerate(BADGES.items()):
                 </script>
             </body>
             </html>
-            """, height=100)
+            """,
+                height=100,
+            )
 
 # ============================================
 # NAVIGATION

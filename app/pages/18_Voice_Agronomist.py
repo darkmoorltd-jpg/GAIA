@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import os
@@ -15,22 +14,25 @@ SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
 
 st.set_page_config(
-    page_title="GAIA - Chat & Voice Agronomist",
-    page_icon="🍅",
-    layout="wide")
+    page_title="GAIA - Chat & Voice Agronomist", page_icon="🍅", layout="wide"
+)
 
 # ===== THEME TOGGLE =====
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stToggle > label { display: none !important; }
     .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
     .stToggle > div { transform: scale(1.3); }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 st.markdown(
     """<style>.stApp{background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');background-size:cover;background-attachment:fixed;background-position:center;}</style>""",
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 dark_mode = st.toggle("", value=False, key="voice_theme_toggle")
 theme = "dark" if dark_mode else "light"
@@ -63,12 +65,14 @@ def load_recent_chats(user_id, limit=50):
         return []
     supabase = init_supabase()
     try:
-        res = supabase.table("gaia_chat_memory") \
-            .select("question, answer, created_at") \
-            .eq("user_id", user_id) \
-            .order("created_at", desc=True) \
-            .limit(limit) \
+        res = (
+            supabase.table("gaia_chat_memory")
+            .select("question, answer, created_at")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
             .execute()
+        )
         return list(reversed(res.data)) if res.data else []
     except Exception:
         return []
@@ -79,12 +83,14 @@ def save_chat(user_id, question, answer):
         return
     supabase = init_supabase()
     try:
-        supabase.table("gaia_chat_memory").insert({
-            "user_id": user_id,
-            "question": question,
-            "answer": answer[:2000],
-            "created_at": datetime.now().isoformat()
-        }).execute()
+        supabase.table("gaia_chat_memory").insert(
+            {
+                "user_id": user_id,
+                "question": question,
+                "answer": answer[:2000],
+                "created_at": datetime.now().isoformat(),
+            }
+        ).execute()
     except Exception:
         pass
 
@@ -94,8 +100,12 @@ def load_memory_from_db(user_id):
         return {}
     supabase = init_supabase()
     try:
-        res = supabase.table("farmer_memory").select(
-            "key, value").eq("user_id", user_id).execute()
+        res = (
+            supabase.table("farmer_memory")
+            .select("key, value")
+            .eq("user_id", user_id)
+            .execute()
+        )
         if res.data:
             mem = {}
             for row in res.data:
@@ -112,8 +122,15 @@ def save_memory_to_db(user_id, key, value):
         return
     supabase = init_supabase()
     try:
-        supabase.table("farmer_memory").upsert({"user_id": user_id, "key": key, "value": str(
-            value), "updated_at": datetime.now().isoformat()}, on_conflict="user_id,key").execute()
+        supabase.table("farmer_memory").upsert(
+            {
+                "user_id": user_id,
+                "key": key,
+                "value": str(value),
+                "updated_at": datetime.now().isoformat(),
+            },
+            on_conflict="user_id,key",
+        ).execute()
     except Exception:
         pass
 
@@ -124,8 +141,13 @@ if "user" in st.session_state and st.session_state.user is not None:
     if not st.session_state.farmer_memory:
         st.session_state.farmer_memory.update(load_memory_from_db(user_id))
         try:
-            profile_res = init_supabase().table("user_profiles").select(
-                "first_name, last_name, state, primary_crops").eq("user_id", user_id).execute()
+            profile_res = (
+                init_supabase()
+                .table("user_profiles")
+                .select("first_name, last_name, state, primary_crops")
+                .eq("user_id", user_id)
+                .execute()
+            )
             if profile_res.data:
                 p = profile_res.data[0]
                 if p.get("first_name") and p.get("last_name"):
@@ -149,7 +171,8 @@ GAIA_IDENTITY = (
     "IMPORTANT: Always reply in the same language the farmer uses. "
     "If the farmer speaks Hausa, reply in Hausa; Yoruba, reply in Yoruba; "
     "Igbo, reply in Igbo; Pidgin English, reply in Pidgin; English, reply in English. "
-    "Speak naturally like a local agronomist, using local farming terms.")
+    "Speak naturally like a local agronomist, using local farming terms."
+)
 
 
 def build_memory_context():
@@ -157,14 +180,15 @@ def build_memory_context():
     ctx_parts = []
     # Include only essential facts (name, crop, location, last question)
     essential_keys = ["name", "crop", "location"]
-    facts = {k: st.session_state.farmer_memory[k]
-             for k in essential_keys if k in st.session_state.farmer_memory}
+    facts = {
+        k: st.session_state.farmer_memory[k]
+        for k in essential_keys
+        if k in st.session_state.farmer_memory
+    }
     if facts:
         ctx_parts.append(
-            "Known facts: " +
-            "; ".join(
-                f"{k}: {v}" for k,
-                v in facts.items()))
+            "Known facts: " + "; ".join(f"{k}: {v}" for k, v in facts.items())
+        )
     # Include only last 5 chats, truncated to 120 chars each
     if st.session_state.recent_chats:
         recent = []
@@ -179,20 +203,17 @@ def build_memory_context():
 
 def update_farmer_memory(question, answer):
     q = question.lower()
-    user_id = st.session_state.user.id if "user" in st.session_state and st.session_state.user else None
+    user_id = (
+        st.session_state.user.id
+        if "user" in st.session_state and st.session_state.user
+        else None
+    )
 
     if "my name is" in q:
         name = q.split("my name is")[-1].strip().split()[0].title()
         st.session_state.farmer_memory["name"] = name
         save_memory_to_db(user_id, "name", name)
-    for crop in [
-        "maize",
-        "rice",
-        "wheat",
-        "beans",
-        "cassava",
-        "yam",
-            "tomato"]:
+    for crop in ["maize", "rice", "wheat", "beans", "cassava", "yam", "tomato"]:
         if crop in q:
             st.session_state.farmer_memory["crop"] = crop
             save_memory_to_db(user_id, "crop", crop)
@@ -205,11 +226,13 @@ def update_farmer_memory(question, answer):
 
     save_chat(user_id, question, answer)
 
-    st.session_state.recent_chats.append({
-        "question": question,
-        "answer": answer,
-        "created_at": datetime.now().isoformat()
-    })
+    st.session_state.recent_chats.append(
+        {
+            "question": question,
+            "answer": answer,
+            "created_at": datetime.now().isoformat(),
+        }
+    )
     st.session_state.recent_chats = st.session_state.recent_chats[-50:]
 
 
@@ -217,18 +240,18 @@ def ask_gaia_stream(question):
     """Stream response from DeepSeek and update placeholder in real time."""
     system_prompt = GAIA_IDENTITY + "\n\n" + build_memory_context()
     headers = {
-        "Authorization": "Bearer " +
-        DEEPSEEK_API_KEY,
-        "Content-Type": "application/json"}
+        "Authorization": "Bearer " + DEEPSEEK_API_KEY,
+        "Content-Type": "application/json",
+    }
     payload = {
         "model": "deepseek-chat",
         "messages": [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": question}
+            {"role": "user", "content": question},
         ],
         "temperature": 0.7,
         "max_tokens": 3000,
-        "stream": True
+        "stream": True,
     }
 
     full_answer = ""
@@ -236,26 +259,22 @@ def ask_gaia_stream(question):
 
     try:
         r = requests.post(
-            DEEPSEEK_URL,
-            headers=headers,
-            json=payload,
-            stream=True,
-            timeout=60)
+            DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60
+        )
         if r.status_code != 200:
             return None, f"API error: {r.status_code}"
 
         for line in r.iter_lines():
             if not line:
                 continue
-            line = line.decode('utf-8')
-            if line.startswith('data: '):
+            line = line.decode("utf-8")
+            if line.startswith("data: "):
                 data = line[6:]
                 if data.strip() == "[DONE]":
                     break
                 try:
                     chunk = json.loads(data)
-                    delta = chunk['choices'][0].get(
-                        'delta', {}).get('content', '')
+                    delta = chunk["choices"][0].get("delta", {}).get("content", "")
                     if delta:
                         full_answer += delta
                         placeholder.markdown(full_answer + "▌")
@@ -284,6 +303,7 @@ def detect_language(text):
 def speak_answer(text, language="en-GB"):
     try:
         from app.utils.deepseek_explainer import text_to_speech
+
         audio_bytes, err = text_to_speech(text, language)
         if audio_bytes:
             return audio_bytes, None
@@ -294,7 +314,8 @@ def speak_answer(text, language="en-GB"):
 
 # ===== THEME CSS =====
 if theme == "dark":
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         @keyframes bounce { 0%,100%{transform:translateY(0) rotate(0deg)} 25%{transform:translateY(-20px) rotate(15deg)} 50%{transform:translateY(0) rotate(0deg)} 75%{transform:translateY(-10px) rotate(-15deg)} }
         @keyframes glow { 0%,100%{text-shadow:0 0 20px rgba(0,200,83,.6)} 50%{text-shadow:0 0 40px rgba(0,200,83,1),0 0 80px rgba(0,200,83,.8)} }
@@ -308,9 +329,12 @@ if theme == "dark":
         header,footer { visibility:hidden }
         .msg-user, .msg-gaia, .gaia-title, .subtitle, .dancing-tomato, .stMarkdown, .stMarkdown p { text-shadow: 1px 1px 4px rgba(0,0,0,0.3); }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 else:
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         @keyframes bounce { 0%,100%{transform:translateY(0) rotate(0deg)} 25%{transform:translateY(-20px) rotate(15deg)} 50%{transform:translateY(0) rotate(0deg)} 75%{transform:translateY(-10px) rotate(-15deg)} }
         @keyframes glowLight { 0%,100%{text-shadow:0 0 15px rgba(46,125,50,.5)} 50%{text-shadow:0 0 30px rgba(46,125,50,1),0 0 60px rgba(46,125,50,.7)} }
@@ -324,16 +348,21 @@ else:
         header,footer { visibility:hidden }
         .msg-user, .msg-gaia, .gaia-title, .subtitle, .dancing-tomato, .stMarkdown, .stMarkdown p { text-shadow: 1px 1px 4px rgba(0,0,0,0.3); }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 # ===== HEADER =====
-st.markdown(f"""
+st.markdown(
+    f"""
 <div style="text-align:center;padding:10px 0;">
     <span class="dancing-tomato">🍅</span>
 </div>
 <div class="gaia-title">GAIA Chat & Voice Agronomist</div>
 <div style="text-align:center;color:#6b7280;margin-bottom:1.5rem;">Speak or type — GAIA listens and talks back</div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # ===== PLAY STORED AUDIO =====
 if st.session_state.audio_to_play:
@@ -351,13 +380,15 @@ if st.session_state.pending_transcription:
     if err:
         st.error(err)
     else:
-        st.session_state.voice_history.append({
-            "id": str(uuid.uuid4())[:8],
-            "q": "🎤 " + text,
-            "a": answer,
-            "t": datetime.now().strftime("%H:%M"),
-            "hidden": False
-        })
+        st.session_state.voice_history.append(
+            {
+                "id": str(uuid.uuid4())[:8],
+                "q": "🎤 " + text,
+                "a": answer,
+                "t": datetime.now().strftime("%H:%M"),
+                "hidden": False,
+            }
+        )
         update_farmer_memory(text, answer)
 
         if "user" in st.session_state and st.session_state.user is not None:
@@ -385,22 +416,17 @@ if not st.session_state.processing_audio:
             tmp = "/tmp/gaia_voice.wav"
             with open(tmp, "wb") as f:
                 f.write(
-                    audio.getvalue() if hasattr(
-                        audio, 'getvalue') else audio.read())
+                    audio.getvalue() if hasattr(audio, "getvalue") else audio.read()
+                )
 
             headers = {"Authorization": "Bearer " + GROQ_API_KEY}
             with open(tmp, "rb") as f:
                 resp = requests.post(
                     "https://api.groq.com/openai/v1/audio/transcriptions",
                     headers=headers,
-                    files={
-                        "file": (
-                            "audio.wav",
-                            f,
-                            "audio/wav")},
-                    data={
-                        "model": "whisper-large-v3",
-                        "language": "en"})
+                    files={"file": ("audio.wav", f, "audio/wav")},
+                    data={"model": "whisper-large-v3", "language": "en"},
+                )
             os.remove(tmp)
 
             if resp.status_code == 200:
@@ -410,8 +436,7 @@ if not st.session_state.processing_audio:
                 else:
                     st.warning("No speech detected. Please try again.")
             else:
-                st.error(
-                    f"Transcription failed (Error {
+                st.error(f"Transcription failed (Error {
                         resp.status_code}). Please type instead.")
 
             st.session_state.processing_audio = False
@@ -429,7 +454,8 @@ with c1:
         "",
         placeholder="Ask anything about your farm...",
         height=60,
-        label_visibility="collapsed")
+        label_visibility="collapsed",
+    )
 with c2:
     st.write("")
     if st.button("Ask 🍅", type="primary", use_container_width=True) and q:
@@ -437,17 +463,18 @@ with c2:
         if err:
             st.error(err)
         else:
-            st.session_state.voice_history.append({
-                "id": str(uuid.uuid4())[:8],
-                "q": q,
-                "a": answer,
-                "t": datetime.now().strftime("%H:%M"),
-                "hidden": False
-            })
+            st.session_state.voice_history.append(
+                {
+                    "id": str(uuid.uuid4())[:8],
+                    "q": q,
+                    "a": answer,
+                    "t": datetime.now().strftime("%H:%M"),
+                    "hidden": False,
+                }
+            )
             update_farmer_memory(q, answer)
             if "user" in st.session_state and st.session_state.user is not None:
-                deduct_scans(st.session_state.user.id, 3,
-                             "Voice Agronomist (Text)")
+                deduct_scans(st.session_state.user.id, 3, "Voice Agronomist (Text)")
             lang = detect_language(q)
             audio_bytes, speech_err = speak_answer(answer, lang)
             if audio_bytes:
@@ -468,16 +495,21 @@ if st.session_state.voice_history:
     for item in reversed(st.session_state.voice_history):
         st.markdown(
             f'<div style="text-align:right;font-size:.7rem;color:#6b7280;">You - {
-                item["t"]}</div>',
-            unsafe_allow_html=True)
+                item["t"]}</div>', unsafe_allow_html=True
+        )
         st.markdown(
-            f'<div class="msg-bubble msg-user">{item["q"]}</div>', unsafe_allow_html=True)
+            f'<div class="msg-bubble msg-user">{item["q"]}</div>',
+            unsafe_allow_html=True,
+        )
         st.markdown(
             f'<div style="margin:4px 0;"><span>🍅</span><span style="font-size:.7rem;color:#6b7280;"> GAIA - {
                 item["t"]}</span></div>',
-            unsafe_allow_html=True)
+            unsafe_allow_html=True,
+        )
         st.markdown(
-            f'<div class="msg-bubble msg-gaia">{item["a"]}</div>', unsafe_allow_html=True)
+            f'<div class="msg-bubble msg-gaia">{item["a"]}</div>',
+            unsafe_allow_html=True,
+        )
 
 # ===== FARMER MEMORY =====
 if st.session_state.farmer_memory:
@@ -489,7 +521,8 @@ if st.session_state.farmer_memory:
             if "user" in st.session_state and st.session_state.user is not None:
                 try:
                     init_supabase().table("farmer_memory").delete().eq(
-                        "user_id", st.session_state.user.id).execute()
+                        "user_id", st.session_state.user.id
+                    ).execute()
                 except BaseException:
                     pass
             st.session_state.farmer_memory = {}

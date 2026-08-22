@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 from supabase import create_client, Client
@@ -8,10 +7,7 @@ SUPABASE_URL = st.secrets["supabase"]["url"]
 SERVICE_KEY = st.secrets["supabase"]["service_key"]
 PAYSTACK_SECRET = st.secrets["paystack"]["secret_key"]
 
-st.set_page_config(
-    page_title="Processing Payment",
-    page_icon="⏳",
-    layout="centered")
+st.set_page_config(page_title="Processing Payment", page_icon="⏳", layout="centered")
 
 # Scan plans (new)
 SCAN_PLANS = {
@@ -89,25 +85,28 @@ if plan in BADGE_PLANS:
     user_id = auth_user.id
 
     # Upsert badge subscription
-    service.table("badge_subscriptions").upsert({
-        "user_id": user_id,
-        "plan": plan.replace("badge_", ""),  # bronze, silver, gold, platinum
-        "start_date": datetime.now().isoformat(),
-        "expiry": expiry.isoformat(),
-        "status": "active",
-    }).execute()
+    service.table("badge_subscriptions").upsert(
+        {
+            "user_id": user_id,
+            "plan": plan.replace("badge_", ""),  # bronze, silver, gold, platinum
+            "start_date": datetime.now().isoformat(),
+            "expiry": expiry.isoformat(),
+            "status": "active",
+        }
+    ).execute()
 
     # Record payment history
-    service.table("payment_history").insert({
-        "user_id": user_id,
-        "amount": amount_paid,
-        "scans_added": 0,
-        "plan": plan,
-        "reference": reference,
-    }).execute()
+    service.table("payment_history").insert(
+        {
+            "user_id": user_id,
+            "amount": amount_paid,
+            "scans_added": 0,
+            "plan": plan,
+            "reference": reference,
+        }
+    ).execute()
 
-    st.success(
-        f"✅ Payment successful! You are now a {
+    st.success(f"✅ Payment successful! You are now a {
             badge['name']} subscriber until {
             expiry.strftime('%d %b %Y')}.")
     st.markdown("[Go to Dashboard](/~/)")
@@ -125,13 +124,16 @@ if plan == "verification":
     user_id = auth_user.id
 
     # Update verification payment status
-    service.table("farmer_verifications").update({
-        "payment_status": "paid",
-        "payment_reference": reference,
-    }).eq("user_id", user_id).execute()
+    service.table("farmer_verifications").update(
+        {
+            "payment_status": "paid",
+            "payment_reference": reference,
+        }
+    ).eq("user_id", user_id).execute()
 
     st.success(
-        "✅ Verification payment received! Your KYC is now pending admin review.")
+        "✅ Verification payment received! Your KYC is now pending admin review."
+    )
     st.markdown("[Go to Dashboard](/~/)")
     st.stop()
 
@@ -148,28 +150,37 @@ if plan in SCAN_PLANS:
     user_id = auth_user.id
 
     # Fetch current scans
-    cur_res = service.table("user_scans").select(
-        "scans_remaining").eq("user_id", user_id).execute()
+    cur_res = (
+        service.table("user_scans")
+        .select("scans_remaining")
+        .eq("user_id", user_id)
+        .execute()
+    )
     current_scans = cur_res.data[0]["scans_remaining"] if cur_res.data else 30
     new_total = current_scans + scans_to_add
 
     # Update scans and plan name
-    service.table("user_scans").update({
-        "scans_remaining": new_total,
-        "plan": plan,
-    }).eq("user_id", user_id).execute()
+    service.table("user_scans").update(
+        {
+            "scans_remaining": new_total,
+            "plan": plan,
+        }
+    ).eq("user_id", user_id).execute()
 
     # Record payment history
-    service.table("payment_history").insert({
-        "user_id": user_id,
-        "amount": amount_paid,
-        "scans_added": scans_to_add,
-        "plan": plan,
-        "reference": reference,
-    }).execute()
+    service.table("payment_history").insert(
+        {
+            "user_id": user_id,
+            "amount": amount_paid,
+            "scans_added": scans_to_add,
+            "plan": plan,
+            "reference": reference,
+        }
+    ).execute()
 
     st.success(
-        f"✅ Payment successful! {scans_to_add} scans added. Balance: {new_total}")
+        f"✅ Payment successful! {scans_to_add} scans added. Balance: {new_total}"
+    )
     st.markdown("[Go to Dashboard](/~/)")
     st.stop()
 

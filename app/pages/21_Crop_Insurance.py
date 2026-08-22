@@ -23,10 +23,7 @@ def get_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
 
-st.set_page_config(
-    page_title="GAIA – Crop Insurance",
-    page_icon="🏦",
-    layout="wide")
+st.set_page_config(page_title="GAIA – Crop Insurance", page_icon="🏦", layout="wide")
 
 if "user" not in st.session_state or not st.session_state.user:
     st.warning("Please log in first.")
@@ -41,37 +38,32 @@ INSURANCE_PLANS = {
         "name": "Basic Cover",
         "premium": 500,
         "coverage": 50000,
-        "crops": [
-            "Maize",
-            "Rice",
-            "Beans"],
-        "duration": "6 months"},
+        "crops": ["Maize", "Rice", "Beans"],
+        "duration": "6 months",
+    },
     "standard": {
         "name": "Standard Cover",
-                "premium": 1000,
-                "coverage": 100000,
-                "crops": [
-                    "Maize",
-                    "Rice",
-                    "Beans",
-                    "Yam",
-                    "Cassava"],
-        "duration": "12 months"},
+        "premium": 1000,
+        "coverage": 100000,
+        "crops": ["Maize", "Rice", "Beans", "Yam", "Cassava"],
+        "duration": "12 months",
+    },
     "premium": {
         "name": "Premium Cover",
         "premium": 2000,
         "coverage": 200000,
         "crops": ["All crops"],
-        "duration": "12 months"},
+        "duration": "12 months",
+    },
 }
 
 
 def verify_paystack(ref):
     r = requests.get(
         f"https://api.paystack.co/transaction/verify/{ref}",
-        headers={
-            "Authorization": f"Bearer {PAYSTACK_SECRET}"},
-        timeout=10)
+        headers={"Authorization": f"Bearer {PAYSTACK_SECRET}"},
+        timeout=10,
+    )
     if r.status_code == 200:
         d = r.json()
         if d.get("status") and d["data"]["status"] == "success":
@@ -80,17 +72,21 @@ def verify_paystack(ref):
 
 
 try:
-    policies_res = db.table("insurance_policies").select(
-        "*").eq("user_id", user.id).order("created_at", desc=True).execute()
+    policies_res = (
+        db.table("insurance_policies")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", desc=True)
+        .execute()
+    )
     my_policies = policies_res.data if policies_res.data else []
 except BaseException:
     my_policies = []
 
-active_policy = next(
-    (p for p in my_policies if p.get("status") == "active"),
-    None)
+active_policy = next((p for p in my_policies if p.get("status") == "active"), None)
 
-st.markdown("""
+st.markdown(
+    """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     * { font-family: 'Inter', sans-serif; }
@@ -118,53 +114,56 @@ st.markdown("""
         padding: 12px 28px !important; font-weight: 600 !important;
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 st.markdown(
-    '<div class="insurance-title">🏦 Crop Insurance</div>',
-    unsafe_allow_html=True)
+    '<div class="insurance-title">🏦 Crop Insurance</div>', unsafe_allow_html=True
+)
 st.markdown(
     '<div class="subtitle">Your farm is covered. GAIA monitors your field and files claims automatically.</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 tab1, tab2, tab3, tab4 = st.tabs(
-    ["📋 My Policies", "🛡️ Get Insurance", "📸 Field Monitoring", "📝 File Claim"])
+    ["📋 My Policies", "🛡️ Get Insurance", "📸 Field Monitoring", "📝 File Claim"]
+)
 
 with tab1:
     if not my_policies:
         st.info(
-            "🏦 You don't have any insurance policies yet. Go to **Get Insurance** to protect your farm.")
+            "🏦 You don't have any insurance policies yet. Go to **Get Insurance** to protect your farm."
+        )
     else:
         for policy in my_policies:
             status = policy.get("status", "active")
-            status_emoji = {
-                "active": "🟢",
-                "expired": "🔴",
-                "cancelled": "⚫"}.get(
-                status,
-                "⚪")
-            with st.expander(f"{status_emoji} Policy #{policy.get('policy_number', '?')} — {policy.get('crop', '')} ({status.upper()})"):
+            status_emoji = {"active": "🟢", "expired": "🔴", "cancelled": "⚫"}.get(
+                status, "⚪"
+            )
+            with st.expander(
+                f"{status_emoji} Policy #{policy.get('policy_number', '?')} — {policy.get('crop', '')} ({status.upper()})"
+            ):
                 col1, col2 = st.columns(2)
                 with col1:
                     st.write(f"**Crop:** {policy.get('crop', '')}")
                     st.write(
-                        f"**Field Location:** {policy.get('field_location', 'N/A')}")
+                        f"**Field Location:** {policy.get('field_location', 'N/A')}"
+                    )
                     st.write(
-                        f"**Field Size:** {policy.get('field_size_acres', 'N/A')} acres")
+                        f"**Field Size:** {policy.get('field_size_acres', 'N/A')} acres"
+                    )
                 with col2:
+                    st.write(f"**Coverage:** ₦{policy.get('coverage_amount', 0):,}")
                     st.write(
-                        f"**Coverage:** ₦{policy.get('coverage_amount', 0):,}")
-                    st.write(
-                        f"**Premium:** ₦{policy.get('premium_monthly', 0):,}/month")
-                    st.write(
-                        f"**Start:** {str(policy.get('start_date', ''))[:10]}")
-                    st.write(
-                        f"**End:** {str(policy.get('end_date', ''))[:10]}")
+                        f"**Premium:** ₦{policy.get('premium_monthly', 0):,}/month"
+                    )
+                    st.write(f"**Start:** {str(policy.get('start_date', ''))[:10]}")
+                    st.write(f"**End:** {str(policy.get('end_date', ''))[:10]}")
 
 with tab2:
     if active_policy:
-        st.success(
-            f"✅ You have an active policy for **{
+        st.success(f"✅ You have an active policy for **{
                 active_policy.get(
                     'crop', '')}** — coverage ₦{
                 active_policy.get(
@@ -175,7 +174,8 @@ with tab2:
         cols = st.columns(3)
         for i, (plan_key, plan) in enumerate(INSURANCE_PLANS.items()):
             with cols[i]:
-                st.markdown(f"""
+                st.markdown(
+                    f"""
                 <div class="plan-card">
                     <div class="plan-name">{plan['name']}</div>
                     <div class="plan-premium">₦{plan['premium']:,}<small>/mo</small></div>
@@ -183,13 +183,16 @@ with tab2:
                     <p style="font-size:0.8rem;color:#888;">Crops: {', '.join(plan['crops'])}</p>
                     <p style="font-size:0.8rem;color:#888;">Duration: {plan['duration']}</p>
                 </div>
-                """, unsafe_allow_html=True)
+                """,
+                    unsafe_allow_html=True,
+                )
 
                 if st.button(
-                        f"Select {
+                    f"Select {
                             plan['name']}",
-                        key=f"plan_{plan_key}",
-                        use_container_width=True):
+                    key=f"plan_{plan_key}",
+                    use_container_width=True,
+                ):
                     st.session_state.selected_insurance_plan = plan_key
                     st.rerun()
 
@@ -197,23 +200,21 @@ with tab2:
             selected = st.session_state.selected_insurance_plan
             plan = INSURANCE_PLANS[selected]
             st.markdown("---")
-            st.markdown(
-                f"### Selected: {
+            st.markdown(f"### Selected: {
                     plan['name']} — ₦{
                     plan['premium']:,}/month")
 
             with st.form("insurance_form"):
-                crop = st.selectbox("Crop to Insure", plan['crops'])
+                crop = st.selectbox("Crop to Insure", plan["crops"])
                 field_location = st.text_input("Field Location")
-                field_size = st.number_input(
-                    "Field Size (acres)", min_value=1, value=1)
+                field_size = st.number_input("Field Size (acres)", min_value=1, value=1)
 
                 if st.form_submit_button(
-                    "💳 Pay Premium",
-                    type="primary",
-                        use_container_width=True):
+                    "💳 Pay Premium", type="primary", use_container_width=True
+                ):
                     ref = f"GAIA_INS_{user.id[:8]}_{uuid.uuid4().hex[:6]}"
-                    components.html(f"""
+                    components.html(
+                        f"""
                     <script src="https://js.paystack.co/v1/inline.js"></script>
                     <script>
                         PaystackPop.setup({{
@@ -228,11 +229,15 @@ with tab2:
                             }}
                         }}).openIframe();
                     </script>
-                    """, height=150)
+                    """,
+                        height=150,
+                    )
 
 with tab3:
     st.markdown("### 📸 Field Monitoring")
-    st.info("Upload field photos for GAIA to monitor crop health and file claims automatically.")
+    st.info(
+        "Upload field photos for GAIA to monitor crop health and file claims automatically."
+    )
 
 with tab4:
     st.markdown("### 📝 File a Claim")

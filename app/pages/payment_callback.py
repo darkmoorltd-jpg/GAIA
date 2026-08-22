@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 from supabase import create_client, Client
@@ -15,9 +14,8 @@ def get_service_client():
 
 
 st.set_page_config(
-    page_title="GAIA – Payment Callback",
-    page_icon="💳",
-    layout="centered")
+    page_title="GAIA – Payment Callback", page_icon="💳", layout="centered"
+)
 st.title("⏳ Processing your payment...")
 
 query_params = st.query_params
@@ -32,8 +30,12 @@ if not reference:
 service_client = get_service_client()
 
 # Look up pending payment by reference
-pending = service_client.table("pending_payments").select(
-    "*").eq("reference", reference).execute()
+pending = (
+    service_client.table("pending_payments")
+    .select("*")
+    .eq("reference", reference)
+    .execute()
+)
 if not pending.data:
     st.error("Payment reference not found in our records.")
     st.stop()
@@ -63,7 +65,8 @@ try:
                 "25",
                 "60",
                 "250",
-                    "unlimited"]:
+                "unlimited",
+            ]:
                 scans_to_add = {
                     "starter": 150,
                     "pro": 300,
@@ -73,47 +76,62 @@ try:
                     "25": 25,
                     "60": 60,
                     "250": 250,
-                    "unlimited": 9999}.get(
-                    plan,
-                    0)
-                cur = service_client.table("user_scans").select(
-                    "scans_remaining").eq("user_id", user_id).execute()
+                    "unlimited": 9999,
+                }.get(plan, 0)
+                cur = (
+                    service_client.table("user_scans")
+                    .select("scans_remaining")
+                    .eq("user_id", user_id)
+                    .execute()
+                )
                 cur_scans = cur.data[0]["scans_remaining"] if cur.data else 0
                 new_total = cur_scans + scans_to_add
-                service_client.table("user_scans").update({
-                    "scans_remaining": new_total,
-                    "plan": plan
-                }).eq("user_id", user_id).execute()
-                service_client.table("payment_history").insert({
-                    "user_id": user_id, "amount": amount_paid,
-                    "scans_added": scans_to_add, "plan": plan, "reference": reference
-                }).execute()
-                st.success(
-                    f"✅ Payment successful! {scans_to_add} scans added.")
+                service_client.table("user_scans").update(
+                    {"scans_remaining": new_total, "plan": plan}
+                ).eq("user_id", user_id).execute()
+                service_client.table("payment_history").insert(
+                    {
+                        "user_id": user_id,
+                        "amount": amount_paid,
+                        "scans_added": scans_to_add,
+                        "plan": plan,
+                        "reference": reference,
+                    }
+                ).execute()
+                st.success(f"✅ Payment successful! {scans_to_add} scans added.")
             elif plan.startswith("badge_"):
                 badge_plan = plan.replace("badge_", "")
                 expiry = datetime.now() + timedelta(days=30)
-                service_client.table("badge_subscriptions").upsert({
-                    "user_id": user_id, "plan": badge_plan,
-                    "start_date": datetime.now().isoformat(),
-                    "expiry": expiry.isoformat(),
-                    "status": "active"
-                }).execute()
-                service_client.table("payment_history").insert({
-                    "user_id": user_id, "amount": amount_paid,
-                    "scans_added": 0, "plan": plan, "reference": reference
-                }).execute()
+                service_client.table("badge_subscriptions").upsert(
+                    {
+                        "user_id": user_id,
+                        "plan": badge_plan,
+                        "start_date": datetime.now().isoformat(),
+                        "expiry": expiry.isoformat(),
+                        "status": "active",
+                    }
+                ).execute()
+                service_client.table("payment_history").insert(
+                    {
+                        "user_id": user_id,
+                        "amount": amount_paid,
+                        "scans_added": 0,
+                        "plan": plan,
+                        "reference": reference,
+                    }
+                ).execute()
                 st.success(f"✅ Badge subscription activated!")
             elif plan == "verification":
-                service_client.table("farmer_verifications").update({
-                    "payment_status": "paid"
-                }).eq("user_id", user_id).execute()
+                service_client.table("farmer_verifications").update(
+                    {"payment_status": "paid"}
+                ).eq("user_id", user_id).execute()
                 st.success("✅ Verification payment received!")
             else:
                 st.warning("Plan not recognised.")
             # Mark pending payment completed
-            service_client.table("pending_payments").update(
-                {"status": "completed"}).eq("reference", reference).execute()
+            service_client.table("pending_payments").update({"status": "completed"}).eq(
+                "reference", reference
+            ).execute()
             st.markdown("[Go to Dashboard](/~/)")
 except Exception as e:
     st.error(f"Payment verification failed: {e}")

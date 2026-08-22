@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import os
@@ -9,11 +8,7 @@ DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
 
-def explain_diagnosis(
-        diagnosis,
-        confidence,
-        crop_or_type,
-        context_type="crop"):
+def explain_diagnosis(diagnosis, confidence, crop_or_type, context_type="crop"):
     """Non-streaming fallback (returns full text)."""
     if context_type == "crop":
         prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {
@@ -65,22 +60,22 @@ Be practical, specific, and use Nigerian/local context."""
 
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"}
+        "Content-Type": "application/json",
+    }
     payload = {
         "model": "deepseek-chat",
         "messages": [
-            {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA.",
+            },
+            {"role": "user", "content": prompt},
         ],
         "temperature": 0.7,
-        "max_tokens": 4000
+        "max_tokens": 4000,
     }
     try:
-        r = requests.post(
-            DEEPSEEK_URL,
-            headers=headers,
-            json=payload,
-            timeout=60)
+        r = requests.post(DEEPSEEK_URL, headers=headers, json=payload, timeout=60)
         if r.status_code == 200:
             return r.json()["choices"][0]["message"]["content"], None
         return None, f"API error: {r.status_code}"
@@ -88,11 +83,7 @@ Be practical, specific, and use Nigerian/local context."""
         return None, str(e)
 
 
-def explain_diagnosis_stream(
-        diagnosis,
-        confidence,
-        crop_or_type,
-        context_type="crop"):
+def explain_diagnosis_stream(diagnosis, confidence, crop_or_type, context_type="crop"):
     """Streaming generator for fast AI generation."""
     if context_type == "crop":
         prompt = f"""GAIA diagnosed: {diagnosis} on {crop_or_type} with {
@@ -144,40 +135,40 @@ Be practical, specific, and use Nigerian/local context."""
 
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"}
+        "Content-Type": "application/json",
+    }
     payload = {
         "model": "deepseek-chat",
         "messages": [
-            {"role": "system", "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are GAIA, an expert agricultural advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA.",
+            },
+            {"role": "user", "content": prompt},
         ],
         "temperature": 0.7,
         "max_tokens": 4000,
-        "stream": True
+        "stream": True,
     }
 
     try:
         r = requests.post(
-            DEEPSEEK_URL,
-            headers=headers,
-            json=payload,
-            stream=True,
-            timeout=60)
+            DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60
+        )
         if r.status_code != 200:
             yield f"Error: {r.status_code}"
             return
         for line in r.iter_lines():
             if not line:
                 continue
-            line = line.decode('utf-8')
-            if line.startswith('data: '):
+            line = line.decode("utf-8")
+            if line.startswith("data: "):
                 data = line[6:]
                 if data.strip() == "[DONE]":
                     break
                 try:
                     chunk = json.loads(data)
-                    delta = chunk['choices'][0].get(
-                        'delta', {}).get('content', '')
+                    delta = chunk["choices"][0].get("delta", {}).get("content", "")
                     if delta:
                         yield delta
                 except BaseException:
@@ -222,6 +213,7 @@ def text_to_speech(text, language="en-GB"):
         loop.close()
         if error:
             from gtts import gTTS
+
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
             tts = gTTS(text=text, lang=gtts_lang, slow=False)
             tts.save(tmp.name)
@@ -236,6 +228,7 @@ def text_to_speech(text, language="en-GB"):
     except Exception as e:
         try:
             from gtts import gTTS
+
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
             tts = gTTS(text=text, lang=gtts_lang, slow=False)
             tts.save(tmp.name)

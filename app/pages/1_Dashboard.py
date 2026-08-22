@@ -6,21 +6,26 @@ st.set_page_config(page_title="GAIA – Dashboard", page_icon="🌱", layout="wi
 if "theme" not in st.session_state:
     st.session_state.theme = "light"
 
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stToggle > label { display: none !important; }
     .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
     .stToggle > div { transform: scale(1.3); }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
-dark_mode = st.toggle("", value=st.session_state.theme ==
-                      "dark", key="dashboard_theme_toggle")
+dark_mode = st.toggle(
+    "", value=st.session_state.theme == "dark", key="dashboard_theme_toggle"
+)
 st.session_state.theme = "dark" if dark_mode else "light"
 
 # ---------- CSS for both themes ----------
 if st.session_state.theme == "dark":
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         .stApp {
             background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
@@ -46,9 +51,12 @@ if st.session_state.theme == "dark":
         .footer { text-align: center; padding: 2rem; color: #78909c; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 3rem; }
         .footer a { color: #00c853; text-decoration: none; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 else:
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         .stApp {
             background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 50%, #fffde7 100%);
@@ -74,13 +82,16 @@ else:
         .footer { text-align: center; padding: 2rem; color: #4e342e; border-top: 1px solid rgba(0,0,0,0.1); margin-top: 3rem; }
         .footer a { color: #2e7d32; text-decoration: none; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 # ---------- Hero Section ----------
 st.markdown('<div class="hero-title">GAIA</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">Global Agricultural Intelligence Assistant</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 # ---------- Lettuce image ----------
 col1, col2, col3 = st.columns([1, 2, 1])
@@ -88,34 +99,42 @@ with col2:
     st.image(
         "https://images.unsplash.com/photo-1556801712-76c8eb07bbc9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
         caption="",
-        use_container_width=True)
+        use_container_width=True,
+    )
 
 # ---------- Stats Bar ----------
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.markdown(
         '<div class="stat-item"><div class="stat-number">10+</div><div class="stat-label">Crop Models</div></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True,
+    )
 with col2:
     st.markdown(
         '<div class="stat-item"><div class="stat-number">99.5%</div><div class="stat-label">Top Accuracy</div></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True,
+    )
 with col3:
     st.markdown(
         '<div class="stat-item"><div class="stat-number">152</div><div class="stat-label">Diagnostic Classes</div></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True,
+    )
 with col4:
     st.markdown(
         '<div class="stat-item"><div class="stat-number">24/7</div><div class="stat-label">Offline Ready</div></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True,
+    )
 
 # ---------- Footer ----------
-st.markdown("""
+st.markdown(
+    """
 <div class="footer">
     Powered by <strong>Darkmoor Ltd</strong><br>
     <a href="mailto:darkmoorltd@gmail.com">darkmoorltd@gmail.com</a>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # ============================================
 # FULL NAVIGATION

@@ -1,4 +1,3 @@
-
 import streamlit as st
 from supabase import create_client
 import pandas as pd
@@ -14,15 +13,17 @@ if "user" not in st.session_state or not st.session_state.user:
     st.stop()
 
 supabase = create_client(
-    st.secrets["supabase"]["url"],
-    st.secrets["supabase"]["service_key"])
+    st.secrets["supabase"]["url"], st.secrets["supabase"]["service_key"]
+)
 
 st.markdown(
     "<h1 style='color:#2e7d32;text-align:center;'>🌍 National Farmer Database</h1>",
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 st.markdown(
     "<p style='text-align:center;'>Digital backbone for agricultural finance and extension</p>",
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 # ── Fetch data ──
 farmers_res = supabase.table("farmer_registry").select("*").execute()
@@ -34,6 +35,7 @@ profile_map = {p["user_id"]: p for p in profiles}
 # ── Build dataframe ──
 df = pd.DataFrame(farmers) if farmers else pd.DataFrame()
 if not df.empty:
+
     def get_name(uid):
         p = profile_map.get(uid, {})
         return f"{
@@ -49,6 +51,7 @@ if not df.empty:
 
     def get_verification(uid):
         return profile_map.get(uid, {}).get("verification_status", "pending")
+
     df["full_name"] = df["user_id"].apply(get_name)
     df["phone"] = df["user_id"].apply(get_phone)
     df["verification_status"] = df["user_id"].apply(get_verification)
@@ -73,31 +76,35 @@ with tab_table:
     else:
         search = st.text_input(
             "Search by name, phone, state, crop",
-            placeholder="e.g., Ibrahim, 0803, Kano, Maize")
+            placeholder="e.g., Ibrahim, 0803, Kano, Maize",
+        )
         filtered = df
         if search:
             q = search.lower()
             filtered = df[
-                df["full_name"].str.lower().str.contains(q) |
-                df["phone"].astype(str).str.contains(q) |
-                df["state"].str.lower().str.contains(q) |
-                df["crop"].str.lower().str.contains(q)
+                df["full_name"].str.lower().str.contains(q)
+                | df["phone"].astype(str).str.contains(q)
+                | df["state"].str.lower().str.contains(q)
+                | df["crop"].str.lower().str.contains(q)
             ]
-        st.dataframe(filtered[["full_name",
-                               "phone",
-                               "state",
-                               "lga",
-                               "crop",
-                               "farm_size_acres",
-                               "verification_status"]],
-                     use_container_width=True,
-                     hide_index=True)
+        st.dataframe(
+            filtered[
+                [
+                    "full_name",
+                    "phone",
+                    "state",
+                    "lga",
+                    "crop",
+                    "farm_size_acres",
+                    "verification_status",
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
         st.download_button(
-            "📥 Export CSV",
-            filtered.to_csv(
-                index=False),
-            "farmers.csv",
-            "text/csv")
+            "📥 Export CSV", filtered.to_csv(index=False), "farmers.csv", "text/csv"
+        )
 
 # ---------- Analytics ----------
 with tab_analytics:
@@ -116,8 +123,10 @@ with tab_map:
     if df.empty:
         st.info("No farmers to plot.")
     else:
-        farmers_with_gps = df[df.get("gps_lat", pd.Series()).notna() & df.get(
-            "gps_lon", pd.Series()).notna()]
+        farmers_with_gps = df[
+            df.get("gps_lat", pd.Series()).notna()
+            & df.get("gps_lon", pd.Series()).notna()
+        ]
         if farmers_with_gps.empty:
             st.warning("No GPS coordinates available. Add GPS in Register.")
         else:
@@ -126,7 +135,7 @@ with tab_map:
                 folium.Marker(
                     [row["gps_lat"], row["gps_lon"]],
                     popup=f"{row['full_name']} - {row['crop']}",
-                    tooltip=row['full_name']
+                    tooltip=row["full_name"],
                 ).add_to(m)
             st_folium(m, width=700, height=500)
 
@@ -154,16 +163,26 @@ with tab_detail:
             st.write(f"**Youth:** {'Yes' if farmer.get('youth') else 'No'}")
         st.markdown("---")
         st.subheader("💰 Loan History")
-        loans_res = supabase.table("farmer_loan_history").select(
-            "*").eq("user_id", uid).execute()
+        loans_res = (
+            supabase.table("farmer_loan_history")
+            .select("*")
+            .eq("user_id", uid)
+            .execute()
+        )
         loans = loans_res.data if loans_res.data else []
         if loans:
             st.dataframe(pd.DataFrame(loans), use_container_width=True)
         else:
             st.info("No loan history.")
         st.subheader("🌿 Recent Diagnoses")
-        diag_res = supabase.table("farmer_diagnoses").select(
-            "*").eq("user_id", uid).order("created_at", desc=True).limit(10).execute()
+        diag_res = (
+            supabase.table("farmer_diagnoses")
+            .select("*")
+            .eq("user_id", uid)
+            .order("created_at", desc=True)
+            .limit(10)
+            .execute()
+        )
         diagnoses = diag_res.data if diag_res.data else []
         if diagnoses:
             for d in diagnoses:
@@ -186,11 +205,11 @@ with tab_register:
             state = st.text_input("State *")
             lga = st.text_input("LGA *")
             crop = st.text_input("Primary Crop *")
-            farm_size = st.number_input(
-                "Farm Size (acres)", min_value=0.0, value=1.0)
+            farm_size = st.number_input("Farm Size (acres)", min_value=0.0, value=1.0)
             farmer_type = st.selectbox(
-                "Farmer Type", [
-                    "Smallholder", "Commercial", "Cooperative", "Youth", "Woman"])
+                "Farmer Type",
+                ["Smallholder", "Commercial", "Cooperative", "Youth", "Woman"],
+            )
             gender = st.selectbox("Gender", ["Male", "Female", "Other"])
             youth = st.checkbox("Youth?")
             gps_lat = st.number_input("GPS Latitude (optional)", value=0.0)
@@ -198,43 +217,53 @@ with tab_register:
 
         if st.form_submit_button("Register Farmer"):
             if not (
-                    first_name and last_name and email and password and state and lga and crop):
+                first_name
+                and last_name
+                and email
+                and password
+                and state
+                and lga
+                and crop
+            ):
                 st.error("Please fill all required fields marked with *")
             elif len(password) < 6:
                 st.error("Password must be at least 6 characters.")
             else:
                 try:
-                    auth_user = supabase.auth.admin.create_user({
-                        "email": email,
-                        "password": password,
-                        "email_confirm": True
-                    })
+                    auth_user = supabase.auth.admin.create_user(
+                        {"email": email, "password": password, "email_confirm": True}
+                    )
                     if auth_user.user:
                         new_uid = auth_user.user.id
-                        supabase.table("user_profiles").insert({
-                            "user_id": new_uid,
-                            "first_name": first_name,
-                            "last_name": last_name,
-                            "phone": phone,
-                            "verification_status": "pending"
-                        }).execute()
+                        supabase.table("user_profiles").insert(
+                            {
+                                "user_id": new_uid,
+                                "first_name": first_name,
+                                "last_name": last_name,
+                                "phone": phone,
+                                "verification_status": "pending",
+                            }
+                        ).execute()
                         unique_id = f"GAIA-{uuid_lib.uuid4().hex[:8].upper()}"
-                        supabase.table("farmer_registry").insert({
-                            "user_id": new_uid,
-                            "state": state,
-                            "lga": lga,
-                            "phone": phone,
-                            "crop": crop,
-                            "farm_size_acres": farm_size,
-                            "farmer_type": farmer_type,
-                            "gender": gender,
-                            "youth": youth,
-                            "gps_lat": gps_lat if gps_lat != 0 else None,
-                            "gps_lon": gps_lon if gps_lon != 0 else None,
-                            "unique_farmer_id": unique_id
-                        }).execute()
+                        supabase.table("farmer_registry").insert(
+                            {
+                                "user_id": new_uid,
+                                "state": state,
+                                "lga": lga,
+                                "phone": phone,
+                                "crop": crop,
+                                "farm_size_acres": farm_size,
+                                "farmer_type": farmer_type,
+                                "gender": gender,
+                                "youth": youth,
+                                "gps_lat": gps_lat if gps_lat != 0 else None,
+                                "gps_lon": gps_lon if gps_lon != 0 else None,
+                                "unique_farmer_id": unique_id,
+                            }
+                        ).execute()
                         st.success(
-                            f"Farmer account created! Email: {email} | Farmer ID: {unique_id}")
+                            f"Farmer account created! Email: {email} | Farmer ID: {unique_id}"
+                        )
                     else:
                         st.error("Failed to create user.")
                 except Exception as e:

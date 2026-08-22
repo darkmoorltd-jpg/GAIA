@@ -1,4 +1,3 @@
-
 import requests
 import streamlit as st
 
@@ -26,7 +25,7 @@ def send_sms(phone, message):
         "from": "GAIA",
         "sms": message,
         "type": "plain",
-        "channel": "generic"
+        "channel": "generic",
     }
 
     try:

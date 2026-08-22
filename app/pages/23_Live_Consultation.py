@@ -1,4 +1,3 @@
-
 import streamlit as st
 import streamlit.components.v1 as components
 import uuid
@@ -13,29 +12,30 @@ import torch
 import torch.nn.functional as F
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 
 # ---------- Page config ----------
-st.set_page_config(
-    page_title="GAIA Live Consultation",
-    page_icon="🎥",
-    layout="wide")
+st.set_page_config(page_title="GAIA Live Consultation", page_icon="🎥", layout="wide")
 
 # ---------- Theme toggle ----------
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stToggle > label { display: none !important; }
     .stToggle { display: flex; justify-content: center; margin-bottom: 1rem; }
     .stToggle > div { transform: scale(1.3); }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 dark_mode = st.toggle("", value=False, key="live_consultation_theme_toggle")
 theme = "dark" if dark_mode else "light"
 
 # ---------- Custom CSS ----------
 if theme == "dark":
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         .stApp { background: linear-gradient(135deg, #0a0e1a, #16213e, #0a0e1a); color: #e0e0e0; }
         header, footer { visibility: hidden; }
@@ -49,9 +49,12 @@ if theme == "dark":
         .diagnosis-box { background: rgba(0,200,83,0.1); border: 1px solid #00c853;
                          border-radius: 12px; padding: 1rem; margin-top: 1rem; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 else:
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         .stApp { background: linear-gradient(135deg, #f0fdf4, #e0f2fe, #f0fdf4); color: #0f172a; }
         header, footer { visibility: hidden; }
@@ -65,7 +68,9 @@ else:
         .diagnosis-box { background: rgba(22,163,74,0.1); border: 1px solid #16a34a;
                          border-radius: 12px; padding: 1rem; margin-top: 1rem; }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 # ---------- Helper functions ----------
 
@@ -79,7 +84,7 @@ def get_user_name():
     """Return a friendly display name."""
     if "user" in st.session_state and st.session_state.user:
         email = st.session_state.user.email
-        name = email.split('@')[0].title()
+        name = email.split("@")[0].title()
         return name
     return "Farmer"
 
@@ -94,12 +99,11 @@ room_name = st.session_state.room_name
 jitsi_url = f"https://meet.jit.si/{room_name}"
 
 # ---------- Header ----------
-st.markdown(
-    '<div class="title">🎥 Live Agri‑Clinic</div>',
-    unsafe_allow_html=True)
+st.markdown('<div class="title">🎥 Live Agri‑Clinic</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">Talk to an agronomist, share your screen, and get AI‑assisted diagnosis</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 # ---------- Layout ----------
 left_col, right_col = st.columns([2, 1])
@@ -109,8 +113,8 @@ with left_col:
 
     # Show room link
     st.markdown(
-        f'<div class="room-link">🔗 Room: {jitsi_url}</div>',
-        unsafe_allow_html=True)
+        f'<div class="room-link">🔗 Room: {jitsi_url}</div>', unsafe_allow_html=True
+    )
     st.caption("Share this link with your agronomist or advisor.")
 
     # Embed Jitsi
@@ -120,14 +124,17 @@ with left_col:
 
     if st.session_state.call_started:
         # Embed Jitsi
-        components.html(f"""
+        components.html(
+            f"""
         <iframe
             src="https://meet.jit.si/{room_name}"
             style="width:100%; height:600px; border:0; border-radius:15px;"
             allow="camera; microphone; fullscreen; display-capture; autoplay"
             allowfullscreen
         ></iframe>
-        """, height=620)
+        """,
+            height=620,
+        )
 
 with right_col:
     st.subheader("🤖 AI Diagnosis Assistant")
@@ -137,13 +144,23 @@ with right_col:
     else:
         # Crop selection
         crop = st.selectbox(
-            "Select Crop", [
-                "Maize", "Rice", "Beans", "Tomato", "Pepper", "Cabbage", "Millet", "Soybean"])
+            "Select Crop",
+            [
+                "Maize",
+                "Rice",
+                "Beans",
+                "Tomato",
+                "Pepper",
+                "Cabbage",
+                "Millet",
+                "Soybean",
+            ],
+        )
 
         # Image upload
         uploaded = st.file_uploader(
-            "Upload leaf photo for live diagnosis", type=[
-                "jpg", "jpeg", "png"])
+            "Upload leaf photo for live diagnosis", type=["jpg", "jpeg", "png"]
+        )
 
         if uploaded:
             img = Image.open(uploaded).convert("RGB")
@@ -171,7 +188,8 @@ with right_col:
                                 "Blight",
                                 "Common_Rust",
                                 "Gray_Leaf_Spot",
-                                "Healthy"],
+                                "Healthy",
+                            ],
                             "rice_10class": [
                                 "Bacterial Leaf Blight",
                                 "Brown Spot",
@@ -182,49 +200,51 @@ with right_col:
                                 "Neck Blast",
                                 "Rice Hispa",
                                 "Sheath Blight",
-                                "Tungro"],
-                            "millet_3class": [
-                                "Blast",
-                                "Rust",
-                                "Healthy"],
-                        }.get(
-                            model_key,
-                            [])
+                                "Tungro",
+                            ],
+                            "millet_3class": ["Blast", "Rust", "Healthy"],
+                        }.get(model_key, [])
                         if not class_names:
                             class_names = [
-                                "Class " +
-                                str(i) for i in range(
+                                "Class " + str(i)
+                                for i in range(
                                     len(
-                                        torch.load(
-                                            checkpoint,
-                                            map_location="cpu")["head.weight"]))]
+                                        torch.load(checkpoint, map_location="cpu")[
+                                            "head.weight"
+                                        ]
+                                    )
+                                )
+                            ]
                         model = create_model_from_checkpoint(
-                            checkpoint, len(class_names))
+                            checkpoint, len(class_names)
+                        )
                         model.eval()
 
-                        transform = Compose([
-                            Resize((224, 224)),
-                            ToTensor(),
-                            Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-                        ])
+                        transform = Compose(
+                            [
+                                Resize((224, 224)),
+                                ToTensor(),
+                                Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+                            ]
+                        )
                         with torch.no_grad():
                             probs = F.softmax(
-                                model(
-                                    transform(img).unsqueeze(0)),
-                                dim=1)[0].numpy()
+                                model(transform(img).unsqueeze(0)), dim=1
+                            )[0].numpy()
                         top_idx = int(np.argmax(probs))
                         confidence = float(probs[top_idx]) * 100
-                        diagnosis = class_names[top_idx] if top_idx < len(
-                            class_names) else "Unknown"
+                        diagnosis = (
+                            class_names[top_idx]
+                            if top_idx < len(class_names)
+                            else "Unknown"
+                        )
                     else:
                         # Demo fallback
                         seed = int(
-                            hashlib.md5(
-                                uploaded.name.encode()).hexdigest()[
-                                :8], 16)
+                            hashlib.md5(uploaded.name.encode()).hexdigest()[:8], 16
+                        )
                         np.random.seed(seed)
-                        class_names = [
-                            "Healthy", "Blight", "Rust", "Leaf Spot"]
+                        class_names = ["Healthy", "Blight", "Rust", "Leaf Spot"]
                         probs = np.random.rand(len(class_names))
                         probs /= probs.sum()
                         top_idx = int(np.argmax(probs))
@@ -232,10 +252,7 @@ with right_col:
                         diagnosis = class_names[top_idx]
                 else:
                     # Demo fallback
-                    seed = int(
-                        hashlib.md5(
-                            uploaded.name.encode()).hexdigest()[
-                            :8], 16)
+                    seed = int(hashlib.md5(uploaded.name.encode()).hexdigest()[:8], 16)
                     np.random.seed(seed)
                     class_names = ["Healthy", "Blight", "Rust", "Leaf Spot"]
                     probs = np.random.rand(len(class_names))
@@ -247,29 +264,36 @@ with right_col:
                 diagnosis = "Demo Diagnosis"
                 confidence = 95.0
 
-            st.markdown(f"""
+            st.markdown(
+                f"""
             <div class="diagnosis-box">
                 <h3 style="margin:0;">🧪 {diagnosis}</h3>
                 <p style="margin:0.5rem 0 0 0;">Confidence: {confidence:.1f}%</p>
                 <p style="font-size:0.9rem; opacity:0.8;">Share this panel via screen share to show the agronomist.</p>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
             # Optional: save session log
             if st.button("Save Consultation Log"):
                 try:
                     from supabase import create_client
+
                     supabase = create_client(
                         st.secrets["supabase"]["url"],
-                        st.secrets["supabase"]["service_key"])
-                    supabase.table("consultation_logs").insert({
-                        "user_id": st.session_state.user.id,
-                        "crop": crop,
-                        "diagnosis": diagnosis,
-                        "confidence": confidence,
-                        "room_name": room_name,
-                        "created_at": datetime.datetime.now().isoformat()
-                    }).execute()
+                        st.secrets["supabase"]["service_key"],
+                    )
+                    supabase.table("consultation_logs").insert(
+                        {
+                            "user_id": st.session_state.user.id,
+                            "crop": crop,
+                            "diagnosis": diagnosis,
+                            "confidence": confidence,
+                            "room_name": room_name,
+                            "created_at": datetime.datetime.now().isoformat(),
+                        }
+                    ).execute()
                     st.success("Consultation logged.")
                 except BaseException:
                     st.warning("Could not save log.")

@@ -1,4 +1,3 @@
-
 import streamlit as st
 from supabase import create_client, Client
 
@@ -22,8 +21,12 @@ def deduct_scans(user_id, amount, feature_name):
         pass
 
     # Fetch current
-    res = supabase.table("user_scans").select(
-        "scans_remaining").eq("user_id", user_id).execute()
+    res = (
+        supabase.table("user_scans")
+        .select("scans_remaining")
+        .eq("user_id", user_id)
+        .execute()
+    )
     current = res.data[0]["scans_remaining"] if res.data else 30
 
     if current < amount:
@@ -31,11 +34,13 @@ def deduct_scans(user_id, amount, feature_name):
         return False, current
 
     new_total = current - amount
-    supabase.table("user_scans").update(
-        {"scans_remaining": new_total}).eq("user_id", user_id).execute()
+    supabase.table("user_scans").update({"scans_remaining": new_total}).eq(
+        "user_id", user_id
+    ).execute()
 
     # Small rectangular box — like Buy Scans counter but smaller
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <div style="
         display: flex;
         align-items: center;
@@ -53,6 +58,8 @@ def deduct_scans(user_id, amount, feature_name):
         <span style="font-size: 0.75rem; color: #999;">scans left</span>
         <span style="font-size: 0.7rem; color: #bbb; margin-left: 4px;">(-{amount} {feature_name})</span>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     return True, new_total

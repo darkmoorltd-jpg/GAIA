@@ -1,4 +1,3 @@
-
 import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client, Client
@@ -7,7 +6,7 @@ import requests
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -41,9 +40,9 @@ def normalize_phone(phone):
 def verify_payment(ref):
     r = requests.get(
         f"https://api.paystack.co/transaction/verify/{ref}",
-        headers={
-            "Authorization": f"Bearer {PAYSTACK_SECRET}"},
-        timeout=10)
+        headers={"Authorization": f"Bearer {PAYSTACK_SECRET}"},
+        timeout=10,
+    )
     if r.status_code == 200:
         d = r.json()
         if d.get("status") and d["data"]["status"] == "success":
@@ -62,8 +61,12 @@ db = get_supabase()
 service = get_service()
 
 # Fetch current scans
-res = service.table("user_scans").select(
-    "scans_remaining, plan").eq("user_id", user.id).execute()
+res = (
+    service.table("user_scans")
+    .select("scans_remaining, plan")
+    .eq("user_id", user.id)
+    .execute()
+)
 if res.data and len(res.data) > 0:
     scans = res.data[0].get("scans_remaining", 30)
     current_plan = res.data[0].get("plan", "free")
@@ -74,8 +77,9 @@ else:
 # Fetch user phone
 user_phone = ""
 try:
-    profile_res = service.table("user_profiles").select(
-        "phone").eq("user_id", user.id).execute()
+    profile_res = (
+        service.table("user_profiles").select("phone").eq("user_id", user.id).execute()
+    )
     if profile_res.data and len(profile_res.data) > 0:
         raw_phone = profile_res.data[0].get("phone", "")
         user_phone = normalize_phone(raw_phone)
@@ -84,38 +88,34 @@ except Exception:
 
 if not user_phone:
     st.warning(
-        "⚠️ Please update your profile with your phone number to receive SMS receipts.")
+        "⚠️ Please update your profile with your phone number to receive SMS receipts."
+    )
 
 # ============================================
 # NEW PLANS
 # ============================================
 PLANS = {
-    "starter": {
-        "name": "Starter",
-        "scans": 150,
-        "price": "₦3,000",
-        "kobo": 300000},
-    "pro": {
-        "name": "Pro",
-        "scans": 300,
-        "price": "₦5,000",
-        "kobo": 500000},
+    "starter": {"name": "Starter", "scans": 150, "price": "₦3,000", "kobo": 300000},
+    "pro": {"name": "Pro", "scans": 300, "price": "₦5,000", "kobo": 500000},
     "business": {
         "name": "Business",
-                "scans": 1000,
-                "price": "₦10,000",
-                "kobo": 1000000},
+        "scans": 1000,
+        "price": "₦10,000",
+        "kobo": 1000000,
+    },
     "enterprise": {
         "name": "Enterprise",
         "scans": 5000,
         "price": "₦20,000",
-        "kobo": 2000000},
+        "kobo": 2000000,
+    },
 }
 
 # ============================================
 # UI
 # ============================================
-st.markdown("""
+st.markdown(
+    """
 <style>
     .stApp { background: linear-gradient(160deg, #f4faf5, #eaf5ee, #fdfefb); color: #1b5e20; }
     header, footer { visibility: hidden; }
@@ -138,23 +138,25 @@ st.markdown("""
     .stButton button { background: #2e7d32 !important; color: #fff !important; border: none !important;
                        border-radius: 10px !important; font-weight: 600 !important; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 st.markdown('<div class="title">Buy Scans</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">Get more AI-powered diagnoses for your farm</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
     st.markdown(
         f'<div style="text-align:center"><div class="badge"><div class="badge-num">{scans}</div><div class="badge-lbl">Scans Remaining</div></div></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True,
+    )
     if current_plan != "free":
-        st.markdown(
-            f'<p style="text-align:center;color:#2e7d32;">Current Plan: {
-                current_plan.title()}</p>',
-            unsafe_allow_html=True)
+        st.markdown(f'<p style="text-align:center;color:#2e7d32;">Current Plan: {
+                current_plan.title()}</p>', unsafe_allow_html=True)
 
 st.markdown("### Choose Your Plan")
 
@@ -165,12 +167,10 @@ cols = st.columns(len(PLANS))
 for i, (key, p) in enumerate(PLANS.items()):
     with cols[i]:
         sel = "sel" if st.session_state.selected_plan == key else ""
-        st.markdown(
-            f'<div class="card {sel}"><div class="card-name">{
+        st.markdown(f'<div class="card {sel}"><div class="card-name">{
                 p["name"]}</div><div class="card-scans">{
                 p["scans"]} scans</div><div class="card-price">{
-                p["price"]}</div></div>',
-            unsafe_allow_html=True)
+                p["price"]}</div></div>', unsafe_allow_html=True)
         if st.button("Select", key=f"btn_{key}", use_container_width=True):
             st.session_state.selected_plan = key
             st.rerun()
@@ -180,14 +180,13 @@ if st.session_state.selected_plan:
     label = f"{p['name']} ({p['scans']} scans)"
     ref = f"GAIA_{user.id[:8]}_{st.session_state.selected_plan}_{uuid.uuid4().hex[:6]}"
 
-    st.markdown(
-        f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {
-            p["price"]}</h3></div>',
-        unsafe_allow_html=True)
+    st.markdown(f'<div class="banner"><h3 style="margin:0;color:#1b5e20;">{label} - {
+            p["price"]}</h3></div>', unsafe_allow_html=True)
 
     phone_for_sms = user_phone if user_phone else "08000000000"
 
-    components.html(f"""
+    components.html(
+        f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -214,7 +213,9 @@ if st.session_state.selected_plan:
         </script>
     </body>
     </html>
-    """, height=120)
+    """,
+        height=120,
+    )
 
 st.markdown("---")
 st.markdown("### Already Paid? Enter Your Reference")
@@ -222,17 +223,20 @@ st.markdown("### Already Paid? Enter Your Reference")
 c1, c2 = st.columns([3, 1])
 with c1:
     ref_input = st.text_input(
-        "Reference",
-        placeholder="e.g. GAIA_abc123",
-        key="ref_input")
+        "Reference", placeholder="e.g. GAIA_abc123", key="ref_input"
+    )
 with c2:
     st.write("")
     if st.button("Verify", use_container_width=True) and ref_input:
         with st.spinner("Checking..."):
             v = verify_payment(ref_input)
             if v["ok"]:
-                exist = db.table("payment_history").select(
-                    "*").eq("reference", ref_input).execute()
+                exist = (
+                    db.table("payment_history")
+                    .select("*")
+                    .eq("reference", ref_input)
+                    .execute()
+                )
                 if exist.data:
                     st.warning("Already used.")
                 else:
@@ -244,19 +248,26 @@ with c2:
                             break
                     if match:
                         add = PLANS[match]["scans"]
-                        cur = db.table("user_scans").select(
-                            "scans_remaining").eq("user_id", user.id).execute()
+                        cur = (
+                            db.table("user_scans")
+                            .select("scans_remaining")
+                            .eq("user_id", user.id)
+                            .execute()
+                        )
                         cur_scans = cur.data[0]["scans_remaining"] if cur.data else 0
                         new_total = cur_scans + add
-                        db.table("user_scans").update({"scans_remaining": new_total, "plan": match}).eq(
-                            "user_id", user.id).execute()
+                        db.table("user_scans").update(
+                            {"scans_remaining": new_total, "plan": match}
+                        ).eq("user_id", user.id).execute()
                         db.table("payment_history").insert(
                             {
                                 "user_id": user.id,
                                 "amount": amt,
                                 "scans_added": add,
                                 "plan": match,
-                                "reference": ref_input}).execute()
+                                "reference": ref_input,
+                            }
+                        ).execute()
                         st.success(f"{add} scans added! Balance: {new_total}")
                         st.rerun()
                     else:

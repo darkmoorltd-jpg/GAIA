@@ -1,4 +1,3 @@
-
 from timm.models.vision_transformer import VisionTransformer
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 import streamlit as st
@@ -14,15 +13,13 @@ import hashlib
 import requests
 import json
 from collections import Counter
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 
 DEEPSEEK_API_KEY = st.secrets["deepseek"]["api_key"]
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
-st.set_page_config(
-    page_title="GAIA – Livestock Health",
-    page_icon="🐄",
-    layout="wide")
+st.set_page_config(page_title="GAIA – Livestock Health", page_icon="🐄", layout="wide")
 
 # THEME (light default)
 if "theme" not in st.session_state:
@@ -30,32 +27,33 @@ if "theme" not in st.session_state:
 
 st.markdown(
     "<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>",
-    unsafe_allow_html=True)
-dark = st.toggle("", value=st.session_state.theme ==
-                 "dark", key="livestock_theme")
+    unsafe_allow_html=True,
+)
+dark = st.toggle("", value=st.session_state.theme == "dark", key="livestock_theme")
 st.session_state.theme = "dark" if dark else "light"
 theme = st.session_state.theme
 
 ANIMALS = {
     "cattle": ["Foot‑and‑Mouth Disease", "Healthy", "Lumpy Skin Disease"],
-    "poultry": ["Coccidiosis", "Healthy", "Newcastle Disease", "Salmonella"]
+    "poultry": ["Coccidiosis", "Healthy", "Newcastle Disease", "Salmonella"],
 }
 
 # BACKGROUND IMAGE URLS
 BACKGROUND_URLS = {
     "cattle": "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
-    "poultry": "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"}
+    "poultry": "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80",
+}
 
 language_options = {
     "English (UK)": "en-GB",
     "Hausa": "ha",
     "Yoruba": "yo",
     "Igbo": "ig",
-    "Pidgin": "pcm"
+    "Pidgin": "pcm",
 }
 selected_lang_label = st.selectbox(
-    "🔊 Voice language for treatment guides", list(
-        language_options.keys()), index=0)
+    "🔊 Voice language for treatment guides", list(language_options.keys()), index=0
+)
 voice_lang = language_options[selected_lang_label]
 
 
@@ -63,9 +61,10 @@ def save_feedback(image_name, predicted_class, helpful):
     if "user" not in st.session_state or st.session_state.user is None:
         return
     from supabase import create_client
+
     supabase = create_client(
-        st.secrets["supabase"]["url"],
-        st.secrets["supabase"]["key"])
+        st.secrets["supabase"]["url"], st.secrets["supabase"]["key"]
+    )
     try:
         supabase.table("user_feedback").insert(
             {
@@ -73,7 +72,9 @@ def save_feedback(image_name, predicted_class, helpful):
                 "image_name": image_name,
                 "predicted_class": predicted_class,
                 "helpful": helpful,
-                "created_at": datetime.datetime.now().isoformat()}).execute()
+                "created_at": datetime.datetime.now().isoformat(),
+            }
+        ).execute()
     except BaseException:
         pass
 
@@ -82,30 +83,37 @@ def deduct_one_scan():
     if "user" not in st.session_state or st.session_state.user is None:
         return
     from supabase import create_client
+
     supabase = create_client(
-        st.secrets["supabase"]["url"],
-        st.secrets["supabase"]["key"])
+        st.secrets["supabase"]["url"], st.secrets["supabase"]["key"]
+    )
     uid = st.session_state.user.id
     try:
         supabase.table("user_scans").insert(
-            {"user_id": uid, "scans_remaining": 30, "plan": "free"}).execute()
+            {"user_id": uid, "scans_remaining": 30, "plan": "free"}
+        ).execute()
     except BaseException:
         pass
     try:
-        supabase.table("user_scans").update({"scans_remaining": supabase.raw(
-            "scans_remaining - 1")}).eq("user_id", uid).execute()
+        supabase.table("user_scans").update(
+            {"scans_remaining": supabase.raw("scans_remaining - 1")}
+        ).eq("user_id", uid).execute()
     except BaseException:
         supabase.rpc("decrement_scan", {"uid": uid}).execute()
-    res = supabase.table("user_scans").select(
-        "scans_remaining").eq("user_id", uid).execute()
+    res = (
+        supabase.table("user_scans")
+        .select("scans_remaining")
+        .eq("user_id", uid)
+        .execute()
+    )
     if res.data:
-        st.success(
-            f"Scan deducted. Remaining scans: {
+        st.success(f"Scan deducted. Remaining scans: {
                 res.data[0]['scans_remaining']}")
 
 
 def load_animal_model(animal):
     from app.utils.download_models import ensure_model
+
     cp_path = os.path.join("checkpoints", animal, "model.pt")
     if os.path.exists(cp_path):
         os.remove(cp_path)
@@ -116,15 +124,21 @@ def load_animal_model(animal):
         state = torch.load(checkpoint, map_location="cpu", weights_only=False)
     except BaseException:
         return None, None
-    prefix = "backbone." if any(k.startswith("backbone.")
-                                for k in state) else "encoder."
+    prefix = (
+        "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
+    )
     embed_dim = state[f"{prefix}cls_token"].shape[-1]
     pos_embed = state[f"{prefix}pos_embed"]
     num_patches = pos_embed.shape[1] - 1
-    grid = int(num_patches ** 0.5)
+    grid = int(num_patches**0.5)
     img_size = grid * 16
-    depth = len([k for k in state if k.startswith(
-        f"{prefix}blocks") and k.endswith(".norm1.weight")])
+    depth = len(
+        [
+            k
+            for k in state
+            if k.startswith(f"{prefix}blocks") and k.endswith(".norm1.weight")
+        ]
+    )
     num_heads = 6 if embed_dim == 384 else 3
     backbone = VisionTransformer(
         img_size=img_size,
@@ -133,17 +147,18 @@ def load_animal_model(animal):
         depth=depth,
         num_heads=num_heads,
         num_classes=0,
-        global_pool='token')
+        global_pool="token",
+    )
     backbone_state = {
-        k.replace(
-            prefix,
-            ""): v for k,
-        v in state.items() if k.startswith(prefix)}
+        k.replace(prefix, ""): v for k, v in state.items() if k.startswith(prefix)
+    }
     backbone.load_state_dict(backbone_state, strict=False)
     head_keys = [k for k in state if k.startswith("head.")]
     if any(".0.weight" in k for k in head_keys):
-        w_keys = sorted([k for k in head_keys if k.endswith(
-            ".weight")], key=lambda x: int(x.split('.')[1]))
+        w_keys = sorted(
+            [k for k in head_keys if k.endswith(".weight")],
+            key=lambda x: int(x.split(".")[1]),
+        )
         layers = []
         in_feat = embed_dim
         for w_key in w_keys:
@@ -155,21 +170,29 @@ def load_animal_model(animal):
             in_feat = out_feat
         head = nn.Sequential(*layers)
         head_state = {
-            k.replace(
-                "head.",
-                ""): v for k,
-            v in state.items() if k.startswith("head.")}
+            k.replace("head.", ""): v for k, v in state.items() if k.startswith("head.")
+        }
         head.load_state_dict(head_state, strict=False)
     else:
         n = len(ANIMALS[animal])
         head = nn.Linear(embed_dim, n)
-        head.load_state_dict({"weight": state["head.weight"], "bias": state.get(
-            "head.bias", torch.zeros(n))}, strict=False)
+        head.load_state_dict(
+            {
+                "weight": state["head.weight"],
+                "bias": state.get("head.bias", torch.zeros(n)),
+            },
+            strict=False,
+        )
 
     class AnimalViT(torch.nn.Module):
-        def __init__(self, backbone, head): super().__init__(
-        ); self.backbone = backbone; self.head = head
-        def forward(self, x): return self.head(self.backbone(x))
+        def __init__(self, backbone, head):
+            super().__init__()
+            self.backbone = backbone
+            self.head = head
+
+        def forward(self, x):
+            return self.head(self.backbone(x))
+
     model = AnimalViT(backbone, head)
     model.eval()
     return model, img_size
@@ -192,32 +215,35 @@ Please provide a comprehensive farmer-friendly guide covering:
 Be practical, specific, and use Nigerian/local context."""
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"}
+        "Content-Type": "application/json",
+    }
     payload = {
         "model": "deepseek-chat",
         "messages": [
-            {"role": "system", "content": "You are GAIA, an expert veterinary advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are GAIA, an expert veterinary advisor built by Darkmoor Ltd in Nigeria. Give practical, specific, Nigerian-context answers. Never mention DeepSeek or any other AI company. You ARE GAIA.",
+            },
+            {"role": "user", "content": prompt},
         ],
-        "temperature": 0.7, "max_tokens": 4000, "stream": True
+        "temperature": 0.7,
+        "max_tokens": 4000,
+        "stream": True,
     }
     r = requests.post(
-        DEEPSEEK_URL,
-        headers=headers,
-        json=payload,
-        stream=True,
-        timeout=60)
+        DEEPSEEK_URL, headers=headers, json=payload, stream=True, timeout=60
+    )
     for line in r.iter_lines():
         if not line:
             continue
-        line = line.decode('utf-8')
-        if line.startswith('data: '):
+        line = line.decode("utf-8")
+        if line.startswith("data: "):
             data = line[6:]
             if data.strip() == "[DONE]":
                 break
             try:
                 chunk = json.loads(data)
-                delta = chunk['choices'][0].get('delta', {}).get('content', '')
+                delta = chunk["choices"][0].get("delta", {}).get("content", "")
                 if delta:
                     yield delta
             except BaseException:
@@ -227,6 +253,7 @@ Be practical, specific, and use Nigerian/local context."""
 @st.cache_data(show_spinner=False)
 def get_voice_guide(explanation, lang):
     from app.utils.deepseek_explainer import text_to_speech
+
     audio_bytes, err = text_to_speech(explanation[:2000], lang)
     return audio_bytes, err
 
@@ -236,7 +263,8 @@ animal = st.selectbox("🐾 Choose animal", list(ANIMALS.keys()))
 bg_url = BACKGROUND_URLS.get(animal, BACKGROUND_URLS["cattle"])
 
 if theme == "dark":
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <style>
         .stApp {{
             background: linear-gradient(135deg, rgba(26,15,46,0.68), rgba(46,28,62,0.58), rgba(62,42,94,0.68)),
@@ -251,9 +279,12 @@ if theme == "dark":
         .result-card.top-result{{border:1px solid #7c4dff;box-shadow:0 0 30px rgba(124,77,255,.3)}}
         .stProgress>div>div>div>div{{background:linear-gradient(90deg,#7c4dff,#b388ff)}}
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 else:
-    st.markdown(f"""
+    st.markdown(
+        f"""
     <style>
         .stApp {{
             background: linear-gradient(135deg, rgba(237,231,246,0.55), rgba(209,196,233,0.45)),
@@ -268,22 +299,19 @@ else:
         .result-card.top-result{{border:1px solid #7c4dff;box-shadow:0 0 20px rgba(74,20,140,.2)}}
         .stProgress>div>div>div>div{{background:linear-gradient(90deg,#7c4dff,#b388ff)}}
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
-st.markdown(
-    '<div class="title">🐄 Livestock Health</div>',
-    unsafe_allow_html=True)
+st.markdown('<div class="title">🐄 Livestock Health</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="subtitle">Upload photos of your animals and detect diseases instantly</div>',
-    unsafe_allow_html=True)
+    unsafe_allow_html=True,
+)
 
 files = st.file_uploader(
-    "📤 Upload animal photos",
-    type=[
-        "jpg",
-        "jpeg",
-        "png"],
-    accept_multiple_files=True)
+    "📤 Upload animal photos", type=["jpg", "jpeg", "png"], accept_multiple_files=True
+)
 
 if files:
     names = ANIMALS[animal]
@@ -296,11 +324,20 @@ if files:
             c1, c2 = st.columns([1, 2])
             c1.image(img, caption=f.name, width=200)
             if model:
-                t = Compose([Resize((img_size, img_size)), ToTensor(), Normalize(
-                    [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
+                t = Compose(
+                    [
+                        Resize((img_size, img_size)),
+                        ToTensor(),
+                        Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+                    ]
+                )
                 with torch.no_grad():
-                    probs = F.softmax(model(t(img).unsqueeze(0)), dim=1)[
-                        0].detach().cpu().numpy()
+                    probs = (
+                        F.softmax(model(t(img).unsqueeze(0)), dim=1)[0]
+                        .detach()
+                        .cpu()
+                        .numpy()
+                    )
             else:
                 seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8], 16)
                 np.random.seed(seed)
@@ -310,7 +347,9 @@ if files:
             td = names[si[0]]
             predictions.append(td)
             c2.markdown(
-                f'<div class="result-card top-result" style="border-left:5px solid #7c4dff;"><h2 style="margin:0">{td} <span style="font-size:1.5rem;color:#7c4dff">{probs[si[0]] * 100:.1f}%</span></h2></div>', unsafe_allow_html=True)
+                f'<div class="result-card top-result" style="border-left:5px solid #7c4dff;"><h2 style="margin:0">{td} <span style="font-size:1.5rem;color:#7c4dff">{probs[si[0]] * 100:.1f}%</span></h2></div>',
+                unsafe_allow_html=True,
+            )
             for i in si[1:4]:
                 c2.write(f"**{names[i]}**: {probs[i] * 100:.1f}%")
                 c2.progress(float(probs[i]))
@@ -321,19 +360,24 @@ if files:
             deduct_one_scan()
             if model is not None:
                 with st.spinner("🧠 GAIA is preparing your treatment guide..."):
-                    with st.expander("📋 Complete Treatment Guide (AI-Generated)", expanded=True):
+                    with st.expander(
+                        "📋 Complete Treatment Guide (AI-Generated)", expanded=True
+                    ):
                         full_guide = []
 
                         def local_generator():
                             for chunk in stream_deepseek_livestock_guide(
-                                    td, animal, probs[si[0]] * 100):
+                                td, animal, probs[si[0]] * 100
+                            ):
                                 full_guide.append(chunk)
                                 yield chunk
+
                         st.write_stream(local_generator)
-                        guide_text = ''.join(full_guide)
+                        guide_text = "".join(full_guide)
                         if guide_text:
                             audio_bytes, tts_err = get_voice_guide(
-                                guide_text, voice_lang)
+                                guide_text, voice_lang
+                            )
                             if audio_bytes:
                                 st.audio(audio_bytes, format="audio/mp3")
                             else:

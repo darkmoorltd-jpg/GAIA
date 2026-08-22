@@ -278,7 +278,7 @@ if st.session_state.user is None:
                     date_of_birth = st.date_input("Date of Birth", value=None)
                     marital_status = st.selectbox("Marital Status", ["", "Single", "Married", "Divorced", "Widowed"])
                 email = st.text_input("Email *")
-                password = st.text_input("Password *", type="password", min_chars=6)
+                password = st.text_input("Password *", type="password")
                 confirm = st.text_input("Confirm Password *", type="password")
                 phone = st.text_input("Phone Number *")
                 whatsapp = st.text_input("WhatsApp Number")

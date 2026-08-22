@@ -203,7 +203,7 @@ with cols[7]:
 with cols[8]:
     st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
 with cols[9]:
-    st.page_link("pages/10_Early_Warning.py", label="⚠️ Alerts")
+#     st.page_link("pages/10_Early_Warning.py", label="⚠️ Alerts")
 
 st.markdown("### 📱 More Features")
 cols2 = st.columns(10)

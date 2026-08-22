@@ -255,7 +255,7 @@ with cols[5]: st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
 with cols[6]: st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
 with cols[7]: st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
 with cols[8]: st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
-with cols[9]: st.page_link("pages/10_Early_Warning.py", label="⚠️ Alerts")
+# with cols[9]: st.page_link("pages/10_Early_Warning.py", label="⚠️ Alerts")
 
 st.markdown("### 📱 More Features")
 cols2 = st.columns(10)

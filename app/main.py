@@ -47,39 +47,45 @@ def init_supabase():
 def init_service():
     return create_client(SUPABASE_URL, SERVICE_KEY)
 
+def safe_query(table, column, value):
+    """Run a query and ignore errors if column or table is missing."""
+    try:
+        service = init_service()
+        res = service.table(table).select("user_id").eq(column, value).execute()
+        return res.data if res.data else None
+    except Exception:
+        return None
+
 def check_identifier_conflicts(data: dict):
     """Return an error message if email/phone/username/BVN/NIN already exists."""
     service = init_service()
 
-    # Email is enforced by Supabase Auth, but check anyway for clearer message
-    # We'll rely on sign_up error for email.
-
     # Phone
     phone = normalize_phone(data.get("phone", ""))
     if phone and phone != "234":
-        res = service.table("user_profiles").select("user_id").eq("phone", phone).execute()
-        if res.data:
+        rows = safe_query("user_profiles", "phone", phone)
+        if rows:
             return "Phone number already registered."
 
     # Username
     username = data.get("username", "").strip().lower()
     if username:
-        res = service.table("user_profiles").select("user_id").eq("username", username).execute()
-        if res.data:
+        rows = safe_query("user_profiles", "username", username)
+        if rows:
             return "Username already taken."
 
     # BVN
     bvn = data.get("bvn", "").strip()
     if bvn:
-        res = service.table("user_profiles").select("user_id").eq("bvn", bvn).execute()
-        if res.data:
+        rows = safe_query("user_profiles", "bvn", bvn)
+        if rows:
             return "BVN already registered."
 
     # NIN
     nin = data.get("nin", "").strip()
     if nin:
-        res = service.table("user_profiles").select("user_id").eq("nin", nin).execute()
-        if res.data:
+        rows = safe_query("user_profiles", "nin", nin)
+        if rows:
             return "NIN already registered."
 
     return None

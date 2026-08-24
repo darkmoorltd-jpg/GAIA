@@ -1,7 +1,9 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-body {
-  font-family: 'Inter', sans-serif;
+@import "tailwindcss";
+@theme {
+  --color-gaia-green: #2e7d32;
+  --color-gaia-light: #4caf50;
+  --color-gaia-dark: #1b5e20;
+  --color-gaia-bg: #f4faf5;
 }
+
+body { font-family: Inter, sans-serif; }

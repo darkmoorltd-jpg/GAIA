@@ -1,62 +1,38 @@
 "use client"
-import { useMemo } from "react"
+import dynamic from "next/dynamic"
+const Antigravity = dynamic(() => import("./Antigravity"), { ssr: false })
 
-export default function PageBackground({ 
-  imageUrl, 
+export default function PageBackground({
+  imageUrl = "",
   overlay = 0.35,
-  particles = true 
-}: { 
-  imageUrl: string; 
+  count = 150,
+  color = "#2e7d32",
+}: {
+  imageUrl?: string;
   overlay?: number;
-  particles?: boolean;
+  count?: number;
+  color?: string;
 }) {
-  const dots = useMemo(() => {
-    if (!particles) return []
-    return Array.from({ length: 15 }, (_, i) => ({
-      id: i,
-      left: `${(i * 37 + 13) % 100}%`,
-      size: 3 + (i % 4),
-      delay: `${(i * 0.7) % 8}s`,
-      duration: `${6 + (i % 5)}s`,
-      opacity: 0.15 + (i % 3) * 0.1,
-    }))
-  }, [particles])
-
   return (
     <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-      {/* Background image */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${imageUrl})` }}
-      />
-      {/* Color overlay */}
+      {/* Unsplash background image */}
+      {imageUrl && (
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${imageUrl})` }}
+        />
+      )}
+      {/* Light overlay so text is readable but particles show through */}
       <div
         className="absolute inset-0"
         style={{
-          background: `linear-gradient(to bottom, rgba(244,250,245,${overlay + 0.25}), rgba(244,250,245,${overlay + 0.15}), rgba(255,255,255,${overlay + 0.35}))`,
+          background: `linear-gradient(to bottom, rgba(244,250,245,${overlay + 0.15}), rgba(255,255,255,${overlay + 0.25}))`,
         }}
       />
-      {/* Antigravity floating particles */}
-      {particles && (
-        <div className="absolute inset-0">
-          {dots.map((d) => (
-            <div
-              key={d.id}
-              className="absolute rounded-full bg-gaia-green animate-[floatUp_8s_ease-in-out_infinite]"
-              style={{
-                left: d.left,
-                width: d.size,
-                height: d.size,
-                bottom: "-10px",
-                opacity: d.opacity,
-                animationDelay: d.delay,
-                animationDuration: d.duration,
-                boxShadow: "0 0 6px rgba(46,125,50,0.3)",
-              }}
-            />
-          ))}
-        </div>
-      )}
+      {/* REAL Antigravity 3D particles */}
+      <div className="absolute inset-0 opacity-40">
+        <Antigravity count={count} color={color} particleShape="capsule" autoAnimate magnetRadius={8} ringRadius={6} particleSize={1.5} />
+      </div>
     </div>
   )
 }

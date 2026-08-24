@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "paths": { "@/*": ["./*"] },
+    "jsx": "preserve",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "esModuleInterop": true,
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "skipLibCheck": true,
+    "strict": false,
+    "noEmit": true,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

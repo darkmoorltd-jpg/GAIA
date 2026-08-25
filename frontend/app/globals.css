@@ -18,13 +18,41 @@
   --color-gaia-light: #4ade80;
   --color-gaia-dark: #15803d;
   --color-gaia-bg: #f0fdf4;
+
+  /* shadcn/ui tokens */
+  --color-background: #ffffff;
+  --color-foreground: #171717;
+  --color-card: #ffffff;
+  --color-card-foreground: #171717;
+  --color-primary: #16a34a;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #dcfce7;
+  --color-secondary-foreground: #15803d;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-accent: #dcfce7;
+  --color-accent-foreground: #15803d;
+  --color-input: #e5e5e5;
+  --color-ring: #16a34a;
+  --color-muted-foreground: #525252;
+
   --font-heading: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
 }
 
+.dark {
+  --color-background: #0a0a0a;
+  --color-foreground: #fafafa;
+  --color-card: #171717;
+  --color-card-foreground: #fafafa;
+  --color-accent: #166534;
+  --color-accent-foreground: #fafafa;
+  --color-input: #262626;
+}
+
 body { font-family: var(--font-body); font-size: 16px; line-height: 1.5; }
 h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); font-weight: 700; line-height: 1.25; }
-*:focus-visible { outline: 2px solid var(--color-primary-600); outline-offset: 2px; }
+*:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

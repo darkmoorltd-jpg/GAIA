@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary-50: #f0fdf4;
   --color-primary-100: #dcfce7;
@@ -12,44 +14,17 @@
   --color-primary-700: #15803d;
   --color-primary-800: #166534;
   --color-primary-900: #14532d;
-
   --color-gaia-green: #16a34a;
   --color-gaia-light: #4ade80;
   --color-gaia-dark: #15803d;
   --color-gaia-bg: #f0fdf4;
-
   --font-heading: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
-
-  @keyframes pulseGlow {
-    from { filter: drop-shadow(0 0 8px rgba(22,163,74,0.5)); }
-    to { filter: drop-shadow(0 0 20px rgba(22,163,74,0.9)); }
-  }
-
-  @keyframes floatUp {
-    0% { transform: translateY(0) scale(1); opacity: 0; }
-    10% { opacity: 0.3; }
-    90% { opacity: 0.15; }
-    100% { transform: translateY(-110vh) translateX(30px) scale(0.5); opacity: 0; }
-  }
 }
 
-body {
-  font-family: var(--font-body);
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading);
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-*:focus-visible {
-  outline: 2px solid var(--color-primary-600);
-  outline-offset: 2px;
-}
+body { font-family: var(--font-body); font-size: 16px; line-height: 1.5; }
+h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); font-weight: 700; line-height: 1.25; }
+*:focus-visible { outline: 2px solid var(--color-primary-600); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

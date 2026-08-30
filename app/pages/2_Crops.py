@@ -1,491 +1,131 @@
+
 import streamlit as st
 from PIL import Image
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-import os
-import sys
-import hashlib
-import datetime
+import torch, torch.nn as nn, torch.nn.functional as F
+import numpy as np, os, sys, hashlib, requests
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
-from timm.models.vision_transformer import VisionTransformer
-from collections import Counter
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 st.set_page_config(page_title="GAIA – Crop Disease", page_icon="🌾", layout="wide")
 
+# ── Crop class definitions ──
 CROP_CLASSES = {
-    "millet": ["Blast", "Rust", "Healthy"],
-    "maize": ["Blight", "Common_Rust", "Gray_Leaf_Spot", "Healthy"],
-    "rice": [
-        "Bacterial Leaf Blight",
-        "Brown Spot",
-        "Healthy Rice Leaf",
-        "Leaf Blast",
-        "Leaf Scald",
-        "Narrow Brown Spot",
-        "Neck Blast",
-        "Rice Hispa",
-        "Sheath Blight",
-        "Tungro",
-    ],
-    "soybean": [
-        "Bacterial Pustule",
-        "Frogeye Leaf Spot",
-        "Healthy",
-        "Mosaic Virus",
-        "Rust",
-        "Southern blight",
-        "Sudden Death Syndrome",
-        "Target Leaf Spot",
-        "Yellow Mosaic",
-        "brown_spot",
-        "crestamento",
-        "ferrugen",
-        "powdery_mildew",
-        "septoria",
-    ],
-    "pepper": [
-        "Aphid",
-        "Bacterial spot",
-        "Blossom end rot",
-        "Burn",
-        "Edema",
-        "Healthy",
-        "Leaf curl",
-        "Leaf miners",
-        "Mosaic virus",
-        "Nutrient deficiency",
-        "Powdery mildew",
-        "Spider mite",
-        "Thrips",
-    ],
-    "cabbage": [
-        "Alternaria Leaf Spot",
-        "Bacterial Spot Rot",
-        "Black Rot",
-        "Cabbage Aphid Colony",
-        "Downy Mildew",
-        "Healthy",
-        "Club Root",
-        "Ring Spot",
-    ],
-    "potato": [
-        "Bacteria",
-        "Fungi",
-        "Healthy",
-        "Nematode",
-        "Pest",
-        "Phytopthora",
-        "Virus",
-    ],
+    "apple": ["Black Rot", "Healthy", "Rust", "Scab"],
+    "cassava": ["Bacterial Blight", "Brown Streak Disease", "Green Mottle", "Healthy", "Mosaic Disease"],
+    "coffee": ["Cercospora Leaf Spot", "Healthy", "Red Spider Mite", "Rust"],
+    "grape": ["Black Measles", "Black Rot", "Healthy", "Leaf Blight"],
+    "sugarcane": ["Bacterial Blight", "Healthy", "Red Rot", "Red Stripe", "Rust"],
+    "tea": ["Algal Leaf", "Anthracnose", "Bird Eye Spot", "Brown Blight", "Healthy", "Red Leaf Spot"],
 }
 
-if "selected_crop" not in st.session_state:
-    st.session_state.selected_crop = None
-crop = st.session_state.selected_crop
+# ── Model download URLs (GitHub Releases) ──
+MODEL_URLS = {
+    "apple": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_apple.pt",
+    "cassava": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_cassava.pt",
+    "coffee": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_coffee.pt",
+    "grape": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_grape.pt",
+    "sugarcane": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_sugarcane.pt",
+    "tea": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_tea.pt",
+}
 
-st.markdown(
-    "<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>",
-    unsafe_allow_html=True,
-)
+def download_model(crop_name):
+    """Download model if not present."""
+    model_dir = f"models/{crop_name}"
+    model_path = os.path.join(model_dir, "model.pt")
+    if os.path.exists(model_path) and os.path.getsize(model_path) > 10000:
+        return model_path
+    
+    os.makedirs(model_dir, exist_ok=True)
+    url = MODEL_URLS.get(crop_name)
+    if not url:
+        return None
+    
+    with st.spinner(f"Downloading {crop_name} model..."):
+        r = requests.get(url, stream=True, timeout=300)
+        r.raise_for_status()
+        with open(model_path, 'wb') as f:
+            for chunk in r.iter_content(32768):
+                f.write(chunk)
+    return model_path
+
+def load_crop_model(crop_name):
+    """Load model and return (model, num_classes)."""
+    model_path = download_model(crop_name)
+    if not model_path or not os.path.exists(model_path):
+        return None, 0
+    
+    from timm.models.vision_transformer import VisionTransformer
+    
+    num_classes = len(CROP_CLASSES[crop_name])
+    state_dict = torch.load(model_path, map_location="cpu", weights_only=False)
+    
+    # Build ViT-Small
+    model = VisionTransformer(
+        img_size=224, patch_size=16, embed_dim=384,
+        depth=12, num_heads=6, num_classes=num_classes
+    )
+    
+    # Handle state dict keys
+    new_state = {}
+    for k, v in state_dict.items():
+        if k.startswith("backbone."):
+            new_state[k.replace("backbone.", "")] = v
+        elif k.startswith("head."):
+            continue  # skip head — we rebuild it
+        else:
+            new_state[k] = v
+    
+    # Load what we can
+    model.load_state_dict(new_state, strict=False)
+    model.eval()
+    return model, num_classes
+
+# ── Theme toggle ──
+st.markdown("<style>.stToggle>label{display:none}.stToggle{display:flex;justify-content:center;margin-bottom:1rem}.stToggle>div{transform:scale(1.3)}</style>", unsafe_allow_html=True)
 dark = st.toggle("", value=False, key="crops_theme")
 theme = "dark" if dark else "light"
 
-# ===== VOICE LANGUAGE SELECTOR =====
-language_options = {
-    "English (UK)": "en-GB",
-    "Hausa": "ha",
-    "Yoruba": "yo",
-    "Igbo": "ig",
-    "Pidgin": "pcm",
-}
-selected_lang_label = st.selectbox(
-    "🔊 Voice language for treatment guides", list(language_options.keys()), index=0
-)
-voice_lang = language_options[selected_lang_label]
+# ── UI ──
+st.title("🌾 Crop Disease Detection")
+st.markdown("Select a crop and upload a leaf photo for instant AI diagnosis")
 
+crop = st.selectbox("🌱 Choose a crop", list(CROP_CLASSES.keys()))
 
-def load_crop_model(crop_name):
-    from app.utils.download_models import ensure_model
+uploaded_file = st.file_uploader("📤 Upload a leaf photo", type=["jpg", "jpeg", "png"])
 
-    DOWNLOAD_KEYS = {
-        "millet": "millet_3class",
-        "maize": "maize",
-        "rice": "rice_10class",
-    }
-    key = DOWNLOAD_KEYS.get(crop_name, crop_name)
-    checkpoint = ensure_model(key)
-    if checkpoint is None or not os.path.exists(checkpoint):
-        return None, None
-    state = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    prefix = (
-        "backbone." if any(k.startswith("backbone.") for k in state) else "encoder."
-    )
-    embed_dim = state[f"{prefix}cls_token"].shape[-1]
-    pos_embed = state[f"{prefix}pos_embed"]
-    num_patches = pos_embed.shape[1] - 1
-    grid = int(num_patches**0.5)
-    img_size = grid * 16
-    depth = len(
-        [
-            k
-            for k in state
-            if k.startswith(f"{prefix}blocks") and k.endswith(".norm1.weight")
-        ]
-    )
-    num_heads = 6 if embed_dim == 384 else 3
-    backbone = VisionTransformer(
-        img_size=img_size,
-        patch_size=16,
-        embed_dim=embed_dim,
-        depth=depth,
-        num_heads=num_heads,
-        num_classes=0,
-        global_pool="token",
-    )
-    backbone_state = {
-        k.replace(prefix, ""): v for k, v in state.items() if k.startswith(prefix)
-    }
-    backbone.load_state_dict(backbone_state, strict=False)
-    head_keys = [k for k in state if k.startswith("head.")]
-    if any(".0.weight" in k for k in head_keys):
-        w_keys = sorted(
-            [k for k in head_keys if k.endswith(".weight")],
-            key=lambda x: int(x.split(".")[1]),
-        )
-        layers = []
-        in_feat = embed_dim
-        for w_key in w_keys:
-            w = state[w_key]
-            out_feat = w.shape[0]
-            layers.append(nn.Linear(in_feat, out_feat))
-            if w_key != w_keys[-1]:
-                layers.extend([nn.GELU(), nn.Dropout(0.2)])
-            in_feat = out_feat
-        head = nn.Sequential(*layers)
-        head_state = {
-            k.replace("head.", ""): v for k, v in state.items() if k.startswith("head.")
-        }
-        head.load_state_dict(head_state, strict=False)
-    else:
-        n = len(CROP_CLASSES[crop_name])
-        head = nn.Linear(embed_dim, n)
-        head.load_state_dict(
-            {
-                "weight": state["head.weight"],
-                "bias": state.get("head.bias", torch.zeros(n)),
-            },
-            strict=False,
-        )
-
-    class CropViT(torch.nn.Module):
-        def __init__(self, backbone, head):
-            super().__init__()
-            self.backbone = backbone
-            self.head = head
-
-        def forward(self, x):
-            return self.head(self.backbone(x))
-
-    model = CropViT(backbone, head)
-    model.eval()
-    return model, img_size
-
-
-def load_potato_lcmt():
-    import requests as req
-    from src.models.lcmt import LCMT
-
-    checkpoint_dir = "models/potato_lcmt"
-    checkpoint_path = os.path.join(checkpoint_dir, "model.pt")
-    if not os.path.exists(checkpoint_path) or os.path.getsize(checkpoint_path) < 10000:
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        url = "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_potato_lcmt.pt"
-        with st.spinner("Downloading potato LCMT model (one-time, ~259 MB)…"):
-            r = req.get(url, stream=True, timeout=600)
-            total = 0
-            with open(checkpoint_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=32768):
-                    if chunk:
-                        f.write(chunk)
-                        total += len(chunk)
-            if total < 10000:
-                st.error("Potato LCMT download failed.")
-                return None
-    model = LCMT(num_classes=7)
-    state = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    model.load_state_dict(state)
-    model.eval()
-    return model
-
-
-def predict(model, img, img_size):
-    t = Compose(
-        [
-            Resize((img_size, img_size)),
-            ToTensor(),
-            Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
-    )
+if uploaded_file:
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, width=300)
+    
+    st.markdown("---")
+    st.subheader("📊 Diagnosis Results")
+    
+    model, num_classes = load_crop_model(crop)
+    if model is None:
+        st.error("Model not available yet.")
+        st.stop()
+    
+    transform = Compose([
+        Resize((224, 224)),
+        ToTensor(),
+        Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    img_tensor = transform(image).unsqueeze(0)
+    
     with torch.no_grad():
-        return F.softmax(model(t(img).unsqueeze(0)), dim=1)[0].detach().cpu().numpy()
-
-
-def green_check(image, threshold=0.2):
-    arr = np.array(image)
-    r, g, b = (
-        arr[:, :, 0].astype(float),
-        arr[:, :, 1].astype(float),
-        arr[:, :, 2].astype(float),
-    )
-    mask = (g > r + 20) & (g > b + 20)
-    return mask.mean() >= threshold, mask.mean()
-
-
-def deduct_one_scan():
-    if "user" not in st.session_state or st.session_state.user is None:
-        return
-    from supabase import create_client
-
-    supabase = create_client(
-        st.secrets["supabase"]["url"], st.secrets["supabase"]["key"]
-    )
-    uid = st.session_state.user.id
-    try:
-        supabase.table("user_scans").insert(
-            {"user_id": uid, "scans_remaining": 30, "plan": "free"}
-        ).execute()
-    except BaseException:
-        pass
-    try:
-        supabase.table("user_scans").update(
-            {"scans_remaining": supabase.raw("scans_remaining - 1")}
-        ).eq("user_id", uid).execute()
-    except BaseException:
-        supabase.rpc("decrement_scan", {"uid": uid}).execute()
-    res = (
-        supabase.table("user_scans")
-        .select("scans_remaining")
-        .eq("user_id", uid)
-        .execute()
-    )
-    if res.data:
-        st.success(f"Scan deducted. Remaining scans: {
-                res.data[0]['scans_remaining']}")
-
-
-def save_feedback(image_name, predicted_class, helpful):
-    if "user" not in st.session_state or st.session_state.user is None:
-        return
-    from supabase import create_client
-
-    supabase = create_client(
-        st.secrets["supabase"]["url"], st.secrets["supabase"]["key"]
-    )
-    try:
-        supabase.table("user_feedback").insert(
-            {
-                "user_id": st.session_state.user.id,
-                "image_name": image_name,
-                "predicted_class": predicted_class,
-                "helpful": helpful,
-                "created_at": datetime.datetime.now().isoformat(),
-            }
-        ).execute()
-    except BaseException:
-        pass
-
-
-def get_treatment_guide_stream(disease, crop, confidence):
-    from app.utils.deepseek_explainer import explain_diagnosis_stream
-
-    return explain_diagnosis_stream(disease, confidence, crop, "crop")
-
-
-def get_voice_guide(explanation, lang):
-    from app.utils.deepseek_explainer import text_to_speech
-
-    audio_bytes, err = text_to_speech(explanation[:2000], lang)
-    return audio_bytes, err
-
-
-# ===== BACKGROUND + THEME =====
-overlay = "rgba(0,0,0,0.55)" if theme == "dark" else "rgba(255,255,255,0.75)"
-bg_url = "https://images.unsplash.com/photo-1600112356915-089abb8fc71a"
-bg_css = f'.stApp {{ background-color: #2c3e50; background: linear-gradient({overlay}, {overlay}), url("{bg_url}") center/cover fixed; }}'
-
-if theme == "dark":
-    st.markdown(
-        f"<style>.stApp{{background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#fff}}header,footer{{visibility:hidden}}.title{{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}.subtitle{{font-size:1.2rem;color:#b0bec5;margin-bottom:2rem}}.pred-box{{background:rgba(255,255,255,.05);backdrop-filter:blur(12px);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}}.pred-box-high{{border-left-color:#2e7d32;background:rgba(255,255,255,.1)}}.stProgress>div>div>div>div{{background:linear-gradient(90deg,#4caf50,#81c784)}}{bg_css}</style>",
-        unsafe_allow_html=True,
-    )
-else:
-    st.markdown(
-        f"<style>.stApp{{background:linear-gradient(135deg,#e8f5e9,#f1f8e9);color:#1b5e20}}header,footer{{visibility:hidden}}.title{{font-size:2.8rem;font-weight:800;background:linear-gradient(90deg,#2e7d32,#4caf50);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}.subtitle{{font-size:1.2rem;color:#33691e;margin-bottom:2rem}}.pred-box{{background:rgba(255,255,255,0.9);border-left:5px solid #4caf50;padding:1rem 1.5rem;border-radius:10px;margin:.5rem 0}}.pred-box-high{{border-left-color:#2e7d32;background:rgba(255,255,255,1)}}.stProgress>div>div>div>div{{background:linear-gradient(90deg,#4caf50,#81c784)}}{bg_css}</style>",
-        unsafe_allow_html=True,
-    )
-
-st.markdown(
-    '<div class="title">🌾 Crop Disease Diagnosis</div>', unsafe_allow_html=True
-)
-st.markdown(
-    '<div class="subtitle">Select a crop, upload leaf photos, and let AI detect diseases in seconds</div>',
-    unsafe_allow_html=True,
-)
-
-with st.expander("📸 How to take a good leaf photo", expanded=False):
-    st.markdown(
-        "1. 🌿 Pick a single leaf showing symptoms – place on white paper.\n2. 📱 Hold phone 20‑30 cm above.\n3. ☀️ Avoid shadows.\n4. 📤 Upload 2‑3 photos for best results."
-    )
-
-if crop is None:
-    cols = st.columns(len(CROP_CLASSES))
-    for i, name in enumerate(CROP_CLASSES.keys()):
-        with cols[i]:
-            if st.button(name.title(), key=f"crop_{name}", use_container_width=True):
-                st.session_state.selected_crop = name
-                st.rerun()
-else:
-    if st.button("← Back to Crops"):
-        st.session_state.selected_crop = None
-        st.rerun()
-    st.markdown(f"### 🌱 Selected Crop: **{crop.title()}**")
-    files = st.file_uploader(
-        "📤 Upload leaf images", type=["jpg", "jpeg", "png"], accept_multiple_files=True
-    )
-    if files:
-        if crop == "potato":
-            model = load_potato_lcmt()
-            img_size = 224
-            class_names = CROP_CLASSES[crop]
-        else:
-            model, img_size = load_crop_model(crop)
-            class_names = CROP_CLASSES[crop]
-        predictions = []
-        for f in files:
-            img = Image.open(f).convert("RGB")
-            is_green, pct = green_check(img)
-            if not is_green:
-                st.warning(f"⚠️ {
-                        f.name}: only {
-                        pct *
-                        100:.0f}% green pixels. Are you sure this is a leaf?")
-            with st.expander(f"📷 {f.name}", expanded=True):
-                c1, c2 = st.columns([1, 2])
-                c1.image(img, caption=f.name, width=200)
-                if model is None:
-                    c2.warning("No trained model – using demo predictions.")
-                    seed = int(hashlib.md5(f.name.encode()).hexdigest()[:8], 16)
-                    np.random.seed(seed)
-                    probs = np.random.rand(len(class_names))
-                    probs /= probs.sum()
-                    lesion_count = 0
-                    severity = 0
-                else:
-                    if crop == "potato":
-                        transform = Compose(
-                            [
-                                Resize((224, 224)),
-                                ToTensor(),
-                                Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-                            ]
-                        )
-                        img_tensor = transform(img).unsqueeze(0)
-                        with torch.no_grad():
-                            output = model(img_tensor)
-                            probs = (
-                                F.softmax(output["logits"], dim=1)[0]
-                                .detach()
-                                .cpu()
-                                .numpy()
-                            )
-                            lesion_count = output["lesion_count"].item()
-                            severity = output["severity"].item() * 100
-                    else:
-                        try:
-                            probs = predict(model, img, img_size)
-                            lesion_count = 0
-                            severity = 0
-                        except Exception as e:
-                            c2.error(f"Error: {e}")
-                            continue
-                top_idx = np.argmax(probs)
-                predictions.append(class_names[top_idx])
-                c2.markdown(
-                    f"**Top Result:** {class_names[top_idx]} ({probs[top_idx] * 100:.1f}%)"
-                )
-                if crop == "potato":
-                    c2.markdown(f"🔬 Lesion Count: **{lesion_count:.0f}**")
-                    c2.markdown(f"📊 Severity: **{severity:.1f}%**")
-                for i in np.argsort(probs)[::-1][1:5]:
-                    c2.write(f"{class_names[i]}: {probs[i] * 100:.1f}%")
-                    c2.progress(float(probs[i]))
-                deduct_one_scan()
-
-                # ===== FAST STREAMING TREATMENT GUIDE + VOICE =====
-                if model is not None:
-                    top_disease = class_names[top_idx]
-                    with st.expander(
-                        "📋 Complete Treatment Guide (AI-Generated)", expanded=True
-                    ):
-                        guide_text = ""
-                        placeholder = st.empty()
-                        try:
-                            for chunk in get_treatment_guide_stream(
-                                top_disease, crop, probs[top_idx] * 100
-                            ):
-                                guide_text += chunk
-                                placeholder.markdown(guide_text + "▌")
-                            placeholder.markdown(guide_text)
-                        except Exception as e:
-                            st.warning(f"Guide unavailable: {e}")
-                        if guide_text:
-                            audio_bytes, tts_err = get_voice_guide(
-                                guide_text, voice_lang
-                            )
-                            if audio_bytes:
-                                st.audio(audio_bytes, format="audio/mp3")
-                            else:
-                                st.caption(f"🔇 Voice unavailable: {tts_err}")
-
-                col_fb1, col_fb2 = c2.columns(2)
-                if col_fb1.button("👍 Helpful", key=f"helpful_{f.name}"):
-                    save_feedback(f.name, class_names[top_idx], True)
-                    col_fb1.success("Thanks!")
-                if col_fb2.button("👎 Not", key=f"not_{f.name}"):
-                    save_feedback(f.name, class_names[top_idx], False)
-                    col_fb2.info("We'll improve.")
-        if len(predictions) >= 2:
-            vote = Counter(predictions).most_common(1)[0]
-            if vote[1] > len(predictions) // 2:
-                st.success(
-                    f"🗳️ Majority vote: **{vote[0]}** ({vote[1]}/{len(predictions)} photos)"
-                )
-            else:
-                st.info("🗳️ No clear consensus. Consider retaking.")
-
-# ---------- Quick Navigation ----------
-st.markdown("---")
-st.markdown("### 🔗 Quick Navigation")
-cols = st.columns(9)
-with cols[0]:
-    st.page_link("pages/1_Dashboard.py", label="🏠 Dashboard")
-with cols[1]:
-    st.page_link("pages/2_Crops.py", label="🌿 Crops")
-with cols[2]:
-    st.page_link("pages/3_Pests.py", label="🐛 Pests")
-with cols[3]:
-    st.page_link("pages/4_Soil.py", label="🏞️ Soil")
-with cols[4]:
-    st.page_link("pages/5_Livestock.py", label="🐄 Livestock")
-with cols[5]:
-    st.page_link("pages/17_Video_Scan.py", label="🎥 Video Scan")
-with cols[6]:
-    st.page_link("pages/19_Satellite.py", label="🛰️ Satellite")
-with cols[7]:
-    st.page_link("pages/18_Voice_Agronomist.py", label="🎙️ Voice AI")
-with cols[8]:
-    st.page_link("pages/9_Buy_Scans.py", label="💳 Buy Scans")
+        logits = model(img_tensor)
+        probs = F.softmax(logits, dim=1)[0]
+    
+    sorted_idx = torch.argsort(probs, descending=True)
+    for idx in sorted_idx:
+        disease = CROP_CLASSES[crop][idx]
+        percent = probs[idx] * 100
+        st.write(f"**{disease}**: {percent:.1f}%")
+        st.progress(float(probs[idx]))
+    
+    top_disease = CROP_CLASSES[crop][sorted_idx[0]]
+    if "healthy" in top_disease.lower():
+        st.success("✅ Crop appears healthy!")
+    else:
+        st.warning(f"⚠️ **{top_disease}** detected. Consider treatment.")

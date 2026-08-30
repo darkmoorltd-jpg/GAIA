@@ -17,6 +17,12 @@ CROP_CLASSES = {
     "grape": ["Black Measles", "Black Rot", "Healthy", "Leaf Blight"],
     "sugarcane": ["Bacterial Blight", "Healthy", "Red Rot", "Red Stripe", "Rust"],
     "tea": ["Algal Leaf", "Anthracnose", "Bird Eye Spot", "Brown Blight", "Healthy", "Red Leaf Spot"],
+    "millet": ["Blast", "Rust", "Healthy"],
+    "maize": ["Blight", "Common_Rust", "Gray_Leaf_Spot", "Healthy"],
+    "rice": ["Bacterial Leaf Blight","Brown Spot","Healthy Rice Leaf","Leaf Blast","Leaf Scald","Narrow Brown Spot","Neck Blast","Rice Hispa","Sheath Blight","Tungro"],
+    "soybean": ["Bacterial Pustule","Frogeye Leaf Spot","Healthy","Mosaic Virus","Rust","Southern blight","Sudden Death Syndrome","Target Leaf Spot","Yellow Mosaic","brown_spot","crestamento","ferrugen","powdery_mildew","septoria"],
+    "pepper": ["Aphid","Bacterial spot","Blossom end rot","Burn","Edema","Healthy","Leaf curl","Leaf miners","Mosaic virus","Nutrient deficiency","Powdery mildew","Spider mite","Thrips"],
+    "cabbage": ["Alternaria Leaf Spot","Bacterial Spot Rot","Black Rot","Cabbage Aphid Colony","Downy Mildew","Healthy","Club Root","Ring Spot"],
 }
 
 # ── Model download URLs (GitHub Releases) ──
@@ -27,6 +33,12 @@ MODEL_URLS = {
     "grape": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_grape.pt",
     "sugarcane": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_sugarcane.pt",
     "tea": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_tea.pt",
+    "millet": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_millet_3class.pt",
+    "maize": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_maize_4class.pt",
+    "rice": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_rice_10class_384px.pt",
+    "soybean": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_soybean_14class.pt",
+    "pepper": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_pepper_13class.pt",
+    "cabbage": "https://github.com/darkmoorltd-jpg/GAIA/releases/download/v1.0/gaia_cabbage_8class.pt",
 }
 
 def download_model(crop_name):
